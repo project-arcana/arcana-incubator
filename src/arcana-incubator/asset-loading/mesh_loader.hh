@@ -39,4 +39,7 @@ struct simple_mesh_data
 
 [[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true);
 
+void write_binary_mesh(simple_mesh_data const& mesh, char const* out_path);
+[[nodiscard]] simple_mesh_data load_binary_mesh(char const* path);
+
 }
