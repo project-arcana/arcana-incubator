@@ -1,8 +1,6 @@
 #include "mesh_loader.hh"
 
-#include <chrono>
 #include <fstream>
-#include <iostream>
 #include <unordered_map>
 
 #include <typed-geometry/tg-std.hh>
