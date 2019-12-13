@@ -12,7 +12,7 @@
 #include <arcana-incubator/asset-loading/lib/stb_image.hh>
 
 
-inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, unsigned desired_channels, bool use_hdr_float)
+inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, int desired_channels, bool use_hdr_float)
 {
     int width, height, num_channels;
 
