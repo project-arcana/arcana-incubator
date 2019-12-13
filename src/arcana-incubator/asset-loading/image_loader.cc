@@ -12,31 +12,33 @@
 #include <arcana-incubator/asset-loading/lib/stb_image.hh>
 
 
-inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, unsigned desired_channels, bool use_16f)
+inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, unsigned desired_channels, bool use_hdr_float)
 {
     int width, height, num_channels;
 
     image_data res;
 
-    if (use_16f)
+    if (use_hdr_float)
     {
-        res.raw = ::stbi_load_16(filename, &width, &height, &num_channels, desired_channels);
+        res.raw = ::stbi_loadf(filename, &width, &height, &num_channels, desired_channels);
+        res.is_hdr = true;
     }
     else
     {
         res.raw = ::stbi_load(filename, &width, &height, &num_channels, desired_channels);
+        res.is_hdr = false;
     }
 
     if (!res.raw)
         return res;
+
+    res.num_channels = static_cast<uint8_t>(desired_channels);
 
     out_size.width = unsigned(width);
     out_size.height = unsigned(height);
     out_size.num_mipmaps = get_num_mip_levels(out_size.width, out_size.height);
     out_size.array_size = 1;
 
-    res.is_hdr = use_16f;
-    res.num_channels = static_cast<uint8_t>(desired_channels);
 
     return res;
 }
