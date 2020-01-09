@@ -16,6 +16,8 @@ target_link_libraries(arcana-incubator PUBLIC
     clean-core
     typed-geometry
     reflector
+    phantasm-renderer
+    rich-log
 )
 
 # =========================================
