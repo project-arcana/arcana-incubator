@@ -16,11 +16,11 @@ class ImGuiPhantasmImpl
 public:
     ImGuiPhantasmImpl() : mCmdWriter(1024 * 10) {}
 
-    void init(pr::backend::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size);
+    void init(pr::backend::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment);
 
     void shutdown();
 
-    void render(ImDrawData* draw_data, pr::backend::handle::resource backbuffer);
+    [[nodiscard]] pr::backend::handle::command_list render(ImDrawData* draw_data, pr::backend::handle::resource backbuffer, bool transition_to_present = true);
 
 private:
     pr::backend::Backend* mBackend;

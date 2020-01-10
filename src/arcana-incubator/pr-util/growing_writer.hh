@@ -17,6 +17,17 @@ struct growing_writer
     template <class CmdT>
     void add_command(CmdT const& cmd)
     {
+        accomodate_t<CmdT>();
+        _writer.add_command(cmd);
+    }
+
+    size_t size() const { return _writer.size(); }
+    std::byte* buffer() const { return _writer.buffer(); }
+    size_t max_size() const { return _writer.max_size(); }
+
+    template <class CmdT>
+    void accomodate_t()
+    {
         if (!_writer.can_accomodate_t<CmdT>())
         {
             size_t const new_size = (_writer.max_size() + sizeof(CmdT)) << 1;
@@ -27,13 +38,9 @@ struct growing_writer
             std::free(_writer.buffer());
             _writer.exchange_buffer(new_buffer, new_size);
         }
-
-        _writer.add_command(cmd);
     }
 
-    size_t size() const { return _writer.size(); }
-    std::byte* buffer() const { return _writer.buffer(); }
-    size_t max_size() const { return _writer.max_size(); }
+    pr::backend::command_stream_writer& raw_writer() { return _writer; }
 
 private:
     pr::backend::command_stream_writer _writer;

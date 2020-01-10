@@ -2,9 +2,13 @@
 
 #include <rich-log/log.hh>
 
+#include <clean-core/bit_cast.hh>
+
 #include <phantasm-renderer/backend/Backend.hh>
 #include <phantasm-renderer/backend/command_stream.hh>
 #include <phantasm-renderer/primitive_pipeline_config.hh>
+
+#include <arcana-incubator/pr-util/texture_util.hh>
 
 namespace
 {
@@ -24,8 +28,9 @@ namespace
 }
 }
 
-void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size)
+void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment)
 {
+    using namespace pr::backend;
     mBackend = backend;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -34,24 +39,34 @@ void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_fr
 
     // PSO
     {
-        cc::capped_vector<pr::backend::vertex_attribute_info, 3> vert_attrs;
-        vert_attrs.push_back(pr::backend::vertex_attribute_info{"POSITION", static_cast<unsigned>(IM_OFFSETOF(ImDrawVert, pos)), pr::backend::format::rg32f});
-        vert_attrs.push_back(pr::backend::vertex_attribute_info{"TEXCOORD", static_cast<unsigned>(IM_OFFSETOF(ImDrawVert, uv)), pr::backend::format::rg32f});
-        vert_attrs.push_back(pr::backend::vertex_attribute_info{"COLOR", static_cast<unsigned>(IM_OFFSETOF(ImDrawVert, col)), pr::backend::format::rgba8un});
+        cc::capped_vector<vertex_attribute_info, 3> vert_attrs;
+        vert_attrs.push_back(vertex_attribute_info{"POSITION", static_cast<unsigned>(IM_OFFSETOF(ImDrawVert, pos)), format::rg32f});
+        vert_attrs.push_back(vertex_attribute_info{"TEXCOORD", static_cast<unsigned>(IM_OFFSETOF(ImDrawVert, uv)), format::rg32f});
+        vert_attrs.push_back(vertex_attribute_info{"COLOR", static_cast<unsigned>(IM_OFFSETOF(ImDrawVert, col)), format::rgba8un});
 
-        pr::backend::arg::vertex_format vert_format = {vert_attrs, sizeof(ImDrawVert)};
+        arg::vertex_format vert_format = {vert_attrs, sizeof(ImDrawVert)};
 
-        pr::backend::format const backbuffer_format = mBackend->getBackbufferFormat();
-        pr::backend::arg::framebuffer_format fb_format = {cc::span{backbuffer_format}, {}};
+        arg::framebuffer_config fb_format;
+        fb_format.add_render_target(mBackend->getBackbufferFormat());
+        {
+            auto& rt = fb_format.render_targets.back();
+            rt.blend_enable = true;
+            rt.blend_color_src = blend_factor::src_alpha;
+            rt.blend_color_dest = blend_factor::inv_src_alpha;
+            rt.blend_op_color = blend_op::op_add;
+            rt.blend_alpha_src = blend_factor::inv_src_alpha;
+            rt.blend_alpha_dest = blend_factor::zero;
+            rt.blend_op_alpha = blend_op::op_add;
+        }
 
-        pr::backend::arg::shader_argument_shape shader_shape;
+        arg::shader_argument_shape shader_shape;
         shader_shape.has_cb = true;
         shader_shape.num_srvs = 1;
         shader_shape.num_samplers = 1;
 
-        cc::capped_vector<pr::backend::arg::shader_stage, 2> shader_stages;
-        shader_stages.push_back(pr::backend::arg::shader_stage{vs_src, vs_size, pr::backend::shader_domain::vertex});
-        shader_stages.push_back(pr::backend::arg::shader_stage{ps_src, ps_size, pr::backend::shader_domain::pixel});
+        cc::capped_vector<arg::shader_stage, 2> shader_stages;
+        shader_stages.push_back(arg::shader_stage{vs_src, vs_size, shader_domain::vertex});
+        shader_stages.push_back(arg::shader_stage{ps_src, ps_size, shader_domain::pixel});
 
         pr::primitive_pipeline_config config;
         config.depth = pr::depth_function::none;
@@ -66,38 +81,36 @@ void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_fr
         int width, height;
 
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        mGlobalResources.font_tex = mBackend->createTexture(pr::backend::format::rgba8un, width, height, 1);
+        mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, width, height, 1);
 
-        pr::backend::shader_view_element tex_sve;
-        tex_sve.init_as_tex2d(mGlobalResources.font_tex, pr::backend::format::rgba8un);
+        shader_view_element tex_sve;
+        tex_sve.init_as_tex2d(mGlobalResources.font_tex, format::rgba8un);
 
-        pr::backend::sampler_config sampler;
-        sampler.init_default(pr::backend::sampler_filter::min_mag_mip_linear);
+        sampler_config sampler;
+        sampler.init_default(sampler_filter::min_mag_mip_linear);
 
         mGlobalResources.font_tex_sv = mBackend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
 
-        auto const upbuff = mBackend->createMappedBuffer(width * height);
-        auto* const upbuff_map = mBackend->getMappedMemory(upbuff);
-        std::memcpy(upbuff_map, pixels, width * height);
+        auto const upbuff = mBackend->createMappedBuffer(
+            inc::get_mipmap_upload_size(format::rgba8un, assets::image_size{static_cast<unsigned>(width), static_cast<unsigned>(height), 1, 1}, true));
 
-        mBackend->flushMappedMemory(upbuff);
 
         {
             mCmdWriter.reset();
-            pr::backend::cmd::transition_resources tcmd;
-            tcmd.add(mGlobalResources.font_tex, pr::backend::resource_state::copy_dest);
-            tcmd.add(upbuff, pr::backend::resource_state::copy_src);
+            cmd::transition_resources tcmd;
+            tcmd.add(mGlobalResources.font_tex, resource_state::copy_dest);
             mCmdWriter.add_command(tcmd);
 
-            pr::backend::cmd::copy_buffer_to_texture ccmd;
-            ccmd.init(upbuff, mGlobalResources.font_tex, width, height);
-            mCmdWriter.add_command(ccmd);
+            mCmdWriter.accomodate_t<cmd::copy_buffer_to_texture>();
+            inc::copy_data_to_texture(mCmdWriter.raw_writer(), upbuff, mBackend->getMappedMemory(upbuff), mGlobalResources.font_tex, format::rgba8un,
+                                      width, height, cc::bit_cast<std::byte const*>(pixels), d3d12_alignment);
 
-            pr::backend::cmd::transition_resources tcmd2;
-            tcmd2.add(mGlobalResources.font_tex, pr::backend::resource_state::shader_resource, pr::backend::shader_domain_bits::pixel);
+            cmd::transition_resources tcmd2;
+            tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_domain_bits::pixel);
             mCmdWriter.add_command(tcmd2);
 
             auto const cmdl = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
+            mBackend->flushMappedMemory(upbuff);
             mBackend->submit(cc::span{cmdl});
         }
         mBackend->flushGPU();
@@ -129,7 +142,7 @@ void inc::ImGuiPhantasmImpl::shutdown()
     }
 }
 
-void inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, pr::backend::handle::resource backbuffer)
+pr::backend::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, pr::backend::handle::resource backbuffer, bool transition_to_present)
 {
     ++mCurrentFrame;
     if (mCurrentFrame >= mPerFrameResources.size())
@@ -198,11 +211,18 @@ void inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, pr::backend::handle::
 
     auto global_vtx_offset = 0;
     auto global_idx_offset = 0;
+    ImVec2 const clip_offset = draw_data->DisplayPos;
 
     mCmdWriter.reset();
 
+    {
+        pr::backend::cmd::transition_resources cmd_trans;
+        cmd_trans.add(backbuffer, pr::backend::resource_state::render_target);
+        mCmdWriter.add_command(cmd_trans);
+    }
+
     pr::backend::cmd::begin_render_pass bcmd;
-    bcmd.add_backbuffer_rt(backbuffer);
+    bcmd.add_backbuffer_rt(backbuffer, false);
     bcmd.set_null_depth_stencil();
     bcmd.viewport.width = (int)draw_data->DisplaySize.x;
     bcmd.viewport.height = (int)draw_data->DisplaySize.y;
@@ -231,6 +251,9 @@ void inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, pr::backend::handle::
                 dcmd.init(mGlobalResources.pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
                           pcmd.VtxOffset + global_vtx_offset);
                 dcmd.add_shader_arg(mGlobalResources.const_buffer, 0, imgui_to_sv(pcmd.TextureId));
+                dcmd.set_scissor(static_cast<int>(pcmd.ClipRect.x - clip_offset.x), static_cast<int>(pcmd.ClipRect.y - clip_offset.y),
+                                 static_cast<int>(pcmd.ClipRect.z - clip_offset.x), static_cast<int>(pcmd.ClipRect.w - clip_offset.y));
+
                 mCmdWriter.add_command(dcmd);
             }
         }
@@ -242,7 +265,14 @@ void inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, pr::backend::handle::
     pr::backend::cmd::end_render_pass ecmd;
     mCmdWriter.add_command(ecmd);
 
+    if (transition_to_present)
+    {
+        pr::backend::cmd::transition_resources cmd_trans;
+        cmd_trans.add(backbuffer, pr::backend::resource_state::present);
+        mCmdWriter.add_command(cmd_trans);
+    }
+
     auto const cmdlist = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
-    mBackend->submit(cc::span{cmdlist});
     mCmdWriter.reset();
+    return cmdlist;
 }

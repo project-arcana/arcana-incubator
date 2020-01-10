@@ -48,12 +48,11 @@ unsigned inc::assets::get_num_mip_levels(unsigned width, unsigned height)
     return static_cast<unsigned>(tg::floor(tg::log2(static_cast<float>(cc::max(width, height))))) + 1u;
 }
 
-void inc::assets::rowwise_copy(const inc::assets::image_data& src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels)
+void inc::assets::rowwise_copy(std::byte const* src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels)
 {
-    auto* const src_byte_ptr = static_cast<std::byte const*>(src.raw);
     for (auto y = 0u; y < height_pixels; ++y)
     {
-        std::memcpy(dest + y * dest_row_stride_bytes, src_byte_ptr + y * row_size_bytes, row_size_bytes);
+        std::memcpy(dest + y * dest_row_stride_bytes, src + y * row_size_bytes, row_size_bytes);
     }
 }
 
