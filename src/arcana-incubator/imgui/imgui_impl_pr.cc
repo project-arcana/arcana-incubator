@@ -251,7 +251,10 @@ pr::backend::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* dra
                 pr::backend::cmd::draw dcmd;
                 dcmd.init(mGlobalResources.pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
                           pcmd.VtxOffset + global_vtx_offset);
-                dcmd.add_shader_arg(mGlobalResources.const_buffer, 0, imgui_to_sv(pcmd.TextureId));
+
+                auto const shader_view = imgui_to_sv(pcmd.TextureId);
+                dcmd.add_shader_arg(mGlobalResources.const_buffer, 0, shader_view);
+
                 dcmd.set_scissor(static_cast<int>(pcmd.ClipRect.x - clip_offset.x), static_cast<int>(pcmd.ClipRect.y - clip_offset.y),
                                  static_cast<int>(pcmd.ClipRect.z - clip_offset.x), static_cast<int>(pcmd.ClipRect.w - clip_offset.y));
 
