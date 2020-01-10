@@ -134,6 +134,7 @@ void inc::ImGuiPhantasmImpl::shutdown()
     mBackend->free(mGlobalResources.pso);
     mBackend->free(mGlobalResources.font_tex);
     mBackend->free(mGlobalResources.font_tex_sv);
+    mBackend->free(mGlobalResources.const_buffer);
 
     for (auto const& res : mPerFrameResources)
     {
