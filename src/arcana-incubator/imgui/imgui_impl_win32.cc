@@ -9,6 +9,8 @@
 
 #include "imgui_impl_win32.hh"
 
+#ifdef CC_OS_WINDOWS
+
 
 // clang-format off
 #include <clean-core/native/detail/win32_sanitize_before.inl>
@@ -375,3 +377,5 @@ IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARA
     }
     return 0;
 }
+
+#endif

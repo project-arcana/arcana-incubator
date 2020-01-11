@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstring>
+#include <cstdlib>
 
 #include <phantasm-renderer/backend/command_stream.hh>
 

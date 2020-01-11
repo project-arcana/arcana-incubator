@@ -10,6 +10,7 @@
 #pragma once
 
 #include <clean-core/native/win32_fwd.hh>
+#ifdef CC_OS_WINDOWS
 
 #include "lib/imgui.hh"
 
@@ -22,3 +23,4 @@ IMGUI_IMPL_API void ImGui_ImplWin32_NewFrame();
 // Intentionally commented out to avoid dragging dependencies on <windows.h> types. You can COPY this line into your .cpp code instead.
 
 IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#endif
