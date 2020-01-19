@@ -4,8 +4,8 @@
 
 struct SDL_Window;
 
-namespace inc::da {
-
+namespace inc::da
+{
 void initialize();
 
 void shutdown();
@@ -30,10 +30,13 @@ public:
     [[nodiscard]] bool isRequestingClose() const { return mIsRequestingClose; }
 
     /// whether a resize occured since the last ::clearPendingResize()
-    [[nodiscard]] bool isPendingResize() const { return mPendingResize; }
-
     /// clears pending resizes
-    void clearPendingResize() { mPendingResize = false; }
+    [[nodiscard]] bool clearPendingResize()
+    {
+        auto const res = mPendingResize;
+        mPendingResize = false;
+        return res;
+    }
 
     [[nodiscard]] int getWidth() const { return mWidth; }
     [[nodiscard]] int getHeight() const { return mHeight; }
@@ -43,7 +46,7 @@ public:
     [[nodiscard]] SDL_Window* getSdlWindow() const { return mWindow; }
 
 public:
-    using event_callback = bool(*)(SDL_Event const* e);
+    using event_callback = bool (*)(SDL_Event const* e);
 
     void setEventCallback(event_callback callback) { mEventCallback = callback; }
 
