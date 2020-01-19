@@ -13,7 +13,7 @@ public:
     void restart();
 
     /// Get the duration since last restart
-    float elapsedSeconds() const { return static_cast<float>(elapsedSeconds()); }
+    float elapsedSeconds() const { return static_cast<float>(elapsedSecondsD()); }
     double elapsedSecondsD() const;
 
     /// Get the duration since last restart in milliseconds
@@ -21,7 +21,7 @@ public:
     double elapsedMillisecondsD() const { return elapsedSecondsD() * 1000.0; }
 
 private:
-    int64_t mResolution;
-    int64_t mStartTime;
+    uint64_t mResolution;
+    uint64_t mStartTime;
 };
 }
