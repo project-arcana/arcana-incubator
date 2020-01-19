@@ -10,12 +10,9 @@ void inc::da::initialize()
     }
 }
 
-void inc::da::shutdown()
-{
-    SDL_Quit();
-}
+void inc::da::shutdown() { SDL_Quit(); }
 
-void inc::da::SDLWindow::initialize(const char *title, int width, int height, bool enable_vk)
+void inc::da::SDLWindow::initialize(const char* title, int width, int height, bool enable_vk)
 {
     uint32_t flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
     if (enable_vk)
@@ -52,11 +49,12 @@ void inc::da::SDLWindow::pollEvents()
         {
             mIsRequestingClose = true;
         }
-        else if (e.type == SDL_WINDOWEVENT || e.type == SDL_DISPLAYEVENT)
+        else if (e.type == SDL_WINDOWEVENT)
         {
             int new_w, new_h;
             SDL_GetWindowSize(mWindow, &new_w, &new_h);
-            onResizeEvent(new_w, new_h, false);
+            bool const is_minimized = SDL_GetWindowFlags(mWindow) & SDL_WINDOW_MINIMIZED;
+            onResizeEvent(new_w, new_h, is_minimized);
         }
     }
 }
