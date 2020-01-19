@@ -1,6 +1,7 @@
 #include "timer.hh"
 
 #include <clean-core/macros.hh>
+#include <clean-core/assert.hh>
 
 #ifdef CC_OS_WINDOWS
 
@@ -11,11 +12,13 @@
 inc::da::Timer::Timer()
 {
     ::LARGE_INTEGER frequency, timestamp;
-    ::QueryPerformanceFrequency(&frequency);
+    bool const has_hr_timer = ::QueryPerformanceFrequency(&frequency);
     ::QueryPerformanceCounter(&timestamp);
 
     mResolution = frequency.QuadPart;
     mStartTime = timestamp.QuadPart;
+
+    CC_RUNTIME_ASSERT(has_hr_timer && mResolution != 0 && "high performance timer unavailable");
 }
 
 void inc::da::Timer::restart()
@@ -56,7 +59,7 @@ double inc::da::Timer::elapsedSecondsD() const
 {
     ::timespec spec;
     ::clock_gettime(CLOCK_REALTIME, &spec);
-    return static_cast<double>(spec.tv_nsec - mStartTime) / static_cast<double>(mResolution);
+    return static_cast<double>(spec.tv_nsec - mStartTime) / static_cast<double>(1000 * 1000 * 1000);
 }
 
 

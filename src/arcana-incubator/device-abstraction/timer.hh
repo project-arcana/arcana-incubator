@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include <clean-core/macros.hh>
-
 namespace inc::da
 {
 class Timer
@@ -23,11 +21,7 @@ public:
     double elapsedMillisecondsD() const { return elapsedSecondsD() * 1000.0; }
 
 private:
-#ifdef CC_OS_WINDOWS
     int64_t mResolution;
     int64_t mStartTime;
-#elif defined(CC_OS_WINDOWS)
-
-#endif
 };
 }
