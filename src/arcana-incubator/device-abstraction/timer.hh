@@ -1,32 +1,33 @@
 #pragma once
 
-#include <chrono>
+#include <cstdint>
+
+#include <clean-core/macros.hh>
 
 namespace inc::da
 {
 class Timer
 {
-private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> mStart;
-
 public:
-    Timer() { restart(); }
+    Timer();
 
     /// Restart the timer
-    void restart() { mStart = std::chrono::high_resolution_clock::now(); }
+    void restart();
 
     /// Get the duration since last restart
-    float elapsedSeconds() const { return std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - mStart).count(); }
-    double elapsedSecondsD() const { return std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - mStart).count(); }
+    float elapsedSeconds() const { return static_cast<float>(elapsedSeconds()); }
+    double elapsedSecondsD() const;
 
     /// Get the duration since last restart in milliseconds
-    float elapsedMilliseconds() const { return std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - mStart).count(); }
-    double elapsedMillisecondsD() const
-    {
-        return std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - mStart).count();
-    }
+    float elapsedMilliseconds() const { return static_cast<float>(elapsedMillisecondsD()); }
+    double elapsedMillisecondsD() const { return elapsedSecondsD() * 1000.0; }
 
-    /// Get the duration since last restart (integer, nanoseconds)
-    int64_t elapsedNanoseconds() const { return std::chrono::nanoseconds{std::chrono::high_resolution_clock::now() - mStart}.count(); }
+private:
+#ifdef CC_OS_WINDOWS
+    int64_t mResolution;
+    int64_t mStartTime;
+#elif defined(CC_OS_WINDOWS)
+
+#endif
 };
 }
