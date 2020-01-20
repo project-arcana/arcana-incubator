@@ -106,7 +106,7 @@ void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_fr
                                       width, height, cc::bit_cast<std::byte const*>(pixels), d3d12_alignment);
 
             cmd::transition_resources tcmd2;
-            tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_domain_flags::pixel);
+            tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_domain::pixel);
             mCmdWriter.add_command(tcmd2);
 
             auto const cmdl = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
