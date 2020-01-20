@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 
-#include <phantasm-renderer/backend/command_stream.hh>
+#include <phantasm-renderer/backend/commands.hh>
 
 namespace inc
 {

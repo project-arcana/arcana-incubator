@@ -1,6 +1,6 @@
 #include "texture_util.hh"
 
-#include <phantasm-renderer/backend/command_stream.hh>
+#include <phantasm-renderer/backend/commands.hh>
 #include <phantasm-renderer/backend/detail/byte_util.hh>
 #include <phantasm-renderer/backend/detail/format_size.hh>
 

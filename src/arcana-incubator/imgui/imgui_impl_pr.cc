@@ -5,7 +5,7 @@
 #include <clean-core/bit_cast.hh>
 
 #include <phantasm-renderer/backend/Backend.hh>
-#include <phantasm-renderer/backend/command_stream.hh>
+#include <phantasm-renderer/backend/commands.hh>
 #include <phantasm-renderer/primitive_pipeline_config.hh>
 
 #include <arcana-incubator/pr-util/texture_util.hh>
