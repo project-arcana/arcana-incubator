@@ -6,7 +6,6 @@
 
 #include <phantasm-hardware-interface/Backend.hh>
 #include <phantasm-hardware-interface/commands.hh>
-#include <phantasm-hardware-interface/primitive_pipeline_config.hh>
 
 #include <arcana-incubator/pr-util/texture_util.hh>
 
@@ -68,7 +67,7 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         shader_stages.push_back(arg::shader_stage{vs_src, vs_size, shader_domain::vertex});
         shader_stages.push_back(arg::shader_stage{ps_src, ps_size, shader_domain::pixel});
 
-        phi::primitive_pipeline_config config;
+        phi::graphics_pipeline_config config;
         config.depth = phi::depth_function::none;
         config.cull = phi::cull_mode::none;
 
