@@ -4,22 +4,22 @@
 
 #include <clean-core/bit_cast.hh>
 
-#include <phantasm-renderer/backend/Backend.hh>
-#include <phantasm-renderer/backend/commands.hh>
-#include <phantasm-renderer/primitive_pipeline_config.hh>
+#include <phantasm-hardware-interface/Backend.hh>
+#include <phantasm-hardware-interface/commands.hh>
+#include <phantasm-hardware-interface/primitive_pipeline_config.hh>
 
 #include <arcana-incubator/pr-util/texture_util.hh>
 
 namespace
 {
-[[nodiscard]] pr::backend::handle::shader_view imgui_to_sv(ImTextureID itd)
+[[nodiscard]] phi::handle::shader_view imgui_to_sv(ImTextureID itd)
 {
-    pr::backend::handle::shader_view res;
+    phi::handle::shader_view res;
     std::memcpy(&res, &itd, sizeof(res));
     return res;
 }
 
-[[nodiscard]] ImTextureID sv_to_imgui(pr::backend::handle::shader_view sv)
+[[nodiscard]] ImTextureID sv_to_imgui(phi::handle::shader_view sv)
 {
     ImTextureID res = nullptr;
     std::memset(&res, 0, sizeof(res));
@@ -28,9 +28,9 @@ namespace
 }
 }
 
-void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment)
+void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment)
 {
-    using namespace pr::backend;
+    using namespace phi;
     mBackend = backend;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -68,9 +68,9 @@ void inc::ImGuiPhantasmImpl::init(pr::backend::Backend* backend, unsigned num_fr
         shader_stages.push_back(arg::shader_stage{vs_src, vs_size, shader_domain::vertex});
         shader_stages.push_back(arg::shader_stage{ps_src, ps_size, shader_domain::pixel});
 
-        pr::primitive_pipeline_config config;
-        config.depth = pr::depth_function::none;
-        config.cull = pr::cull_mode::none;
+        phi::primitive_pipeline_config config;
+        config.depth = phi::depth_function::none;
+        config.cull = phi::cull_mode::none;
 
         mGlobalResources.pso = mBackend->createPipelineState(vert_format, fb_format, cc::span{shader_shape}, false, shader_stages, config);
     }
@@ -143,7 +143,7 @@ void inc::ImGuiPhantasmImpl::shutdown()
     }
 }
 
-pr::backend::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, pr::backend::handle::resource backbuffer, bool transition_to_present)
+phi::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, phi::handle::resource backbuffer, bool transition_to_present)
 {
     ++mCurrentFrame;
     if (mCurrentFrame >= mPerFrameResources.size())
@@ -217,12 +217,12 @@ pr::backend::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* dra
     mCmdWriter.reset();
 
     {
-        pr::backend::cmd::transition_resources cmd_trans;
-        cmd_trans.add(backbuffer, pr::backend::resource_state::render_target);
+        phi::cmd::transition_resources cmd_trans;
+        cmd_trans.add(backbuffer, phi::resource_state::render_target);
         mCmdWriter.add_command(cmd_trans);
     }
 
-    pr::backend::cmd::begin_render_pass bcmd;
+    phi::cmd::begin_render_pass bcmd;
     bcmd.add_backbuffer_rt(backbuffer, false);
     bcmd.set_null_depth_stencil();
     bcmd.viewport.width = (int)draw_data->DisplaySize.x;
@@ -248,7 +248,7 @@ pr::backend::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* dra
             }
             else
             {
-                pr::backend::cmd::draw dcmd;
+                phi::cmd::draw dcmd;
                 dcmd.init(mGlobalResources.pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
                           pcmd.VtxOffset + global_vtx_offset);
 
@@ -266,13 +266,13 @@ pr::backend::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* dra
         global_vtx_offset += cmd_list->VtxBuffer.Size;
     }
 
-    pr::backend::cmd::end_render_pass ecmd;
+    phi::cmd::end_render_pass ecmd;
     mCmdWriter.add_command(ecmd);
 
     if (transition_to_present)
     {
-        pr::backend::cmd::transition_resources cmd_trans;
-        cmd_trans.add(backbuffer, pr::backend::resource_state::present);
+        phi::cmd::transition_resources cmd_trans;
+        cmd_trans.add(backbuffer, phi::resource_state::present);
         mCmdWriter.add_command(cmd_trans);
     }
 
