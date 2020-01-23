@@ -1,22 +1,22 @@
 #include "texture_util.hh"
 
-#include <phantasm-renderer/backend/commands.hh>
-#include <phantasm-renderer/backend/detail/byte_util.hh>
-#include <phantasm-renderer/backend/detail/format_size.hh>
+#include <phantasm-hardware-interface/commands.hh>
+#include <phantasm-hardware-interface/detail/byte_util.hh>
+#include <phantasm-hardware-interface/detail/format_size.hh>
 
 #include <typed-geometry/tg.hh>
 
-void inc::copy_data_to_texture(pr::backend::command_stream_writer& writer,
-                               pr::backend::handle::resource upload_buffer,
+void inc::copy_data_to_texture(phi::command_stream_writer& writer,
+                               phi::handle::resource upload_buffer,
                                std::byte* upload_buffer_map,
-                               pr::backend::handle::resource dest_texture,
-                               pr::backend::format dest_format,
+                               phi::handle::resource dest_texture,
+                               phi::format dest_format,
                                unsigned dest_width,
                                unsigned dest_height,
                                const std::byte* img_data,
                                bool use_d3d12_per_row_alingment)
 {
-    using namespace pr::backend;
+    using namespace phi;
     auto const bytes_per_pixel = detail::pr_format_size_bytes(dest_format);
 
     // CC_RUNTIME_ASSERT(img_size.array_size == 1 && "array upload unimplemented");
@@ -52,9 +52,9 @@ void inc::copy_data_to_texture(pr::backend::command_stream_writer& writer,
     }
 }
 
-unsigned inc::get_mipmap_upload_size(pr::backend::format format, const inc::assets::image_size& img_size, bool no_mips)
+unsigned inc::get_mipmap_upload_size(phi::format format, const inc::assets::image_size& img_size, bool no_mips)
 {
-    using namespace pr::backend;
+    using namespace phi;
     auto const bytes_per_pixel = detail::pr_format_size_bytes(format);
     auto res_bytes = 0u;
 

@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 
-#include <phantasm-renderer/backend/commands.hh>
+#include <phantasm-hardware-interface/commands.hh>
 
 namespace inc
 {
@@ -40,10 +40,10 @@ struct growing_writer
         }
     }
 
-    pr::backend::command_stream_writer& raw_writer() { return _writer; }
+    phi::command_stream_writer& raw_writer() { return _writer; }
 
 private:
-    pr::backend::command_stream_writer _writer;
+    phi::command_stream_writer _writer;
 };
 
 }
