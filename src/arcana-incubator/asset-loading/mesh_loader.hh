@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <clean-core/vector.hh>
 
 #include <typed-geometry/tg-lean.hh>
@@ -30,7 +32,7 @@ constexpr void introspect(I&& i, simple_vertex& v)
 
 struct simple_mesh_data
 {
-    cc::vector<int> indices;
+    cc::vector<uint32_t> indices;
     cc::vector<simple_vertex> vertices;
 
     unsigned get_vertex_size_bytes() const { return unsigned(sizeof(vertices[0]) * vertices.size()); }
