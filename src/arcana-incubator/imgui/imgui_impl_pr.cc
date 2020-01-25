@@ -80,7 +80,7 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         int width, height;
 
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, width, height, 1);
+        mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, {width, height}, 1);
 
         shader_view_elem tex_sve;
         tex_sve.init_as_tex2d(mGlobalResources.font_tex, format::rgba8un);
