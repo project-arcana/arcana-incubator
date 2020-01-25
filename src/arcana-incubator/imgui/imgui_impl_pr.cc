@@ -58,8 +58,8 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
             rt.blend_op_alpha = blend_op::op_add;
         }
 
-        arg::shader_argument_shape shader_shape;
-        shader_shape.has_cb = true;
+        arg::shader_arg_shape shader_shape;
+        shader_shape.has_cbv = true;
         shader_shape.num_srvs = 1;
         shader_shape.num_samplers = 1;
 
@@ -82,7 +82,7 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, width, height, 1);
 
-        shader_view_element tex_sve;
+        shader_view_elem tex_sve;
         tex_sve.init_as_tex2d(mGlobalResources.font_tex, format::rgba8un);
 
         sampler_config sampler;
