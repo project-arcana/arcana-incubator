@@ -64,8 +64,8 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         shader_shape.num_samplers = 1;
 
         cc::capped_vector<arg::graphics_shader, 2> shader_stages;
-        shader_stages.push_back(arg::graphics_shader{vs_src, vs_size, shader_stage::vertex});
-        shader_stages.push_back(arg::graphics_shader{ps_src, ps_size, shader_stage::pixel});
+        shader_stages.push_back(arg::graphics_shader{{vs_src, vs_size}, shader_stage::vertex});
+        shader_stages.push_back(arg::graphics_shader{{ps_src, ps_size}, shader_stage::pixel});
 
         phi::graphics_pipeline_config config;
         config.depth = phi::depth_function::none;
