@@ -102,7 +102,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
         res.indices.reserve(num_indices);
     }
 
-    std::unordered_map<simple_vertex, int> unique_vertices;
+    std::unordered_map<simple_vertex, uint32_t> unique_vertices;
     unique_vertices.reserve(attrib.vertices.size() / 3);
 
     auto const transform_uv = [&](tg::vec2 uv) {
@@ -142,7 +142,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
 
             if (unique_vertices.count(vertex) == 0)
             {
-                unique_vertices[vertex] = int(res.vertices.size());
+                unique_vertices[vertex] = uint32_t(res.vertices.size());
                 res.vertices.push_back(vertex);
             }
 

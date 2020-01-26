@@ -58,16 +58,16 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
             rt.blend_op_alpha = blend_op::op_add;
         }
 
-        arg::shader_argument_shape shader_shape;
-        shader_shape.has_cb = true;
+        arg::shader_arg_shape shader_shape;
+        shader_shape.has_cbv = true;
         shader_shape.num_srvs = 1;
         shader_shape.num_samplers = 1;
 
-        cc::capped_vector<arg::shader_stage, 2> shader_stages;
-        shader_stages.push_back(arg::shader_stage{vs_src, vs_size, shader_domain::vertex});
-        shader_stages.push_back(arg::shader_stage{ps_src, ps_size, shader_domain::pixel});
+        cc::capped_vector<arg::graphics_shader, 2> shader_stages;
+        shader_stages.push_back(arg::graphics_shader{{vs_src, vs_size}, shader_stage::vertex});
+        shader_stages.push_back(arg::graphics_shader{{ps_src, ps_size}, shader_stage::pixel});
 
-        phi::graphics_pipeline_config config;
+        phi::pipeline_config config;
         config.depth = phi::depth_function::none;
         config.cull = phi::cull_mode::none;
 
@@ -80,9 +80,9 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         int width, height;
 
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, width, height, 1);
+        mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, {width, height}, 1);
 
-        shader_view_element tex_sve;
+        resource_view tex_sve;
         tex_sve.init_as_tex2d(mGlobalResources.font_tex, format::rgba8un);
 
         sampler_config sampler;
@@ -105,7 +105,7 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
                                       width, height, cc::bit_cast<std::byte const*>(pixels), d3d12_alignment);
 
             cmd::transition_resources tcmd2;
-            tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_domain::pixel);
+            tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_stage::pixel);
             mCmdWriter.add_command(tcmd2);
 
             auto const cmdl = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
