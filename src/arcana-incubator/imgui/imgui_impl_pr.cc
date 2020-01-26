@@ -67,7 +67,7 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         shader_stages.push_back(arg::graphics_shader{{vs_src, vs_size}, shader_stage::vertex});
         shader_stages.push_back(arg::graphics_shader{{ps_src, ps_size}, shader_stage::pixel});
 
-        phi::graphics_pipeline_config config;
+        phi::pipeline_config config;
         config.depth = phi::depth_function::none;
         config.cull = phi::cull_mode::none;
 
@@ -82,7 +82,7 @@ void inc::ImGuiPhantasmImpl::init(phi::Backend* backend, unsigned num_frames_in_
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         mGlobalResources.font_tex = mBackend->createTexture(format::rgba8un, {width, height}, 1);
 
-        shader_view_elem tex_sve;
+        resource_view tex_sve;
         tex_sve.init_as_tex2d(mGlobalResources.font_tex, format::rgba8un);
 
         sampler_config sampler;
