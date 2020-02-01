@@ -26,6 +26,9 @@ target_link_libraries(arcana-incubator PUBLIC
     ${SDL2_LIBRARIES}
 )
 
+# prevent SDL from defining main as SDL_main, see https://wiki.libsdl.org/SDL_SetMainReady
+target_compile_definitions(arcana-incubator PUBLIC SDL_MAIN_HANDLED)
+
 # =========================================
 # set up compile flags
 

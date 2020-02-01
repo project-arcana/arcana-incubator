@@ -1,7 +1,6 @@
 #pragma once
 
-#include <SDL2/SDL.h>
-
+union SDL_Event;
 struct SDL_Window;
 
 namespace inc::da
