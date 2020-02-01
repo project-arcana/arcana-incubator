@@ -1,6 +1,7 @@
 #include "device_abstraction.hh"
 
 #include <SDL2/SDL.h>
+#undef main
 
 void inc::da::initialize()
 {
