@@ -1,7 +1,6 @@
 #include "timer.hh"
 
 #include <SDL2/SDL_timer.h>
-#undef main
 
 inc::da::Timer::Timer()
 {

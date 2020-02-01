@@ -1,10 +1,10 @@
 #include "device_abstraction.hh"
 
 #include <SDL2/SDL.h>
-#undef main
 
 void inc::da::initialize()
 {
+    SDL_SetMainReady(); // we use SDL_MAIN_HANDLED (in CMakeLists.txt), see https://wiki.libsdl.org/SDL_SetMainReady
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
     {
         SDL_Log("Unable to initialize SDL: %s\n", SDL_GetError());
