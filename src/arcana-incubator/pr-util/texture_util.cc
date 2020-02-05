@@ -1,5 +1,7 @@
 #include "texture_util.hh"
 
+#include <clean-core/utility.hh>
+
 #include <phantasm-hardware-interface/commands.hh>
 #include <phantasm-hardware-interface/detail/byte_util.hh>
 #include <phantasm-hardware-interface/detail/format_size.hh>
