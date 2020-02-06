@@ -127,6 +127,11 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
                 auto const texc_i = static_cast<size_t>(index.texcoord_index);
                 vertex.texcoord = transform_uv(tg::vec2(attrib.texcoords[2 * texc_i + 0], attrib.texcoords[2 * texc_i + 1]));
             }
+            else
+            {
+                vertex.texcoord.x = std::fmod(vertex.position.x, 1.f);
+                vertex.texcoord.y = std::fmod(vertex.position.y, 1.f);
+            }
 
             if (index.normal_index != -1)
             {
