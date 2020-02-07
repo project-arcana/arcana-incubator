@@ -9,7 +9,7 @@ find_package(SDL2 REQUIRED)
 # =========================================
 # define library
 
-file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.hh")
+file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.hh" "src/*.c" "src/*.h")
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" FILES ${SOURCES})
 
