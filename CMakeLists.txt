@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(ArcanaIncubator)
 
+include(cmake/UnityBuild.cmake)
+include(cmake/SourceGroup.cmake)
+
 # =========================================
 # find SDL2
 
@@ -11,7 +14,7 @@ find_package(SDL2 REQUIRED)
 
 file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.hh" "src/*.c" "src/*.h")
 
-source_group("${CMAKE_CURRENT_SOURCE_DIR}/src" FILES ${SOURCES})
+arcana_source_group(SOURCES)
 
 add_library(arcana-incubator STATIC ${SOURCES})
 
