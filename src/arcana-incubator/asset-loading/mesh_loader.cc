@@ -129,8 +129,8 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
             }
             else
             {
-                vertex.texcoord.x = std::fmod(vertex.position.x, 1.f);
-                vertex.texcoord.y = std::fmod(vertex.position.y, 1.f);
+                vertex.texcoord.x = tg::fract(vertex.position.x);
+                vertex.texcoord.y = tg::fract(vertex.position.y);
             }
 
             if (index.normal_index != -1)
