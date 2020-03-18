@@ -1,5 +1,7 @@
 #pragma once
 
+#include <typed-geometry/types/size.hh>
+
 union SDL_Event;
 struct SDL_Window;
 
@@ -37,12 +39,13 @@ public:
         return res;
     }
 
-    [[nodiscard]] int getWidth() const { return mWidth; }
-    [[nodiscard]] int getHeight() const { return mHeight; }
-    [[nodiscard]] bool isMinimized() const { return mIsMinimized; }
-    [[nodiscard]] float getScaleFactor() const { return mScaleFactor; }
+    int getWidth() const { return mWidth; }
+    int getHeight() const { return mHeight; }
+    tg::isize2 getSize() const { return {mWidth, mHeight}; }
+    bool isMinimized() const { return mIsMinimized; }
+    float getScaleFactor() const { return mScaleFactor; }
 
-    [[nodiscard]] SDL_Window* getSdlWindow() const { return mWindow; }
+    SDL_Window* getSdlWindow() const { return mWindow; }
 
 public:
     using event_callback = bool (*)(SDL_Event const* e);
