@@ -1,5 +1,7 @@
 #include "mesh_util.hh"
 
+#include <cstdlib>
+
 #include <clean-core/defer.hh>
 
 #include <phantasm-hardware-interface/Backend.hh>
