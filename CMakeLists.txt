@@ -5,11 +5,6 @@ include(cmake/UnityBuild.cmake)
 include(cmake/SourceGroup.cmake)
 
 # =========================================
-# find SDL2
-
-find_package(SDL2 REQUIRED)
-
-# =========================================
 # define library
 
 file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.hh" "src/*.c" "src/*.h")
@@ -18,7 +13,7 @@ arcana_source_group(SOURCES)
 
 add_library(arcana-incubator STATIC ${SOURCES})
 
-target_include_directories(arcana-incubator PUBLIC src/ ${SDL2_INCLUDE_DIRS})
+target_include_directories(arcana-incubator PUBLIC src/)
 
 target_link_libraries(arcana-incubator PUBLIC
     clean-core
@@ -26,11 +21,8 @@ target_link_libraries(arcana-incubator PUBLIC
     reflector
     phantasm-hardware-interface
     rich-log
-    ${SDL2_LIBRARIES}
+    sdl2
 )
-
-# prevent SDL from defining main as SDL_main, see https://wiki.libsdl.org/SDL_SetMainReady
-target_compile_definitions(arcana-incubator PUBLIC SDL_MAIN_HANDLED)
 
 # =========================================
 # set up compile flags
