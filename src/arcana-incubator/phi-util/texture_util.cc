@@ -19,7 +19,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
                                bool use_d3d12_per_row_alingment)
 {
     using namespace phi;
-    auto const bytes_per_pixel = detail::pr_format_size_bytes(dest_format);
+    auto const bytes_per_pixel = detail::format_size_bytes(dest_format);
 
     // CC_RUNTIME_ASSERT(img_size.array_size == 1 && "array upload unimplemented");
     // NOTE: image_data is currently always a single array slice
@@ -57,7 +57,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
 unsigned inc::get_mipmap_upload_size(phi::format format, const inc::assets::image_size& img_size, bool no_mips)
 {
     using namespace phi;
-    auto const bytes_per_pixel = detail::pr_format_size_bytes(format);
+    auto const bytes_per_pixel = detail::format_size_bytes(format);
     auto res_bytes = 0u;
 
     for (auto a = 0u; a < img_size.array_size; ++a)
