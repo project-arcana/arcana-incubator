@@ -7,7 +7,7 @@
 #include <phantasm-hardware-interface/Backend.hh>
 #include <phantasm-hardware-interface/commands.hh>
 
-#include <arcana-incubator/pr-util/texture_util.hh>
+#include <arcana-incubator/phi-util/texture_util.hh>
 
 namespace
 {

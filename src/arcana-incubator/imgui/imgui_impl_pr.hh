@@ -5,7 +5,7 @@
 #include <phantasm-hardware-interface/fwd.hh>
 #include <phantasm-hardware-interface/types.hh>
 
-#include <arcana-incubator/pr-util/growing_writer.hh>
+#include <arcana-incubator/phi-util/growing_writer.hh>
 
 #include "lib/imgui.hh"
 

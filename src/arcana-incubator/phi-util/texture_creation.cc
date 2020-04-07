@@ -10,8 +10,8 @@
 #include <phantasm-hardware-interface/detail/byte_util.hh>
 #include <phantasm-hardware-interface/detail/format_size.hh>
 
-#include <arcana-incubator/pr-util/shader_util.hh>
-#include <arcana-incubator/pr-util/texture_util.hh>
+#include <arcana-incubator/phi-util/shader_util.hh>
+#include <arcana-incubator/phi-util/texture_util.hh>
 
 using namespace phi;
 
