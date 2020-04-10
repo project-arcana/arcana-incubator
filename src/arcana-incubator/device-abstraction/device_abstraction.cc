@@ -39,18 +39,28 @@ void inc::da::SDLWindow::pollEvents()
 {
     SDL_Event e;
 
-    while (SDL_PollEvent(&e) != 0)
+    while (pollSingleEvent(e))
     {
-        if (mEventCallback && mEventCallback(&e))
-        {
-            continue;
-        }
+        // spin
+    }
+}
 
-        if (e.type == SDL_QUIT)
+bool inc::da::SDLWindow::pollSingleEvent(SDL_Event& out_event)
+{
+    if (SDL_PollEvent(&out_event) == 0)
+        return false;
+
+    if (mEventCallback && mEventCallback(&out_event))
+    {
+        // do not internally handle
+    }
+    else
+    {
+        if (out_event.type == SDL_QUIT)
         {
             mIsRequestingClose = true;
         }
-        else if (e.type == SDL_WINDOWEVENT)
+        else if (out_event.type == SDL_WINDOWEVENT)
         {
             int new_w, new_h;
             SDL_GetWindowSize(mWindow, &new_w, &new_h);
@@ -58,6 +68,8 @@ void inc::da::SDLWindow::pollEvents()
             onResizeEvent(new_w, new_h, is_minimized);
         }
     }
+
+    return true;
 }
 
 void inc::da::SDLWindow::onResizeEvent(int w, int h, bool minimized)
