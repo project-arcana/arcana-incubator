@@ -1,17 +1,19 @@
 cmake_minimum_required(VERSION 3.8)
 project(ArcanaIncubator)
 
-include(cmake/UnityBuild.cmake)
-include(cmake/SourceGroup.cmake)
+if (NOT TARGET clean-core)
+    message(FATAL_ERROR "[arcana-incubator] clean-core must be available")
+endif()
 
 # =========================================
 # define library
 
-file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.hh" "src/*.c" "src/*.h")
+file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.c")
+file(GLOB_RECURSE HEADERS "src/*.hh" "src/*.h")
 
 arcana_source_group(SOURCES)
 
-add_library(arcana-incubator STATIC ${SOURCES})
+add_library(arcana-incubator STATIC ${SOURCES} ${HEADERS})
 
 target_include_directories(arcana-incubator PUBLIC src/)
 
