@@ -1,5 +1,7 @@
 #include "input.hh"
 
+#include <cmath>
+
 #include <rich-log/log.hh>
 
 void inc::da::binding::prePoll()
