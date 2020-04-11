@@ -11,9 +11,7 @@ endif()
 file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.c")
 file(GLOB_RECURSE HEADERS "src/*.hh" "src/*.h")
 
-arcana_source_group(SOURCES)
-
-add_library(arcana-incubator STATIC ${SOURCES} ${HEADERS})
+arcana_add_library(ARC_INC arcana-incubator SOURCES HEADERS)
 
 target_include_directories(arcana-incubator PUBLIC src/)
 
@@ -29,13 +27,6 @@ target_link_libraries(arcana-incubator PUBLIC
 
 # =========================================
 # set up compile flags
-
-if (MSVC)
-    target_compile_options(arcana-incubator PUBLIC /MP)
-else()
-    target_compile_options(arcana-incubator PRIVATE -Wall -fPIC)
-    target_link_libraries(arcana-incubator PUBLIC -fuse-ld=gold -lX11)
-endif()
 
 if (MSVC)
     # For device_tentative
