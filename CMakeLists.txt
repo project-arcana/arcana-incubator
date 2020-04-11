@@ -22,6 +22,7 @@ target_link_libraries(arcana-incubator PUBLIC
     typed-geometry
     reflector
     phantasm-hardware-interface
+    phantasm-renderer
     rich-log
     sdl2
 )

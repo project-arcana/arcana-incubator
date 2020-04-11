@@ -10,8 +10,8 @@
 #include <phantasm-hardware-interface/detail/byte_util.hh>
 #include <phantasm-hardware-interface/detail/format_size.hh>
 
-#include <arcana-incubator/pr-util/shader_util.hh>
-#include <arcana-incubator/pr-util/texture_util.hh>
+#include <arcana-incubator/phi-util/shader_util.hh>
+#include <arcana-incubator/phi-util/texture_util.hh>
 
 using namespace phi;
 
@@ -123,8 +123,8 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
-        auto const num_components = detail::pr_format_num_components(format);
-        auto const is_hdr = detail::pr_format_size_bytes(format) / num_components > 1;
+        auto const num_components = detail::format_num_components(format);
+        auto const is_hdr = detail::format_size_bytes(format) / num_components > 1;
         img_data = inc::assets::load_image(path, img_size, static_cast<int>(num_components), is_hdr);
     }
     CC_DEFER { inc::assets::free(img_data); };
