@@ -35,8 +35,6 @@ struct smooth_fps_cam
     float sensitivity_position = 25.f;
 
     void interpolate_to_target(float dt);
-
-
 };
 
 }
