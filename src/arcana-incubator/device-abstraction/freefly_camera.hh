@@ -19,7 +19,7 @@ inline float halftimeLerpAlpha(float halftime, float dt) { return 1 - std::pow(.
 struct fps_cam_state
 {
     tg::pos3 position = tg::pos3(0, 0, 5);
-    tg::vec3 forward = tg::vec3(0, 0, -1);
+    tg::vec3 forward = tg::vec3(0, 0, 1);
 
     void move_relative(tg::vec3 distance);
     void mouselook(float dx, float dy);
@@ -35,8 +35,6 @@ struct smooth_fps_cam
     float sensitivity_position = 25.f;
 
     void interpolate_to_target(float dt);
-
-
 };
 
 }
