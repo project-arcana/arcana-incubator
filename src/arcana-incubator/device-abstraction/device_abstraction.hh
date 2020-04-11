@@ -27,6 +27,9 @@ public:
     /// poll events by the WM/OS
     void pollEvents();
 
+    /// poll a single SDL event, use while(pollSingleEvent(e)) {..}
+    bool pollSingleEvent(SDL_Event& out_event);
+
     /// whether a close event has been fired
     [[nodiscard]] bool isRequestingClose() const { return mIsRequestingClose; }
 
