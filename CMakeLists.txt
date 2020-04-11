@@ -11,7 +11,7 @@ endif()
 file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.c")
 file(GLOB_RECURSE HEADERS "src/*.hh" "src/*.h")
 
-arcana_add_library(ARC_INC arcana-incubator SOURCES HEADERS)
+arcana_add_library_no_unity(ARC_INC arcana-incubator SOURCES HEADERS)
 
 target_include_directories(arcana-incubator PUBLIC src/)
 
