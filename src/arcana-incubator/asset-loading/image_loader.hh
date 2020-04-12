@@ -28,7 +28,7 @@ struct image_data
 
 /// copy an image row-by-row to a destination pointer, with a stride per row
 /// (usually equal to row_size_bytes, but not in D3D12)
-void rowwise_copy(const std::byte *src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels);
+void rowwise_copy(const std::byte* src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels);
 
 void write_mipmap(inc::assets::image_data& src_and_dest, unsigned width, unsigned height);
 
