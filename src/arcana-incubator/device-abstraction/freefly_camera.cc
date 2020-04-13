@@ -88,8 +88,8 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
 
     input.bindMouseButton(ge_input_camlook_active, SDL_BUTTON_RIGHT);
 
-    input.bindMouseAxis(ge_input_camlook_x, 0, -.25f);
-    input.bindMouseAxis(ge_input_camlook_y, 1, -.25f);
+    input.bindMouseAxis(ge_input_camlook_x, 0, -.35f);
+    input.bindMouseAxis(ge_input_camlook_y, 1, -.35f);
 }
 
 void inc::da::smooth_fps_cam::update_default_inputs(inc::da::input_manager& input, float dt)
