@@ -22,8 +22,8 @@
 //#define IMGUI_API __declspec( dllexport )
 //#define IMGUI_API __declspec( dllimport )
 
-//---- Don't define obsolete functions/enums/behaviors. Consider enabling from time to time after updating to avoid using soon-to-be obsolete function/names.
-//#define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+//---- Don't define obsolete functions/enums/behaviors. Consider enabling from time to time after updating to avoid using soon-to-be obsolete
+// function/names. #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 
 //---- Don't implement demo windows functionality (ShowDemoWindow()/ShowStyleEditor()/ShowUserGuide() methods will be empty)
 // It is very strongly recommended to NOT disable the demo windows during development. Please read the comments in imgui_demo.cpp.
@@ -65,35 +65,35 @@
         operator MyVec4() const { return MyVec4(x,y,z,w); }
 */
 
-    //---- Use 32-bit vertex indices (default is 16-bit) is one way to allow large meshes with more than 64K vertices.
-    // Your renderer back-end will need to support it (most example renderer back-ends support both 16/32-bit indices).
-    // Another way to allow large meshes while keeping 16-bit indices is to handle ImDrawCmd::VtxOffset in your renderer.
-    // Read about ImGuiBackendFlags_RendererHasVtxOffset for details.
-    //#define ImDrawIdx unsigned int
+//---- Use 32-bit vertex indices (default is 16-bit) is one way to allow large meshes with more than 64K vertices.
+// Your renderer back-end will need to support it (most example renderer back-ends support both 16/32-bit indices).
+// Another way to allow large meshes while keeping 16-bit indices is to handle ImDrawCmd::VtxOffset in your renderer.
+// Read about ImGuiBackendFlags_RendererHasVtxOffset for details.
+//#define ImDrawIdx unsigned int
 
-    //---- Override ImDrawCallback signature (will need to modify renderer back-ends accordingly)
-    //struct ImDrawList;
-    //struct ImDrawCmd;
-    //typedef void (*MyImDrawCallback)(const ImDrawList* draw_list, const ImDrawCmd* cmd, void* my_renderer_user_data);
-    //#define ImDrawCallback MyImDrawCallback
+//---- Override ImDrawCallback signature (will need to modify renderer back-ends accordingly)
+// struct ImDrawList;
+// struct ImDrawCmd;
+// typedef void (*MyImDrawCallback)(const ImDrawList* draw_list, const ImDrawCmd* cmd, void* my_renderer_user_data);
+//#define ImDrawCallback MyImDrawCallback
 
-    //---- Debug Tools: Macro to break in Debugger
-    // (use 'Metrics->Tools->Item Picker' to pick widgets with the mouse and break into them for easy debugging.)
-    //#define IM_DEBUG_BREAK  IM_ASSERT(0)
-    //#define IM_DEBUG_BREAK  __debugbreak()
+//---- Debug Tools: Macro to break in Debugger
+// (use 'Metrics->Tools->Item Picker' to pick widgets with the mouse and break into them for easy debugging.)
+//#define IM_DEBUG_BREAK  IM_ASSERT(0)
+//#define IM_DEBUG_BREAK  __debugbreak()
 
-    //---- Debug Tools: Have the Item Picker break in the ItemAdd() function instead of ItemHoverable(),
-    // (which comes earlier in the code, will catch a few extra items, allow picking items other than Hovered one.)
-    // This adds a small runtime cost which is why it is not enabled by default.
-    //#define IMGUI_DEBUG_TOOL_ITEM_PICKER_EX
+//---- Debug Tools: Have the Item Picker break in the ItemAdd() function instead of ItemHoverable(),
+// (which comes earlier in the code, will catch a few extra items, allow picking items other than Hovered one.)
+// This adds a small runtime cost which is why it is not enabled by default.
+//#define IMGUI_DEBUG_TOOL_ITEM_PICKER_EX
 
-    //---- Debug Tools: Enable slower asserts
-    //#define IMGUI_DEBUG_PARANOID
+//---- Debug Tools: Enable slower asserts
+//#define IMGUI_DEBUG_PARANOID
 
-    //---- Tip: You can add extra functions within the ImGui:: namespace, here or in your own headers files.
-    /*
+//---- Tip: You can add extra functions within the ImGui:: namespace, here or in your own headers files.
+/*
 namespace ImGui
 {
-    void MyFunction(const char* name, const MyMatrix44& v);
+void MyFunction(const char* name, const MyMatrix44& v);
 }
 */
