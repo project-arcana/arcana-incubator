@@ -8,6 +8,8 @@
 
 namespace inc::da
 {
+struct input_manager;
+
 /// Smoothed lerp alpha, framerate-correct
 inline float smoothLerpAlpha(float smoothing, float dt) { return 1 - std::pow(smoothing, dt); }
 /// Exponential decay alpha, framerate-correct damp / lerp
@@ -31,10 +33,19 @@ struct smooth_fps_cam
     fps_cam_state physical;
     fps_cam_state target;
 
-    float sensitivity_rotation = 35.f;
+    float sensitivity_rotation = 70.f;
     float sensitivity_position = 25.f;
 
     void interpolate_to_target(float dt);
+
+    //
+    // default input all-in-one
+
+    void setup_default_inputs(input_manager& input);
+    void update_default_inputs(input_manager& input, float dt);
+
+private:
+    bool _mouse_captured = false;
 };
 
 }
