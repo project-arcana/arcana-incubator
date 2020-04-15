@@ -68,8 +68,8 @@ tg::quat inc::da::fps_cam_state::forward_to_rotation(tg::vec3 forward, tg::vec3 
 
 void inc::da::smooth_fps_cam::interpolate_to_target(float dt)
 {
-    auto const alpha_rotation = tg::min(1.f, exponentialDecayAlpha(sensitivity_rotation, dt));
-    auto const alpha_position = tg::min(1.f, exponentialDecayAlpha(sensitivity_position, dt));
+    auto const alpha_rotation = tg::min(1.f, exponential_decay_alpha(sensitivity_rotation, dt));
+    auto const alpha_position = tg::min(1.f, exponential_decay_alpha(sensitivity_position, dt));
 
     physical.forward = tg::normalize(tg::lerp(physical.forward, target.forward, alpha_rotation));
     physical.position = tg::lerp(physical.position, target.position, alpha_position);
