@@ -97,10 +97,10 @@ void inc::da::smooth_fps_cam::update_default_inputs(inc::da::input_manager& inpu
     auto speed_mul = 10.f;
 
     if (input.get(ge_input_speedup).isActive())
-        speed_mul *= 2.f;
+        speed_mul *= 4.f;
 
     if (input.get(ge_input_slowdown).isActive())
-        speed_mul *= .5f;
+        speed_mul *= .25f;
 
     auto const delta_move = tg::vec3{input.get(ge_input_right).getAnalog() - input.get(ge_input_left).getAnalog(),
                                      input.get(ge_input_up).getAnalog() - input.get(ge_input_down).getAnalog(),
