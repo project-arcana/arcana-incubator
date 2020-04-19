@@ -16,7 +16,7 @@ class ImGuiPhantasmImpl
 public:
     ImGuiPhantasmImpl() : mCmdWriter(1024 * 10) {}
 
-    void initialize(phi::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment);
+    void initialize(phi::Backend* backend, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size);
 
     void destroy();
 

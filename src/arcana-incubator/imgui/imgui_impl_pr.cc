@@ -27,10 +27,13 @@ namespace
 }
 }
 
-void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment)
+void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size)
 {
     using namespace phi;
     mBackend = backend;
+
+    auto const num_frames_in_flight = backend->getNumBackbuffers();
+    bool const d3d12_alignment = backend->getBackendType() == phi::backend_type::d3d12;
 
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "ImGuiPhantasmImpl";
@@ -227,12 +230,6 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
     auto global_vtx_offset = 0;
     auto global_idx_offset = 0;
     ImVec2 const clip_offset = draw_data->DisplayPos;
-
-    {
-        phi::cmd::transition_resources cmd_trans;
-        cmd_trans.add(backbuffer, phi::resource_state::render_target);
-        writer.add_command(cmd_trans);
-    }
 
     phi::cmd::begin_render_pass bcmd;
     bcmd.add_backbuffer_rt(backbuffer, false);
