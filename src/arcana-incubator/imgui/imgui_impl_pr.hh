@@ -27,8 +27,6 @@ public:
     /// the given buffer must be >= get_command_size(draw_data);
     void write_commands(ImDrawData const* draw_data, phi::handle::resource backbuffer, std::byte* out_buffer, size_t out_buffer_size);
 
-    [[deprecated("use write_commands")]] phi::handle::command_list render(ImDrawData* draw_data, phi::handle::resource backbuffer, bool transition_to_present = true);
-
 private:
     phi::Backend* mBackend;
 
