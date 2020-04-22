@@ -137,8 +137,8 @@ void inc::da::smooth_fps_cam::update_default_inputs(SDL_Window* window, inc::da:
         }
 
         mouse_delta = {
-            input.get(ge_input_camlook_x).getDelta() * dt, //
-            input.get(ge_input_camlook_y).getDelta() * dt  //
+            input.get(ge_input_camlook_x).getDelta() * 0.001f, //
+            input.get(ge_input_camlook_y).getDelta() * 0.001f  //
         };
     }
     else if (_mouse_captured)
