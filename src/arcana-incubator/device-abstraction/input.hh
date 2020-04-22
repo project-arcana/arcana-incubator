@@ -46,7 +46,7 @@ private:
     void prePoll();
 
     void addKeyEvent(bool is_press);
-    void addJoyaxisEvent(::Sint16 value, float threshold, float deadzone);
+    void addControllerAxisEvent(::Sint16 value, float threshold, float deadzone, float scale, float bias);
     void addDelta(float delta);
 
     void postPoll();
@@ -54,7 +54,13 @@ private:
 
 struct input_manager
 {
-    void initialize(unsigned max_num_bindings) { bindings.reserve(max_num_bindings); }
+    void initialize(unsigned max_num_bindings)
+    {
+        bindings.reserve(max_num_bindings);
+        detectController();
+    }
+
+    bool detectController();
 
     //
     // updating
@@ -70,9 +76,9 @@ struct input_manager
     void bindKey(uint64_t id, SDL_Keycode keycode);
     void bindKey(uint64_t id, SDL_Scancode scancode);
     void bindMouseButton(uint64_t id, uint8_t sdl_mouse_button);
-    void bindJoyButton(uint64_t id, uint8_t sdl_joy_button);
+    void bindControllerButton(uint64_t id, uint8_t sdl_controller_button);
 
-    void bindJoyAxis(uint64_t id, uint8_t sdl_joy_axis, float deadzone = 0.01f, float threshold = 0.5f);
+    void bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.15f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f);
     void bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier = 1.f);
 
     //
@@ -80,10 +86,10 @@ struct input_manager
 
     binding const& get(uint64_t id) { return bindings[getOrCreateBinding(id)]; }
 
-private:
     // returns index into bindings member
     unsigned getOrCreateBinding(uint64_t id);
 
+private:
     struct keycode_assoc
     {
         SDL_Keycode keycode;
@@ -104,16 +110,18 @@ private:
 
     struct joybutton_assoc
     {
-        uint8_t joy_button;
+        uint8_t controller_button;
         unsigned binding_idx;
     };
 
     struct joyaxis_assoc
     {
-        uint8_t joy_axis;
+        uint8_t controller_axis;
         unsigned binding_idx;
         float deadzone;
         float threshold;
+        float scale;
+        float bias;
     };
 
     struct mouseaxis_assoc
@@ -131,5 +139,7 @@ private:
 
     cc::vector<mouseaxis_assoc> mouseaxis_assocs_x;
     cc::vector<mouseaxis_assoc> mouseaxis_assocs_y;
+
+    SDL_GameController* game_controller = nullptr;
 };
 }

@@ -27,10 +27,13 @@ namespace
 }
 }
 
-void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment)
+void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size)
 {
     using namespace phi;
     mBackend = backend;
+
+    auto const num_frames_in_flight = backend->getNumBackbuffers();
+    bool const d3d12_alignment = backend->getBackendType() == phi::backend_type::d3d12;
 
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "ImGuiPhantasmImpl";
@@ -228,12 +231,6 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
     auto global_idx_offset = 0;
     ImVec2 const clip_offset = draw_data->DisplayPos;
 
-    {
-        phi::cmd::transition_resources cmd_trans;
-        cmd_trans.add(backbuffer, phi::resource_state::render_target);
-        writer.add_command(cmd_trans);
-    }
-
     phi::cmd::begin_render_pass bcmd;
     bcmd.add_backbuffer_rt(backbuffer, false);
     bcmd.set_null_depth_stencil();
@@ -280,142 +277,4 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
 
     phi::cmd::end_render_pass ecmd;
     writer.add_command(ecmd);
-}
-
-phi::handle::command_list inc::ImGuiPhantasmImpl::render(ImDrawData* draw_data, phi::handle::resource backbuffer, bool transition_to_present)
-{
-    ++mCurrentFrame;
-    if (mCurrentFrame >= mPerFrameResources.size())
-        mCurrentFrame = 0;
-
-    auto& frame_res = mPerFrameResources[mCurrentFrame];
-
-    if (!frame_res.index_buf.is_valid() || frame_res.index_buf_size < draw_data->TotalIdxCount)
-    {
-        if (frame_res.index_buf.is_valid())
-            mBackend->free(frame_res.index_buf);
-
-        frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
-
-        frame_res.index_buf = mBackend->createMappedBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
-    }
-
-    if (!frame_res.vertex_buf.is_valid() || frame_res.vertex_buf_size < draw_data->TotalVtxCount)
-    {
-        if (frame_res.vertex_buf.is_valid())
-            mBackend->free(frame_res.vertex_buf);
-
-        frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
-
-        frame_res.vertex_buf = mBackend->createMappedBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
-    }
-
-    // upload vertices and indices
-    {
-        auto* const vertex_map = mBackend->getMappedMemory(frame_res.vertex_buf);
-        auto* const index_map = mBackend->getMappedMemory(frame_res.index_buf);
-
-        ImDrawVert* vtx_dst = (ImDrawVert*)vertex_map;
-        ImDrawIdx* idx_dst = (ImDrawIdx*)index_map;
-
-        for (auto n = 0; n < draw_data->CmdListsCount; ++n)
-        {
-            ImDrawList const* const cmd_list = draw_data->CmdLists[n];
-            std::memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-            std::memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-
-            vtx_dst += cmd_list->VtxBuffer.Size;
-            idx_dst += cmd_list->IdxBuffer.Size;
-        }
-
-        mBackend->flushMappedMemory(frame_res.vertex_buf);
-        mBackend->flushMappedMemory(frame_res.index_buf);
-    }
-
-    // upload VP matrix
-    {
-        float L = draw_data->DisplayPos.x;
-        float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
-        float T = draw_data->DisplayPos.y;
-        float B = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
-        float mvp[4][4] = {
-            {2.0f / (R - L), 0.0f, 0.0f, 0.0f},
-            {0.0f, 2.0f / (T - B), 0.0f, 0.0f},
-            {0.0f, 0.0f, 0.5f, 0.0f},
-            {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
-        };
-        std::memcpy(mGlobalResources.const_buffer_map, mvp, sizeof(mvp));
-
-        mBackend->flushMappedMemory(mGlobalResources.const_buffer);
-    }
-
-    auto global_vtx_offset = 0;
-    auto global_idx_offset = 0;
-    ImVec2 const clip_offset = draw_data->DisplayPos;
-
-    mCmdWriter.reset();
-
-    {
-        phi::cmd::transition_resources cmd_trans;
-        cmd_trans.add(backbuffer, phi::resource_state::render_target);
-        mCmdWriter.add_command(cmd_trans);
-    }
-
-    phi::cmd::begin_render_pass bcmd;
-    bcmd.add_backbuffer_rt(backbuffer, false);
-    bcmd.set_null_depth_stencil();
-    bcmd.viewport.width = (int)draw_data->DisplaySize.x;
-    bcmd.viewport.height = (int)draw_data->DisplaySize.y;
-    mCmdWriter.add_command(bcmd);
-
-    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
-    {
-        ImDrawList* const cmd_list = draw_data->CmdLists[n];
-        for (auto cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
-        {
-            ImDrawCmd& pcmd = cmd_list->CmdBuffer[cmd_i];
-            if (pcmd.UserCallback != nullptr)
-            {
-                if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
-                {
-                    LOG(warning)("Imgui reset render state callback not implemented");
-                }
-                else
-                {
-                    pcmd.UserCallback(cmd_list, &pcmd);
-                }
-            }
-            else
-            {
-                phi::cmd::draw dcmd;
-                dcmd.init(mGlobalResources.pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
-                          pcmd.VtxOffset + global_vtx_offset);
-
-                auto const shader_view = imgui_to_sv(pcmd.TextureId);
-                dcmd.add_shader_arg(mGlobalResources.const_buffer, 0, shader_view);
-
-                dcmd.set_scissor(static_cast<int>(pcmd.ClipRect.x - clip_offset.x), static_cast<int>(pcmd.ClipRect.y - clip_offset.y),
-                                 static_cast<int>(pcmd.ClipRect.z - clip_offset.x), static_cast<int>(pcmd.ClipRect.w - clip_offset.y));
-
-                mCmdWriter.add_command(dcmd);
-            }
-        }
-
-        global_idx_offset += cmd_list->IdxBuffer.Size;
-        global_vtx_offset += cmd_list->VtxBuffer.Size;
-    }
-
-    phi::cmd::end_render_pass ecmd;
-    mCmdWriter.add_command(ecmd);
-
-    if (transition_to_present)
-    {
-        phi::cmd::transition_resources cmd_trans;
-        cmd_trans.add(backbuffer, phi::resource_state::present);
-        mCmdWriter.add_command(cmd_trans);
-    }
-
-    auto const cmdlist = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
-    mCmdWriter.reset();
-    return cmdlist;
 }

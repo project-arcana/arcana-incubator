@@ -16,7 +16,7 @@ class ImGuiPhantasmImpl
 public:
     ImGuiPhantasmImpl() : mCmdWriter(1024 * 10) {}
 
-    void initialize(phi::Backend* backend, unsigned num_frames_in_flight, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size, bool d3d12_alignment);
+    void initialize(phi::Backend* backend, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size);
 
     void destroy();
 
@@ -26,8 +26,6 @@ public:
     /// writes commands to draw the specified ImDrawData to memory
     /// the given buffer must be >= get_command_size(draw_data);
     void write_commands(ImDrawData const* draw_data, phi::handle::resource backbuffer, std::byte* out_buffer, size_t out_buffer_size);
-
-    [[deprecated("use write_commands")]] phi::handle::command_list render(ImDrawData* draw_data, phi::handle::resource backbuffer, bool transition_to_present = true);
 
 private:
     phi::Backend* mBackend;
