@@ -6,6 +6,8 @@
 #include <typed-geometry/types/quat.hh>
 #include <typed-geometry/types/vec.hh>
 
+typedef struct SDL_Window SDL_Window;
+
 namespace inc::da
 {
 /// Smoothed lerp alpha, framerate-correct
@@ -55,9 +57,11 @@ struct smooth_fps_cam
     // default input all-in-one
 
     void setup_default_inputs(input_manager& input);
-    void update_default_inputs(input_manager& input, float dt);
+    void update_default_inputs(SDL_Window* window, input_manager& input, float dt);
 
 private:
+    int _mouse_x_precap = 0;
+    int _mouse_y_precap = 0;
     bool _mouse_captured = false;
 };
 

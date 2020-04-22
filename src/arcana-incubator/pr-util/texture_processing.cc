@@ -48,6 +48,17 @@ void inc::pre::texture_processing::init(pr::Context& ctx, const char* path_prefi
     }
 }
 
+void inc::pre::texture_processing::free()
+{
+    pso_mipgen.free();
+    pso_mipgen_gamma.free();
+    pso_mipgen_array.free();
+    pso_equirect_to_cube.free();
+    pso_specular_map_filter.free();
+    pso_irradiance_map_gen.free();
+    pso_brdf_lut_gen.free();
+}
+
 pr::auto_texture inc::pre::texture_processing::load_texture(pr::raii::Frame& frame, const char* path, phi::format fmt, bool mips, bool gamma)
 {
     CC_ASSERT((gamma ? mips : true) && "gamma setting meaningless without mipmap generation");

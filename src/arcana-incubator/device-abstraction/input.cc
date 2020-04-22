@@ -26,12 +26,20 @@ void inc::da::binding::addKeyEvent(bool is_press)
     activation = is_active ? 1.f : 0.f; // right now always overrides activation
 }
 
-void inc::da::binding::addJoyaxisEvent(Sint16 value, float threshold, float deadzone)
+void inc::da::binding::addControllerAxisEvent(Sint16 value, float threshold, float deadzone, float scale, float bias)
 {
     // always overrides activation
-    activation = float(value) / 32767;
+    activation = (float(value) / 32767);
     if (std::abs(activation) <= deadzone)
+    {
+        // snap to zero
         activation = 0.f;
+    }
+    else
+    {
+        // apply scale and bias
+        activation = activation * scale + bias;
+    }
 
     if (std::abs(activation) >= threshold)
     {
@@ -84,11 +92,11 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
             if (assoc.mouse_button == e.button.button)
                 bindings[assoc.binding_idx].addKeyEvent(is_press);
     }
-    else if (e.type == SDL_JOYBUTTONDOWN || e.type == SDL_JOYBUTTONUP)
+    else if (e.type == SDL_CONTROLLERBUTTONDOWN || e.type == SDL_CONTROLLERBUTTONUP)
     {
-        bool is_press = e.type == SDL_JOYBUTTONDOWN;
+        bool is_press = e.type == SDL_CONTROLLERBUTTONDOWN;
         for (auto const& assoc : joybutton_assocs)
-            if (assoc.joy_button == e.jbutton.button)
+            if (assoc.controller_button == e.cbutton.button)
                 bindings[assoc.binding_idx].addKeyEvent(is_press);
     }
     else if (e.type == SDL_MOUSEMOTION)
@@ -99,11 +107,11 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
         for (auto const& assoc : mouseaxis_assocs_y)
             bindings[assoc.binding_idx].addDelta(float(e.motion.yrel) * assoc.delta_mul);
     }
-    else if (e.type == SDL_JOYAXISMOTION)
+    else if (e.type == SDL_CONTROLLERAXISMOTION)
     {
         for (auto const& assoc : joyaxis_assocs)
-            if (assoc.joy_axis == e.jaxis.axis)
-                bindings[assoc.joy_axis].addJoyaxisEvent(e.jaxis.value, assoc.threshold, assoc.deadzone);
+            if (assoc.controller_axis == e.caxis.axis)
+                bindings[assoc.binding_idx].addControllerAxisEvent(e.caxis.value, assoc.threshold, assoc.deadzone, assoc.scale, assoc.bias);
     }
     else
     {
@@ -128,20 +136,41 @@ void inc::da::input_manager::bindMouseButton(uint64_t id, uint8_t sdl_mouse_butt
     mousebutton_assocs.push_back({sdl_mouse_button, getOrCreateBinding(id)});
 }
 
-void inc::da::input_manager::bindJoyButton(uint64_t id, uint8_t sdl_joy_button)
+void inc::da::input_manager::bindControllerButton(uint64_t id, uint8_t sdl_controller_button)
 {
-    joybutton_assocs.push_back({sdl_joy_button, getOrCreateBinding(id)});
+    joybutton_assocs.push_back({sdl_controller_button, getOrCreateBinding(id)});
 }
 
-void inc::da::input_manager::bindJoyAxis(uint64_t id, uint8_t sdl_joy_axis, float deadzone, float threshold)
+void inc::da::input_manager::bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone, float threshold, float scale, float bias)
 {
-    joyaxis_assocs.push_back({sdl_joy_axis, getOrCreateBinding(id), deadzone, threshold});
+    joyaxis_assocs.push_back({sdl_controller_axis, getOrCreateBinding(id), deadzone, threshold, scale, bias});
 }
 
 void inc::da::input_manager::bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier) // only emits delta, no activation nor analog
 {
     cc::vector<mouseaxis_assoc>& dest = index == 0 ? mouseaxis_assocs_x : mouseaxis_assocs_y;
     dest.push_back({getOrCreateBinding(id), delta_multiplier});
+}
+
+bool inc::da::input_manager::detectController()
+{
+    if (game_controller != nullptr)
+    {
+        SDL_GameControllerClose(game_controller);
+        game_controller = nullptr;
+    }
+
+    int const num_joysticks = SDL_NumJoysticks();
+    for (int i = 0; i < num_joysticks; ++i)
+    {
+        if (SDL_IsGameController(i))
+        {
+            game_controller = SDL_GameControllerOpen(i);
+            break;
+        }
+    }
+
+    return game_controller != nullptr;
 }
 
 unsigned inc::da::input_manager::getOrCreateBinding(uint64_t id)

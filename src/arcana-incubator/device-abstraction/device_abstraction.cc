@@ -1,5 +1,7 @@
 #include "device_abstraction.hh"
 
+#include <clean-core/assert.hh>
+
 #include <SDL2/SDL.h>
 
 void inc::da::initialize()
@@ -8,13 +10,18 @@ void inc::da::initialize()
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
     {
         SDL_Log("Unable to initialize SDL: %s\n", SDL_GetError());
+        return;
     }
+
+    SDL_JoystickEventState(SDL_ENABLE);
 }
 
 void inc::da::shutdown() { SDL_Quit(); }
 
 void inc::da::SDLWindow::initialize(const char* title, int width, int height, bool enable_vk)
 {
+    CC_ASSERT(mWindow == nullptr && "double init");
+
     uint32_t flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
     if (enable_vk)
         flags |= SDL_WINDOW_VULKAN;
@@ -32,7 +39,10 @@ void inc::da::SDLWindow::initialize(const char* title, int width, int height, bo
 void inc::da::SDLWindow::destroy()
 {
     if (mWindow)
+    {
         SDL_DestroyWindow(mWindow);
+        mWindow = nullptr;
+    }
 }
 
 void inc::da::SDLWindow::pollEvents()
