@@ -57,6 +57,9 @@ void inc::da::SDLWindow::pollEvents()
 
 bool inc::da::SDLWindow::pollSingleEvent(SDL_Event& out_event)
 {
+#ifdef CC_ENABLE_ASSERTIONS
+    mSafetyState.polled_since_last_close_test = true;
+#endif
     if (SDL_PollEvent(&out_event) == 0)
         return false;
 
