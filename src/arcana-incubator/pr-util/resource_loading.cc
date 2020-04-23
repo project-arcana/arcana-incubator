@@ -47,7 +47,7 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, const char* path, bool b
     frame.transition(res.vertex, phi::resource_state::vertex_buffer);
     frame.transition(res.index, phi::resource_state::index_buffer);
 
-    auto frame_c = ctx.compile(frame);
+    auto frame_c = ctx.compile(cc::move(frame));
 
     // flush writes, submit, flush queue
     ctx.flush_buffer_writes(b_upload);
