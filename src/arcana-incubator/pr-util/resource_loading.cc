@@ -14,7 +14,7 @@
 
 #include <arcana-incubator/asset-loading/mesh_loader.hh>
 
-bool inc::pre::is_shader_present(const char *path, const char *path_prefix)
+bool inc::pre::is_shader_present(const char* path, const char* path_prefix)
 {
     char name_formatted[1024];
     std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, "spv");
