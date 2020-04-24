@@ -1,5 +1,6 @@
 #pragma once
 
+#include <clean-core/assert.hh>
 #include <clean-core/macros.hh>
 
 #ifdef CC_OS_WINDOWS

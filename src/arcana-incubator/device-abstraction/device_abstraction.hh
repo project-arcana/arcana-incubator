@@ -1,5 +1,7 @@
 #pragma once
 
+#include <clean-core/assert.hh>
+
 #include <typed-geometry/types/size.hh>
 
 union SDL_Event;
@@ -32,7 +34,14 @@ public:
     bool pollSingleEvent(SDL_Event& out_event);
 
     /// whether a close event has been fired
-    [[nodiscard]] bool isRequestingClose() const { return mIsRequestingClose; }
+    [[nodiscard]] bool isRequestingClose()
+    {
+        CC_ASSERT(mSafetyState.polled_since_last_close_test && "forgot to poll window events in while loop body?");
+#ifdef CC_ENABLE_ASSERTIONS
+        mSafetyState.polled_since_last_close_test = false;
+#endif
+        return mIsRequestingClose;
+    }
 
     /// whether a resize occured since the last ::clearPendingResize()
     /// clears pending resizes
@@ -68,5 +77,12 @@ private:
     bool mIsMinimized = false;
     bool mPendingResize = false;
     bool mIsRequestingClose = false;
+
+#ifdef CC_ENABLE_ASSERTIONS
+    struct
+    {
+        bool polled_since_last_close_test = true;
+    } mSafetyState;
+#endif
 };
 }

@@ -8,7 +8,7 @@ namespace inc::da
 template <size_t N>
 constexpr uint64_t stringhash(const char (&str)[N], size_t prime = 31, size_t length = N - 1)
 {
-    return (length <= 1) ? str[0] : (prime * horner(str, prime, length - 1) + str[length - 1]);
+    return (length <= 1) ? str[0] : (prime * stringhash(str, prime, length - 1) + str[length - 1]);
 }
 
 inline uint64_t stringhash_runtime(char const* str, size_t prime = 31)
