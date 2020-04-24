@@ -1,6 +1,6 @@
 #pragma once
 
-#include <phantasm-renderer/format.hh>
+#include <phantasm-renderer/enums.hh>
 #include <phantasm-renderer/fwd.hh>
 #include <phantasm-renderer/resource_types.hh>
 
