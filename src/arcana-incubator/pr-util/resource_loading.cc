@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 
 #include <clean-core/defer.hh>
 
@@ -13,6 +14,12 @@
 
 #include <arcana-incubator/asset-loading/mesh_loader.hh>
 
+bool inc::pre::is_shader_present(const char *path, const char *path_prefix)
+{
+    char name_formatted[1024];
+    std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, "spv");
+    return std::fstream(name_formatted).good();
+}
 cc::pair<pr::auto_shader_binary, phi::detail::unique_buffer> inc::pre::load_shader(pr::Context& ctx, const char* path, phi::shader_stage stage, char const* path_prefix)
 {
     char const* const ending = ctx.get_backend().getBackendType() == phi::backend_type::d3d12 ? "dxil" : "spv";
