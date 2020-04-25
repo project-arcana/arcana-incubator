@@ -36,8 +36,8 @@ public:
     /// whether a close event has been fired
     [[nodiscard]] bool isRequestingClose()
     {
-        CC_ASSERT(mSafetyState.polled_since_last_close_test && "forgot to poll window events in while loop body?");
 #ifdef CC_ENABLE_ASSERTIONS
+        CC_ASSERT(mSafetyState.polled_since_last_close_test && "forgot to poll window events in while loop body?");
         mSafetyState.polled_since_last_close_test = false;
 #endif
         return mIsRequestingClose;
