@@ -53,12 +53,12 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
         {
             auto& rt = fb_format.render_targets.back();
             rt.blend_enable = true;
-            rt.blend_color_src = blend_factor::src_alpha;
-            rt.blend_color_dest = blend_factor::inv_src_alpha;
-            rt.blend_op_color = blend_op::op_add;
-            rt.blend_alpha_src = blend_factor::inv_src_alpha;
-            rt.blend_alpha_dest = blend_factor::zero;
-            rt.blend_op_alpha = blend_op::op_add;
+            rt.state.blend_color_src = blend_factor::src_alpha;
+            rt.state.blend_color_dest = blend_factor::inv_src_alpha;
+            rt.state.blend_op_color = blend_op::op_add;
+            rt.state.blend_alpha_src = blend_factor::inv_src_alpha;
+            rt.state.blend_alpha_dest = blend_factor::zero;
+            rt.state.blend_op_alpha = blend_op::op_add;
         }
 
         arg::shader_arg_shape shader_shape;
