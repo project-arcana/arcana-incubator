@@ -42,7 +42,7 @@ void inc::pre::texture_processing::init(pr::Context& ctx, const char* path_prefi
         auto [cs_lut_gen, b7] = load_shader(ctx, "brdf_lut_gen", phi::shader_stage::compute, path_prefix);
 
         pso_equirect_to_cube = ctx.make_pipeline_state(pr::compute_pass(cs_equirect_cube).arg(1, 1, 1));
-        pso_specular_map_filter = ctx.make_pipeline_state(pr::compute_pass(cs_spec_filter).arg(1, 1, 1).constants());
+        pso_specular_map_filter = ctx.make_pipeline_state(pr::compute_pass(cs_spec_filter).arg(1, 1, 1).enable_constants());
         pso_irradiance_map_gen = ctx.make_pipeline_state(pr::compute_pass(cs_irr_filter).arg(1, 1, 1));
         pso_brdf_lut_gen = ctx.make_pipeline_state(pr::compute_pass(cs_lut_gen).arg(0, 1));
     }
