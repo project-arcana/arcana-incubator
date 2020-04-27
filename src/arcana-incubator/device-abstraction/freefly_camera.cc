@@ -41,7 +41,7 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
     auto azimuth = tg::atan2(forward.z, forward.x);
 
     azimuth += 1_rad * dx;
-    altitude = tg::clamp(altitude - 1_rad * dy, -89_deg, 89_deg);
+    altitude = tg::clamp(altitude - 1_rad * -dy, -89_deg, 89_deg);
 
     auto caz = tg::cos(azimuth);
     auto saz = tg::sin(azimuth);
@@ -53,7 +53,7 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
 
 tg::quat inc::da::fps_cam_state::forward_to_rotation(tg::vec3 forward, tg::vec3 up)
 {
-    auto const fwd = tg::normalize(forward);
+    auto const fwd = -tg::normalize(forward);
     tg::vec3 rightVector = tg::normalize(tg::cross(fwd, up));
     tg::vec3 upVector = tg::cross(rightVector, fwd);
 
