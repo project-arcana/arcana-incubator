@@ -10,6 +10,8 @@ struct growing_writer
 {
     growing_writer(size_t initial_size) { _writer.initialize(static_cast<std::byte*>(std::malloc(initial_size)), initial_size); }
 
+    growing_writer() : growing_writer(1024) {}
+
     ~growing_writer() { std::free(_writer.buffer()); }
 
     void reset() { _writer.reset(); }
@@ -28,9 +30,14 @@ struct growing_writer
     template <class CmdT>
     void accomodate_t()
     {
-        if (!_writer.can_accomodate_t<CmdT>())
+        accomodate(sizeof(CmdT));
+    }
+
+    void accomodate(size_t num_bytes)
+    {
+        if (!_writer.can_accomodate(num_bytes))
         {
-            size_t const new_size = (_writer.max_size() + sizeof(CmdT)) << 1;
+            size_t const new_size = (_writer.max_size() + num_bytes) << 1;
             std::byte* const new_buffer = static_cast<std::byte*>(std::malloc(new_size));
 
             std::memcpy(new_buffer, _writer.buffer(), _writer.size());
