@@ -54,7 +54,7 @@ private:
 
 struct input_manager
 {
-    void initialize(unsigned max_num_bindings)
+    void initialize(unsigned max_num_bindings = 256)
     {
         bindings.reserve(max_num_bindings);
         detectController();
