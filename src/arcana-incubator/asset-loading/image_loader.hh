@@ -24,8 +24,6 @@ struct image_data
 
 [[nodiscard]] image_data load_image(char const* filename, image_size& out_size, int desired_channels = 4, bool use_hdr_float = false);
 
-[[nodiscard]] unsigned get_num_mip_levels(unsigned width, unsigned height);
-
 /// copy an image row-by-row to a destination pointer, with a stride per row
 /// (usually equal to row_size_bytes, but not in D3D12)
 void rowwise_copy(const std::byte* src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels);
