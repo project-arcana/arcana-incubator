@@ -93,7 +93,7 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
 
         mGlobalResources.font_tex_sv = mBackend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
 
-        auto const upbuff = mBackend->createMappedBuffer(
+        auto const upbuff = mBackend->createUploadBuffer(
             inc::get_mipmap_upload_size(format::rgba8un, assets::image_size{static_cast<unsigned>(width), static_cast<unsigned>(height), 1, 1}, true));
 
 
@@ -121,7 +121,7 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
         io.Fonts->TexID = sv_to_imgui(mGlobalResources.font_tex_sv);
     }
 
-    mGlobalResources.const_buffer = mBackend->createMappedBuffer(sizeof(float[4][4]));
+    mGlobalResources.const_buffer = mBackend->createUploadBuffer(sizeof(float[4][4]));
     mGlobalResources.const_buffer_map = mBackend->getMappedMemory(mGlobalResources.const_buffer);
 
     // per frame res
@@ -175,7 +175,7 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
 
         frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
 
-        frame_res.index_buf = mBackend->createMappedBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
+        frame_res.index_buf = mBackend->createUploadBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
     }
 
     if (!frame_res.vertex_buf.is_valid() || frame_res.vertex_buf_size < draw_data->TotalVtxCount)
@@ -185,7 +185,7 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
 
         frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
 
-        frame_res.vertex_buf = mBackend->createMappedBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
+        frame_res.vertex_buf = mBackend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
     }
 
     // upload vertices and indices
