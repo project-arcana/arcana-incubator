@@ -9,6 +9,7 @@
 #include <phantasm-hardware-interface/commands.hh>
 #include <phantasm-hardware-interface/detail/byte_util.hh>
 #include <phantasm-hardware-interface/detail/format_size.hh>
+#include <phantasm-hardware-interface/util.hh>
 
 #include <arcana-incubator/phi-util/shader_util.hh>
 #include <arcana-incubator/phi-util/texture_util.hh>
@@ -163,7 +164,7 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
 {
     constexpr auto cube_width = 1024u;
     constexpr auto cube_height = 1024u;
-    auto const cube_num_mips = inc::assets::get_num_mip_levels(cube_width, cube_height);
+    auto const cube_num_mips = phi::util::get_num_mips(cube_width, cube_height);
 
     // this call full flushes, no need to do it ourselves
     auto const equirect_handle = load_texture(hdr_equirect_path, format::rgba32f, false);
@@ -395,7 +396,7 @@ void inc::texture_creator::generate_mips(handle::resource resource, const inc::a
     starting_tcmd.add(resource, resource_state::shader_resource, shader_stage::compute);
     cmd_writer.add_command(starting_tcmd);
 
-    auto const num_mipmaps = size.num_mipmaps == 0 ? inc::assets::get_num_mip_levels(size.width, size.height) : size.num_mipmaps;
+    auto const num_mipmaps = size.num_mipmaps == 0 ? phi::util::get_num_mips(size.width, size.height) : size.num_mipmaps;
 
     for (auto level = 1u, levelWidth = size.width / 2, levelHeight = size.height / 2; level < num_mipmaps; ++level, levelWidth /= 2, levelHeight /= 2)
     {

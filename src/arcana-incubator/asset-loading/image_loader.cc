@@ -11,6 +11,8 @@
 
 #include <arcana-incubator/asset-loading/lib/stb_image.hh>
 
+#include <phantasm-hardware-interface/util.hh>
+
 
 inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, int desired_channels, bool use_hdr_float)
 {
@@ -32,20 +34,15 @@ inc::assets::image_data inc::assets::load_image(const char* filename, inc::asset
     if (!res.raw)
         return res;
 
-    res.num_channels = static_cast<uint8_t>(desired_channels);
+    res.num_channels = uint8_t(desired_channels);
 
     out_size.width = unsigned(width);
     out_size.height = unsigned(height);
-    out_size.num_mipmaps = get_num_mip_levels(out_size.width, out_size.height);
+    out_size.num_mipmaps = phi::util::get_num_mips(out_size.width, out_size.height);
     out_size.array_size = 1;
 
 
     return res;
-}
-
-unsigned inc::assets::get_num_mip_levels(unsigned width, unsigned height)
-{
-    return static_cast<unsigned>(tg::floor(tg::log2(static_cast<float>(cc::max(width, height))))) + 1u;
 }
 
 void inc::assets::rowwise_copy(std::byte const* src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels)

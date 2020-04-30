@@ -5,6 +5,7 @@
 #include <phantasm-hardware-interface/commands.hh>
 #include <phantasm-hardware-interface/detail/byte_util.hh>
 #include <phantasm-hardware-interface/detail/format_size.hh>
+#include <phantasm-hardware-interface/util.hh>
 
 #include <typed-geometry/tg.hh>
 
@@ -65,8 +66,8 @@ unsigned inc::get_mipmap_upload_size(phi::format format, const inc::assets::imag
         auto const num_mips = no_mips ? 1 : img_size.num_mipmaps;
         for (auto mip = 0u; mip < num_mips; ++mip)
         {
-            auto const mip_width = cc::max(unsigned(tg::floor(img_size.width / tg::pow(2.f, float(mip)))), 1u);
-            auto const mip_height = cc::max(unsigned(tg::floor(img_size.height / tg::pow(2.f, float(mip)))), 1u);
+            auto const mip_width = phi::util::get_mip_size(img_size.width, mip);
+            auto const mip_height = phi::util::get_mip_size(img_size.height, mip);
 
             auto const row_pitch = mem::align_up(bytes_per_pixel * mip_width, 256);
             auto const custom_offset = row_pitch * mip_height;

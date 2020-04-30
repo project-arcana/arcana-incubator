@@ -5,6 +5,7 @@
 
 #include <phantasm-hardware-interface/detail/byte_util.hh>
 #include <phantasm-hardware-interface/detail/format_size.hh>
+#include <phantasm-hardware-interface/util.hh>
 
 #include <phantasm-renderer/Context.hh>
 #include <phantasm-renderer/Frame.hh>
@@ -112,8 +113,7 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
 
     auto pass = frame.make_pass(matching_pso);
 
-    unsigned const num_mips
-        = texture.info.num_mips > 0 ? texture.info.num_mips : frame.context().calculate_num_mip_levels({texture.info.width, texture.info.height});
+    unsigned const num_mips = texture.info.num_mips > 0 ? texture.info.num_mips : phi::util::get_num_mips(texture.info.width, texture.info.height);
     for (auto level = 1u, levelWidth = unsigned(texture.info.width) / 2, levelHeight = unsigned(texture.info.height) / 2; //
          level < num_mips;                                                                                                //
          ++level, levelWidth /= 2, levelHeight /= 2)
@@ -147,7 +147,7 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
 {
     constexpr auto cube_width = 1024;
     constexpr auto cube_height = 1024;
-    auto const cube_num_mips = inc::assets::get_num_mip_levels(cube_width, cube_height);
+    auto const cube_num_mips = phi::util::get_num_mips(cube_width, cube_height);
 
     filtered_specular_result res;
     res.equirect_tex = load_texture(frame, hdr_equirect_path, phi::format::rgba32f, false);
