@@ -40,7 +40,7 @@ inc::phi_mesh inc::load_mesh(phi::Backend& backend, const char* path, bool binar
             writer.add_command(tcmd);
         }
 
-        upload_buffer = backend.createMappedBuffer(vert_size + ind_size);
+        upload_buffer = backend.createUploadBuffer(vert_size + ind_size);
         std::byte* const upload_mapped = backend.getMappedMemory(upload_buffer);
 
         std::memcpy(upload_mapped, mesh_data.vertices.data(), vert_size);
