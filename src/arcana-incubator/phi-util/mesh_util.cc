@@ -41,7 +41,7 @@ inc::phi_mesh inc::load_mesh(phi::Backend& backend, const char* path, bool binar
         }
 
         upload_buffer = backend.createUploadBuffer(vert_size + ind_size);
-        std::byte* const upload_mapped = backend.getMappedMemory(upload_buffer);
+        std::byte* const upload_mapped = backend.mapBuffer(upload_buffer);
 
         std::memcpy(upload_mapped, mesh_data.vertices.data(), vert_size);
         std::memcpy(upload_mapped + vert_size, mesh_data.indices.data(), ind_size);
@@ -59,7 +59,7 @@ inc::phi_mesh inc::load_mesh(phi::Backend& backend, const char* path, bool binar
 
     auto const setup_cmd_list = backend.recordCommandList(writer.buffer(), writer.size());
 
-    backend.flushMappedMemory(upload_buffer);
+    backend.unmapBuffer(upload_buffer);
     backend.submit(cc::span{setup_cmd_list});
     backend.flushGPU();
     backend.free(upload_buffer);
