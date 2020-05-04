@@ -57,7 +57,6 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, const char* path, bool b
     auto frame_c = ctx.compile(cc::move(frame));
 
     // flush writes, submit, flush queue
-    ctx.flush_buffer_writes(b_upload);
     ctx.submit(cc::move(frame_c));
     ctx.flush();
 
