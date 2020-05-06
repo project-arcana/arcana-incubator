@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <type_traits>
 
 #include <rich-log/log.hh>
 
@@ -8,9 +10,10 @@
 #include <clean-core/function_ptr.hh>
 #include <clean-core/vector.hh>
 
+#include <phantasm-hardware-interface/fwd.hh>
 #include <phantasm-hardware-interface/types.hh>
 
-#include <phantasm-renderer/common/resource_info.hh>
+#include <phantasm-renderer/resource_types.hh>
 
 namespace inc::frag
 {
@@ -21,6 +24,8 @@ using pass_idx = uint32_t;
 inline constexpr pass_idx gc_invalid_pass = uint32_t(-1);
 using virtual_res_idx = uint32_t;
 inline constexpr virtual_res_idx gc_invalid_virtual_res = uint32_t(-1);
+using physical_res_idx = uint32_t;
+inline constexpr physical_res_idx gc_invalid_physical_res = uint32_t(-1);
 
 using write_flags = uint32_t;
 using read_flags = uint32_t;
@@ -36,23 +41,40 @@ struct access_mode
     phi::resource_state required_state = phi::resource_state::undefined;
     phi::shader_stage_flags_t stage_flags = cc::no_flags;
 
+    access_mode() = default;
+    access_mode(phi::resource_state state, phi::shader_stage_flags_t flags = cc::no_flags) : required_state(state), stage_flags(flags) {}
     bool is_set() const { return required_state != phi::resource_state::undefined; }
 };
 
 struct virtual_resource
 {
+    enum e_virtual_type
+    {
+        e_vt_create,
+        e_vt_import_untyped,
+        e_vt_import_buffer,
+        e_vt_import_texture,
+        e_vt_import_render_target
+    };
+
+
     res_guid_t const initial_guid; // unique
-    bool const is_imported;
+    e_virtual_type const type;
+    bool is_culled = true; ///< whether this resource is culled, starts out as true, result is loop-AND over its version structs
+    physical_res_idx associated_physical = gc_invalid_physical_res;
 
     union {
         phi::arg::create_resource_info create_info;
-        phi::handle::resource imported_resource;
+        pr::raw_resource imported_resource;
+        pr::buffer imported_buffer;
+        pr::render_target imported_render_target;
+        pr::texture imported_texture;
     };
 
-    virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid), is_imported(false), create_info(info) {}
+    virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid), type(e_vt_create), create_info(info) {}
 
-    virtual_resource(res_guid_t guid, phi::handle::resource import_resource)
-      : initial_guid(guid), is_imported(true), imported_resource(import_resource)
+    virtual_resource(res_guid_t guid, pr::raw_resource import_resource)
+      : initial_guid(guid), type(e_vt_import_untyped), imported_resource(import_resource)
     {
     }
 };
@@ -70,8 +92,8 @@ struct virtual_resource_version
     virtual_resource_version(virtual_res_idx res, pass_idx producer, int ver) : res_idx(res), producer_pass(producer), version(ver) {}
 };
 
-struct execution_context;
-using pass_execute_func_ptr = cc::function_ptr<void(execution_context&, void*)>;
+class GraphBuilder;
+using pass_execute_func_ptr = cc::function_ptr<void(GraphBuilder&, pass_idx, void*)>;
 
 struct internal_pass
 {
@@ -109,8 +131,8 @@ struct internal_pass
     };
 
     char const* const debug_name;
-    void* const userdata;
-    pass_execute_func_ptr const execute_func;
+    phi::queue_type queue = phi::queue_type::direct;
+    std::function<void(GraphBuilder&)> execute_func;
 
     int num_references = 0;
     bool is_root_pass = false;
@@ -121,17 +143,35 @@ struct internal_pass
     cc::capped_vector<pass_import, 16> imports;
     cc::capped_vector<pass_move, 16> moves;
 
-    internal_pass(char const* name, void* userdata, pass_execute_func_ptr execute_func)
-      : debug_name(name), userdata(userdata), execute_func(execute_func)
-    {
-    }
+    cc::capped_vector<phi::transition_info, 64> transitions_before;
+
+    internal_pass(char const* name) : debug_name(name) {}
 
     bool can_cull() const { return num_references == 0 && !is_root_pass; }
 };
 
 struct physical_resource
 {
-    phi::handle::resource res;
+    pr::raw_resource raw_res;
+    pr::generic_resource_info info;
+
+    [[nodiscard]] pr::buffer as_buffer() const
+    {
+        CC_ASSERT(info.type == pr::generic_resource_info::e_resource_buffer && "created with different type, or imported without info");
+        return {raw_res, info.info_buffer};
+    }
+
+    [[nodiscard]] pr::render_target as_target() const
+    {
+        CC_ASSERT(info.type == pr::generic_resource_info::e_resource_render_target && "created with different type, or imported without info");
+        return {raw_res, info.info_render_target};
+    }
+
+    [[nodiscard]] pr::texture as_texture() const
+    {
+        CC_ASSERT(info.type == pr::generic_resource_info::e_resource_texture && "created with different type, or imported without info");
+        return {raw_res, info.info_texture};
+    }
 };
 
 struct guid_state
@@ -189,106 +229,95 @@ struct guid_state
 class GraphBuilder
 {
 public:
-    pass_idx addPass(pass_execute_func_ptr execfunc, void* userdata = nullptr, char const* debug_name = nullptr)
+    struct setup_context
     {
-        mPasses.emplace_back(debug_name, userdata, execfunc);
-        return pass_idx(mPasses.size() - 1);
-    }
-
-    virtual_resource_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode)
-    {
-        auto const new_idx = addResource(pass_idx, guid, info);
-
-        auto& guidstate = getGuidState(guid);
-        CC_ASSERT(!guidstate.is_valid() && "resource guid was already created, imported, or moved to");
-        guidstate.on_create(new_idx);
-
-        internal_pass& pass = mPasses[pass_idx];
-        pass.creates.push_back({new_idx, mode});
-        ++pass.num_references; // increase refcount for each create
-
-        return guidstate.get_handle();
-    }
-
-    virtual_resource_handle registerImport(pass_idx pass_idx, res_guid_t guid, phi::handle::resource raw_resource, access_mode mode)
-    {
-        auto const new_idx = addResource(pass_idx, guid, raw_resource);
-
-        auto& guidstate = getGuidState(guid);
-        CC_ASSERT(!guidstate.is_valid() && "resource guid was already created, imported or moved to");
-        guidstate.on_create(new_idx);
-
-        internal_pass& pass = mPasses[pass_idx];
-        pass.imports.push_back({new_idx, mode});
-        ++pass.num_references; // increase refcount for each import
-
-        return guidstate.get_handle();
-    }
-
-    virtual_resource_handle registerWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode)
-    {
-        auto& guidstate = getGuidState(guid);
-        CC_ASSERT(guidstate.is_valid() && "writing to resource without prior create");
-
-        internal_pass& pass = mPasses[pass_idx];
-
-        ++pass.num_references; // writes increase refcount for the PASS
-        pass.writes.push_back({guidstate.virtual_res, guidstate.virtual_res_version, mode});
-
-        // writes increase resource version
-        auto const return_handle = guidstate.get_handle_and_bump_version();
-
-        // add the new version marking this pass as its producer
-        addVirtualVersion(guidstate.virtual_res, pass_idx, guidstate.virtual_res_version);
-
-        return return_handle;
-    }
-
-    virtual_resource_handle registerRead(pass_idx pass_idx, res_guid_t guid, access_mode mode)
-    {
-        auto& guidstate = getGuidState(guid);
-        CC_ASSERT(guidstate.is_valid() && "reading from resource without prior create");
-
-        internal_pass& pass = mPasses[pass_idx];
-        pass.reads.push_back({guidstate.virtual_res, guidstate.virtual_res_version, mode});
-
-        virtual_resource_version& resver = getVirtualVersion(guidstate.virtual_res, guidstate.virtual_res_version);
-        ++resver.num_references; // reads increase refcount for the RESOURCE
-
-        return guidstate.get_handle();
-    }
-
-    virtual_resource_handle registerReadWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode)
-    {
-        registerRead(pass_idx, guid, mode);                  // the read takes care of the access_mode
-        return registerWrite(pass_idx, guid, access_mode{}); // the write mode is omitted (null state)
-    }
-
-    virtual_resource_handle registerMove(pass_idx pass_idx, res_guid_t source_guid, res_guid_t dest_guid)
-    {
-        auto const& src_state = getGuidState(source_guid);
-        CC_ASSERT(src_state.is_valid() && "moving from invalid resource");
-        auto const src_idx = src_state.virtual_res;
-
-        // add the move and increase pass references
-        // a move has no effects on refcounts
-        internal_pass& pass = mPasses[pass_idx];
-        pass.moves.push_back({src_state.virtual_res, src_state.virtual_res_version, dest_guid});
-
-        auto& dest_state = getGuidState(dest_guid);
-        if (dest_state.is_valid())
+        virtual_resource_handle create(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
         {
-            // moving into an existing GUID state, the previous virtual resource is no longer accessible via dest_guid
-            dest_state.on_move_modify(src_idx, src_state.virtual_res_version);
-            return dest_state.get_handle();
+            return _parent->registerCreate(_pass, guid, info, mode);
         }
-        else
+
+        virtual_resource_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
         {
-            // moving into a new GUID state, there is no virtual resource being shadowed
-            dest_state.on_move_create(src_idx, src_state.virtual_res_version);
-            return dest_state.get_handle();
+            return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
         }
+
+        virtual_resource_handle read(res_guid_t guid, access_mode mode = {}) { return _parent->registerRead(_pass, guid, mode); }
+        virtual_resource_handle write(res_guid_t guid, access_mode mode = {}) { return _parent->registerWrite(_pass, guid, mode); }
+        virtual_resource_handle readWrite(res_guid_t guid, access_mode mode = {}) { return _parent->registerReadWrite(_pass, guid, mode); }
+        virtual_resource_handle move(res_guid_t src_guid, res_guid_t dest_guid) { return _parent->registerMove(_pass, src_guid, dest_guid); }
+
+        void setRoot() { _parent->makePassRoot(_pass); }
+        void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
+
+        int targetWidth() const { return _backbuf_w; }
+        int targetHeight() const { return _backbuf_h; }
+
+    private:
+        friend class GraphBuilder;
+        setup_context(pass_idx pass, GraphBuilder* parent, int bb_w, int bb_h) : _pass(pass), _parent(parent), _backbuf_w(bb_w), _backbuf_h(bb_h) {}
+        setup_context(setup_context const&) = delete;
+        setup_context(setup_context&&) = delete;
+
+        pass_idx const _pass;
+        GraphBuilder* const _parent;
+        int const _backbuf_w;
+        int const _backbuf_h;
+    };
+
+    struct execute_context
+    {
+        physical_resource const& get(virtual_resource_handle handle) { return _parent->getPhysical(handle, _pass); }
+
+    private:
+        friend class GraphBuilder;
+        execute_context(pass_idx pass, GraphBuilder* parent) : _pass(pass), _parent(parent) {}
+        execute_context(setup_context const&) = delete;
+        execute_context(execute_context&&) = delete;
+
+        pass_idx const _pass;
+        GraphBuilder* const _parent;
+    };
+
+public:
+    GraphBuilder(int backbuffer_width, int backbuffer_height) : mBackbufferWidth(backbuffer_width), mBackbufferHeight(backbuffer_height) {}
+
+
+    template <class PassDataT, class SetupF, class ExecF>
+    pass_idx addPass(char const* debug_name, SetupF&& setup_func, ExecF&& exec_func)
+    {
+        static_assert(std::is_invocable_r_v<void, SetupF, PassDataT&, setup_context&>, "setup function has wrong signature");
+        static_assert(std::is_invocable_r_v<void, ExecF, PassDataT const&, execute_context&>, "exec function has wrong signature");
+
+        // create new pass
+        pass_idx const new_pass_idx = pass_idx(mPasses.size());
+        mPasses.emplace_back(debug_name);
+
+        // immediately execute setup
+        PassDataT pass_data = {};
+        setup_context setup_ctx = {new_pass_idx, this, mBackbufferWidth, mBackbufferHeight};
+        setup_func(pass_data, setup_ctx);
+
+        // capture pass_data per value, move user exec lambda into capture
+        mPasses.back().execute_func = [pass_data, user_func = cc::move(exec_func), new_pass_idx](GraphBuilder& builder) {
+            execute_context exec_ctx = {new_pass_idx, &builder};
+            user_func(pass_data, exec_ctx);
+        };
+
+        return new_pass_idx;
     }
+
+    virtual_resource_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode);
+
+    virtual_resource_handle registerImport(
+        pass_idx pass_idx, res_guid_t guid, pr::raw_resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
+
+    virtual_resource_handle registerWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
+
+    virtual_resource_handle registerRead(pass_idx pass_idx, res_guid_t guid, access_mode mode);
+
+    virtual_resource_handle registerReadWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
+
+    virtual_resource_handle registerMove(pass_idx pass_idx, res_guid_t source_guid, res_guid_t dest_guid);
 
     void makeResourceRoot(res_guid_t resource)
     {
@@ -300,147 +329,77 @@ public:
     }
 
     void makePassRoot(pass_idx pass) { mPasses[pass].is_root_pass = true; }
+    void setPassQueue(pass_idx pass, phi::queue_type type) { mPasses[pass].queue = type; }
 
-    void compile()
+    void cull()
     {
         runFloodfillCulling();
         printState();
     }
 
-private:
-    // reduces ::num_references to zero for all unreferenced passes and resource versions
-    void runFloodfillCulling()
+    template <class F>
+    void realizePhysicalResources(F&& realize_func)
     {
-        cc::vector<unsigned> unreferenced_res_ver_indices;
-        unreferenced_res_ver_indices.reserve(mVirtualResourceVersions.size());
+        static_assert(std::is_invocable_r_v<pr::raw_resource, F, pr::generic_resource_info const&>, "realize_func has wrong signature");
+        CC_ASSERT(mPhysicalResources.empty() && "ran twice");
 
-        for (auto i = 0u; i < mVirtualResourceVersions.size(); ++i)
+        mPhysicalResources.reserve(mVirtualResources.size());
+        for (auto& virt : mVirtualResources)
         {
-            if (mVirtualResourceVersions[i].can_cull())
-                unreferenced_res_ver_indices.push_back(i);
-        }
+            if (virt.is_culled)
+                continue;
 
-        while (!unreferenced_res_ver_indices.empty())
-        {
-            virtual_res_idx const idx = unreferenced_res_ver_indices.back();
-            unreferenced_res_ver_indices.pop_back();
+            // passthrough imported resources or call the realize_func
+            pr::raw_resource const physical = virt.type != virtual_resource::e_vt_create ? virt.imported_resource : realize_func(virt.create_info);
 
-            virtual_resource_version const& resver = mVirtualResourceVersions[idx];
-
-            internal_pass& producer = mPasses[resver.producer_pass];
-            --producer.num_references; // decrement refcount of this resource's producer
-            CC_ASSERT(producer.num_references >= 0 && "programmer error");
-
-            if (producer.can_cull())
-            {
-                // producer culled, decrement refcount of all resources it read
-                for (auto& read : producer.reads)
-                {
-                    unsigned read_resource_version_index;
-                    auto& read_resource_version = getVirtualVersion(read.res, read.version_before, &read_resource_version_index);
-                    --read_resource_version.num_references;
-                    CC_ASSERT(read_resource_version.num_references >= 0 && "programmer error");
-
-                    // resource now unreferenced, add to stack
-                    if (read_resource_version.can_cull())
-                        unreferenced_res_ver_indices.push_back(read_resource_version_index);
-                }
-            }
+            mPhysicalResources.push_back({physical, virt.create_info});
+            virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);
         }
     }
 
-    void printState() const
+    void calculateBarriers();
+
+    void execute()
     {
         for (auto const& pass : mPasses)
         {
             if (pass.can_cull())
                 continue;
 
-            LOG(info)("pass {} ({} refs{})", pass.debug_name, pass.num_references, pass.is_root_pass ? ", root" : "");
-
-            for (auto const& create : pass.creates)
-            {
-                LOG(info)("  <* create {} v0", create.res);
-            }
-            for (auto const& import : pass.imports)
-            {
-                LOG(info)("  <# import {} v0", import.res);
-            }
-            for (auto const& read : pass.reads)
-            {
-                LOG(info)("  -> read {} v{}", read.res, read.version_before);
-            }
-            for (auto const& write : pass.writes)
-            {
-                LOG(info)("  <- write {} v{}", write.res, write.version_before);
-            }
-            for (auto const& move : pass.moves)
-            {
-                LOG(info)("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
-            }
+            pass.execute_func(*this);
         }
+    }
 
-        for (auto const& resver : mVirtualResourceVersions)
-        {
-            if (resver.can_cull())
-                continue;
+    physical_resource const& getPhysical(virtual_resource_handle handle, pass_idx pass) const
+    {
+        // NOTE: we could perform some asserts here with the pass and handle version
+        (void)pass;
 
-            LOG(info)
-            ("resource {} at version {} ({} refs{})", resver.res_idx, resver.version, resver.num_references, resver.is_root_resource ? ", root" : "");
-        }
+        // unneccesary double indirection right now
+        auto const physical_idx = mVirtualResources[handle.resource].associated_physical;
+        CC_ASSERT(physical_idx != gc_invalid_physical_res && "resource was never realized");
+        return mPhysicalResources[physical_idx];
     }
 
 private:
-    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::create_resource_info const& info)
-    {
-        mVirtualResources.emplace_back(guid, info);
-        auto const ret_idx = virtual_res_idx(mVirtualResources.size() - 1);
-        addVirtualVersion(ret_idx, producer, 0);
-        return ret_idx;
-    }
-    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::handle::resource import_resource)
-    {
-        mVirtualResources.emplace_back(guid, import_resource);
-        auto const ret_idx = virtual_res_idx(mVirtualResources.size() - 1);
-        addVirtualVersion(ret_idx, producer, 0);
-        return ret_idx;
-    }
+    // reduces ::num_references to zero for all unreferenced passes and resource versions
+    void runFloodfillCulling();
 
-    void addVirtualVersion(virtual_res_idx resource, pass_idx producer, int version)
-    {
-        mVirtualResourceVersions.emplace_back(resource, producer, version);
-    }
-
-    virtual_resource_version& getVirtualVersion(virtual_res_idx resource, int version, unsigned* out_index = nullptr)
-    {
-        for (auto i = 0u; i < mVirtualResourceVersions.size(); ++i)
-        {
-            auto& virtual_version = mVirtualResourceVersions[i];
-            if (virtual_version.res_idx == resource && virtual_version.version == version)
-            {
-                if (out_index != nullptr)
-                    *out_index = i;
-
-                return virtual_version;
-            }
-        }
-
-        CC_UNREACHABLE("version not found");
-        return mVirtualResourceVersions.back();
-    }
-
-    guid_state& getGuidState(res_guid_t guid)
-    {
-        for (auto& state : mGuidStates)
-        {
-            if (state.guid == guid)
-                return state;
-        }
-
-        return mGuidStates.emplace_back(guid);
-    }
+    void printState() const;
 
 private:
+    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::create_resource_info const& info);
+    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource);
+
+    void addVirtualVersion(virtual_res_idx resource, pass_idx producer, int version);
+
+    virtual_resource_version& getVirtualVersion(virtual_res_idx resource, int version, unsigned* out_index = nullptr);
+
+    guid_state& getGuidState(res_guid_t guid);
+
+private:
+    int mBackbufferWidth;
+    int mBackbufferHeight;
     cc::vector<internal_pass> mPasses;
 
     // virtual resource logic
