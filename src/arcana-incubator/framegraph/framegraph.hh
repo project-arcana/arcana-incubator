@@ -48,33 +48,18 @@ struct access_mode
 
 struct virtual_resource
 {
-    enum e_virtual_type
-    {
-        e_vt_create,
-        e_vt_import_untyped,
-        e_vt_import_buffer,
-        e_vt_import_texture,
-        e_vt_import_render_target
-    };
-
-
     res_guid_t const initial_guid; // unique
-    e_virtual_type const type;
+    bool const is_imported;
     bool is_culled = true; ///< whether this resource is culled, starts out as true, result is loop-AND over its version structs
     physical_res_idx associated_physical = gc_invalid_physical_res;
 
-    union {
-        phi::arg::create_resource_info create_info;
-        pr::raw_resource imported_resource;
-        pr::buffer imported_buffer;
-        pr::render_target imported_render_target;
-        pr::texture imported_texture;
-    };
+    phi::arg::create_resource_info create_info;
+    pr::raw_resource imported_resource;
 
-    virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid), type(e_vt_create), create_info(info) {}
+    virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid), is_imported(false), create_info(info) {}
 
-    virtual_resource(res_guid_t guid, pr::raw_resource import_resource)
-      : initial_guid(guid), type(e_vt_import_untyped), imported_resource(import_resource)
+    virtual_resource(res_guid_t guid, pr::raw_resource import_resource, phi::arg::create_resource_info const& info)
+      : initial_guid(guid), is_imported(true), create_info(info), imported_resource(import_resource)
     {
     }
 };
@@ -350,7 +335,7 @@ public:
                 continue;
 
             // passthrough imported resources or call the realize_func
-            pr::raw_resource const physical = virt.type != virtual_resource::e_vt_create ? virt.imported_resource : realize_func(virt.create_info);
+            pr::raw_resource const physical = virt.is_imported ? virt.imported_resource : realize_func(virt.create_info);
 
             mPhysicalResources.push_back({physical, virt.create_info});
             virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);
@@ -389,7 +374,7 @@ private:
 
 private:
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::create_resource_info const& info);
-    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource);
+    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource, pr::generic_resource_info const& info);
 
     void addVirtualVersion(virtual_res_idx resource, pass_idx producer, int version);
 

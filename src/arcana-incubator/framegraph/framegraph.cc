@@ -29,7 +29,7 @@ inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerImport(inc::
                                                                            inc::frag::access_mode mode,
                                                                            const pr::generic_resource_info& optional_info)
 {
-    auto const new_idx = addResource(pass_idx, guid, raw_resource);
+    auto const new_idx = addResource(pass_idx, guid, raw_resource, optional_info);
 
     auto& guidstate = getGuidState(guid);
     CC_ASSERT(!guidstate.is_valid() && "resource guid was already created, imported or moved to");
@@ -247,9 +247,12 @@ inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_
     return ret_idx;
 }
 
-inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer, inc::frag::res_guid_t guid, pr::raw_resource import_resource)
+inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer,
+                                                                inc::frag::res_guid_t guid,
+                                                                pr::raw_resource import_resource,
+                                                                pr::generic_resource_info const& info)
 {
-    mVirtualResources.emplace_back(guid, import_resource);
+    mVirtualResources.emplace_back(guid, import_resource, info);
     auto const ret_idx = virtual_res_idx(mVirtualResources.size() - 1);
     addVirtualVersion(ret_idx, producer, 0);
     return ret_idx;
