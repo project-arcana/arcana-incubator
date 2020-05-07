@@ -249,7 +249,7 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
             {
                 if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
                 {
-                    LOG(warning)("Imgui reset render state callback not implemented");
+                    LOG_WARN("Imgui reset render state callback not implemented");
                 }
                 else
                 {

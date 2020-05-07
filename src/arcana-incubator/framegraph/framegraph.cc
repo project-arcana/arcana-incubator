@@ -205,27 +205,27 @@ void inc::frag::GraphBuilder::printState() const
         if (pass.can_cull())
             continue;
 
-        LOG(info)("pass {} ({} refs{})", pass.debug_name, pass.num_references, pass.is_root_pass ? ", root" : "");
+        LOG("pass {} ({} refs{})", pass.debug_name, pass.num_references, pass.is_root_pass ? ", root" : "");
 
         for (auto const& create : pass.creates)
         {
-            LOG(info)("  <* create {} v0", create.res);
+            LOG("  <* create {} v0", create.res);
         }
         for (auto const& import : pass.imports)
         {
-            LOG(info)("  <# import {} v0", import.res);
+            LOG("  <# import {} v0", import.res);
         }
         for (auto const& read : pass.reads)
         {
-            LOG(info)("  -> read {} v{}", read.res, read.version_before);
+            LOG("  -> read {} v{}", read.res, read.version_before);
         }
         for (auto const& write : pass.writes)
         {
-            LOG(info)("  <- write {} v{}", write.res, write.version_before);
+            LOG("  <- write {} v{}", write.res, write.version_before);
         }
         for (auto const& move : pass.moves)
         {
-            LOG(info)("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
+            LOG("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
         }
     }
 
@@ -234,8 +234,7 @@ void inc::frag::GraphBuilder::printState() const
         if (resver.can_cull())
             continue;
 
-        LOG(info)
-        ("resource {} at version {} ({} refs{})", resver.res_idx, resver.version, resver.num_references, resver.is_root_resource ? ", root" : "");
+        LOG("resource {} at version {} ({} refs{})", resver.res_idx, resver.version, resver.num_references, resver.is_root_resource ? ", root" : "");
     }
 }
 
