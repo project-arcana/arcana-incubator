@@ -36,8 +36,8 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, const char* path, bool b
     // load data and memcpy to upload buffer
     auto const data = binary ? inc::assets::load_binary_mesh(path) : inc::assets::load_obj_mesh(path);
     auto b_upload = ctx.make_upload_buffer(data.get_vertex_size_bytes() + data.get_index_size_bytes());
-    ctx.write_buffer(b_upload, data.vertices.data(), data.get_vertex_size_bytes());
-    ctx.write_buffer(b_upload, data.indices.data(), data.get_index_size_bytes(), data.get_vertex_size_bytes());
+    ctx.write_to_buffer(b_upload, data.vertices.data(), data.get_vertex_size_bytes());
+    ctx.write_to_buffer(b_upload, data.indices.data(), data.get_index_size_bytes(), data.get_vertex_size_bytes());
 
     // create proper buffers
     pr_mesh res;
