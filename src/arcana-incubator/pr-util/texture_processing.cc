@@ -178,7 +178,7 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
         frame.transition(res.filtered_env, phi::resource_state::unordered_access, phi::shader_stage::compute);
 
         const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
-        for (auto level = 1u, size = 512u; level < cube_num_mips; ++level, size /= 2)
+        for (auto level = 1, size = 512; level < cube_num_mips; ++level, size /= 2)
         {
             auto const num_groups = cc::max<unsigned>(1, size / 32);
             float const spmapRoughness = level * deltaRoughness;
