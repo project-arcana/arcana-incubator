@@ -62,7 +62,7 @@ void inc::da::binding::postPoll()
 
 void inc::da::input_manager::updatePrePoll()
 {
-    for (auto& binding : bindings)
+    for (auto& binding : _bindings)
         binding.prePoll();
 }
 
@@ -76,42 +76,47 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
 
         bool is_press = e.type == SDL_KEYDOWN;
 
-        for (auto const& assoc : keycode_assocs)
+        for (auto const& assoc : _keycode_assocs)
             if (assoc.keycode == e.key.keysym.sym)
-                bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(is_press);
 
-        for (auto const& assoc : scancode_assocs)
+        for (auto const& assoc : _scancode_assocs)
             if (assoc.scancode == e.key.keysym.scancode)
-                bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(is_press);
     }
     else if (e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEBUTTONDOWN)
     {
         bool is_press = e.type == SDL_MOUSEBUTTONDOWN;
 
-        for (auto const& assoc : mousebutton_assocs)
+        for (auto const& assoc : _mousebutton_assocs)
             if (assoc.mouse_button == e.button.button)
-                bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(is_press);
     }
     else if (e.type == SDL_CONTROLLERBUTTONDOWN || e.type == SDL_CONTROLLERBUTTONUP)
     {
         bool is_press = e.type == SDL_CONTROLLERBUTTONDOWN;
-        for (auto const& assoc : joybutton_assocs)
+        for (auto const& assoc : _joybutton_assocs)
             if (assoc.controller_button == e.cbutton.button)
-                bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(is_press);
     }
     else if (e.type == SDL_MOUSEMOTION)
     {
-        for (auto const& assoc : mouseaxis_assocs_x)
-            bindings[assoc.binding_idx].addDelta(float(e.motion.xrel) * assoc.delta_mul);
+        for (auto const& assoc : _mouseaxis_assocs_x)
+            _bindings[assoc.binding_idx].addDelta(float(e.motion.xrel) * assoc.delta_mul);
 
-        for (auto const& assoc : mouseaxis_assocs_y)
-            bindings[assoc.binding_idx].addDelta(float(e.motion.yrel) * assoc.delta_mul);
+        for (auto const& assoc : _mouseaxis_assocs_y)
+            _bindings[assoc.binding_idx].addDelta(float(e.motion.yrel) * assoc.delta_mul);
+    }
+    else if (e.type == SDL_MOUSEWHEEL)
+    {
+        for (auto const& assoc : _mousewheel_assocs)
+            _bindings[assoc.binding_idx].addDelta(float(e.wheel.x * int(assoc.is_vertical) + e.wheel.y * int(!assoc.is_vertical)) * assoc.scale);
     }
     else if (e.type == SDL_CONTROLLERAXISMOTION)
     {
-        for (auto const& assoc : joyaxis_assocs)
+        for (auto const& assoc : _joyaxis_assocs)
             if (assoc.controller_axis == e.caxis.axis)
-                bindings[assoc.binding_idx].addControllerAxisEvent(e.caxis.value, assoc.threshold, assoc.deadzone, assoc.scale, assoc.bias);
+                _bindings[assoc.binding_idx].addControllerAxisEvent(e.caxis.value, assoc.threshold, assoc.deadzone, assoc.scale, assoc.bias);
     }
     else
     {
@@ -123,41 +128,46 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
 
 void inc::da::input_manager::updatePostPoll()
 {
-    for (auto& binding : bindings)
+    for (auto& binding : _bindings)
         binding.postPoll();
 }
 
-void inc::da::input_manager::bindKey(uint64_t id, SDL_Keycode keycode) { keycode_assocs.push_back({keycode, getOrCreateBinding(id)}); }
+void inc::da::input_manager::bindKey(uint64_t id, SDL_Keycode keycode) { _keycode_assocs.push_back({keycode, getOrCreateBinding(id)}); }
 
-void inc::da::input_manager::bindKey(uint64_t id, SDL_Scancode scancode) { scancode_assocs.push_back({scancode, getOrCreateBinding(id)}); }
+void inc::da::input_manager::bindKey(uint64_t id, SDL_Scancode scancode) { _scancode_assocs.push_back({scancode, getOrCreateBinding(id)}); }
 
 void inc::da::input_manager::bindMouseButton(uint64_t id, uint8_t sdl_mouse_button)
 {
-    mousebutton_assocs.push_back({sdl_mouse_button, getOrCreateBinding(id)});
+    _mousebutton_assocs.push_back({sdl_mouse_button, getOrCreateBinding(id)});
 }
 
 void inc::da::input_manager::bindControllerButton(uint64_t id, uint8_t sdl_controller_button)
 {
-    joybutton_assocs.push_back({sdl_controller_button, getOrCreateBinding(id)});
+    _joybutton_assocs.push_back({sdl_controller_button, getOrCreateBinding(id)});
 }
 
 void inc::da::input_manager::bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone, float threshold, float scale, float bias)
 {
-    joyaxis_assocs.push_back({sdl_controller_axis, getOrCreateBinding(id), deadzone, threshold, scale, bias});
+    _joyaxis_assocs.push_back({sdl_controller_axis, getOrCreateBinding(id), deadzone, threshold, scale, bias});
 }
 
 void inc::da::input_manager::bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier) // only emits delta, no activation nor analog
 {
-    cc::vector<mouseaxis_assoc>& dest = index == 0 ? mouseaxis_assocs_x : mouseaxis_assocs_y;
+    cc::vector<mouseaxis_assoc>& dest = index == 0 ? _mouseaxis_assocs_x : _mouseaxis_assocs_y;
     dest.push_back({getOrCreateBinding(id), delta_multiplier});
+}
+
+void inc::da::input_manager::bindMouseWheel(uint64_t id, float scale, bool vertical)
+{
+    _mousewheel_assocs.push_back({getOrCreateBinding(id), scale, vertical});
 }
 
 bool inc::da::input_manager::detectController()
 {
-    if (game_controller != nullptr)
+    if (_game_controller != nullptr)
     {
-        SDL_GameControllerClose(game_controller);
-        game_controller = nullptr;
+        SDL_GameControllerClose(_game_controller);
+        _game_controller = nullptr;
     }
 
     int const num_joysticks = SDL_NumJoysticks();
@@ -165,23 +175,23 @@ bool inc::da::input_manager::detectController()
     {
         if (SDL_IsGameController(i))
         {
-            game_controller = SDL_GameControllerOpen(i);
+            _game_controller = SDL_GameControllerOpen(i);
             break;
         }
     }
 
-    return game_controller != nullptr;
+    return _game_controller != nullptr;
 }
 
 unsigned inc::da::input_manager::getOrCreateBinding(uint64_t id)
 {
-    for (auto i = 0u; i < bindings.size(); ++i)
+    for (auto i = 0u; i < _bindings.size(); ++i)
     {
-        if (bindings[i].id == id)
+        if (_bindings[i].id == id)
             return i;
     }
 
-    CC_ASSERT(bindings.size() != bindings.capacity() && "bindings full");
-    bindings.push_back(binding(id));
-    return unsigned(bindings.size() - 1);
+    CC_ASSERT(_bindings.size() != _bindings.capacity() && "bindings full");
+    _bindings.push_back(binding(id));
+    return unsigned(_bindings.size() - 1);
 }
