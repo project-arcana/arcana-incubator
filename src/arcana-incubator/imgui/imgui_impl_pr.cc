@@ -93,8 +93,9 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
 
         mGlobalResources.font_tex_sv = mBackend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
 
-        auto const upbuff = mBackend->createUploadBuffer(
-            inc::get_mipmap_upload_size(format::rgba8un, assets::image_size{static_cast<unsigned>(width), static_cast<unsigned>(height), 1, 1}, true));
+        auto const upbuff = mBackend->createBuffer(
+            inc::get_mipmap_upload_size(format::rgba8un, assets::image_size{static_cast<unsigned>(width), static_cast<unsigned>(height), 1, 1}, true),
+            0, resource_heap::upload, false);
 
 
         {
@@ -104,15 +105,15 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
             mCmdWriter.add_command(tcmd);
 
             mCmdWriter.accomodate_t<cmd::copy_buffer_to_texture>();
-            inc::copy_data_to_texture(mCmdWriter.raw_writer(), upbuff, mBackend->getMappedMemory(upbuff), mGlobalResources.font_tex, format::rgba8un,
-                                      width, height, cc::bit_cast<std::byte const*>(pixels), d3d12_alignment);
+            inc::copy_data_to_texture(mCmdWriter.raw_writer(), upbuff, mBackend->mapBuffer(upbuff), mGlobalResources.font_tex, format::rgba8un, width,
+                                      height, cc::bit_cast<std::byte const*>(pixels), d3d12_alignment);
 
             cmd::transition_resources tcmd2;
             tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_stage::pixel);
             mCmdWriter.add_command(tcmd2);
 
             auto const cmdl = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
-            mBackend->flushMappedMemory(upbuff);
+            mBackend->unmapBuffer(upbuff);
             mBackend->submit(cc::span{cmdl});
         }
         mBackend->flushGPU();
@@ -122,7 +123,6 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
     }
 
     mGlobalResources.const_buffer = mBackend->createUploadBuffer(sizeof(float[4][4]));
-    mGlobalResources.const_buffer_map = mBackend->getMappedMemory(mGlobalResources.const_buffer);
 
     // per frame res
     CC_RUNTIME_ASSERT(num_frames_in_flight <= mPerFrameResources.max_size() && "too many in-flight frames");
@@ -190,8 +190,8 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
 
     // upload vertices and indices
     {
-        auto* const vertex_map = mBackend->getMappedMemory(frame_res.vertex_buf);
-        auto* const index_map = mBackend->getMappedMemory(frame_res.index_buf);
+        auto* const vertex_map = mBackend->mapBuffer(frame_res.vertex_buf);
+        auto* const index_map = mBackend->mapBuffer(frame_res.index_buf);
 
         ImDrawVert* vtx_dst = (ImDrawVert*)vertex_map;
         ImDrawIdx* idx_dst = (ImDrawIdx*)index_map;
@@ -206,8 +206,8 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
             idx_dst += cmd_list->IdxBuffer.Size;
         }
 
-        mBackend->flushMappedMemory(frame_res.vertex_buf);
-        mBackend->flushMappedMemory(frame_res.index_buf);
+        mBackend->unmapBuffer(frame_res.vertex_buf);
+        mBackend->unmapBuffer(frame_res.index_buf);
     }
 
     // upload VP matrix
@@ -222,9 +222,10 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
             {0.0f, 0.0f, 0.5f, 0.0f},
             {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
         };
-        std::memcpy(mGlobalResources.const_buffer_map, mvp, sizeof(mvp));
 
-        mBackend->flushMappedMemory(mGlobalResources.const_buffer);
+        auto* const const_buffer_map = mBackend->mapBuffer(mGlobalResources.const_buffer);
+        std::memcpy(const_buffer_map, mvp, sizeof(mvp));
+        mBackend->unmapBuffer(mGlobalResources.const_buffer);
     }
 
     auto global_vtx_offset = 0;
@@ -248,7 +249,7 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
             {
                 if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
                 {
-                    LOG(warning)("Imgui reset render state callback not implemented");
+                    LOG_WARN("Imgui reset render state callback not implemented");
                 }
                 else
                 {

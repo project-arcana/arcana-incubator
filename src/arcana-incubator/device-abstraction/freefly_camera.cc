@@ -94,8 +94,8 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
     input.bindControllerAxis(ge_input_right, SDL_CONTROLLER_AXIS_LEFTX, 0.2f);
     input.bindControllerAxis(ge_input_down, SDL_CONTROLLER_AXIS_TRIGGERLEFT, 0.1f, 0.5f, 0.5f, 0.5f);
     input.bindControllerAxis(ge_input_up, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 0.1f, 0.5f, 0.5f, 0.5f);
-    input.bindControllerAxis(ge_input_camlook_x_analog, SDL_CONTROLLER_AXIS_RIGHTX);
-    input.bindControllerAxis(ge_input_camlook_y_analog, SDL_CONTROLLER_AXIS_RIGHTY);
+    input.bindControllerAxis(ge_input_camlook_x_analog, SDL_CONTROLLER_AXIS_RIGHTX, 0.25f);
+    input.bindControllerAxis(ge_input_camlook_y_analog, SDL_CONTROLLER_AXIS_RIGHTY, 0.25f);
 
     input.bindControllerButton(ge_input_speedup, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
     input.bindControllerButton(ge_input_slowdown, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);

@@ -146,14 +146,14 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
         cmd_writer.add_command(transition_cmd);
     }
 
-    inc::copy_data_to_texture(cmd_writer, upbuff_handle, backend->getMappedMemory(upbuff_handle), res_handle, format, img_size.width, img_size.height,
+    inc::copy_data_to_texture(cmd_writer, upbuff_handle, backend->mapBuffer(upbuff_handle), res_handle, format, img_size.width, img_size.height,
                               static_cast<std::byte const*>(img_data.raw), align_mip_rows);
 
     if (include_mipmaps)
         generate_mips(res_handle, img_size, apply_gamma, format);
 
     // make writes to the upload buffer visible
-    backend->flushMappedMemory(upbuff_handle);
+    backend->unmapBuffer(upbuff_handle);
 
     cmd_writer.add_command(cmd::debug_marker{"load_texture end"});
 

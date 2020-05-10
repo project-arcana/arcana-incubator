@@ -46,7 +46,6 @@ private:
         phi::handle::shader_view font_tex_sv;
 
         phi::handle::resource const_buffer;
-        std::byte* const_buffer_map;
     } mGlobalResources;
 
     growing_writer mCmdWriter;
