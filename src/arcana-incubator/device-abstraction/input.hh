@@ -56,7 +56,7 @@ struct input_manager
 {
     void initialize(unsigned max_num_bindings = 256)
     {
-        bindings.reserve(max_num_bindings);
+        _bindings.reserve(max_num_bindings);
         detectController();
     }
 
@@ -80,11 +80,12 @@ struct input_manager
 
     void bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.15f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f);
     void bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier = 1.f);
+    void bindMouseWheel(uint64_t id, float scale = 1.f, bool vertical = false);
 
     //
     // polling
 
-    binding const& get(uint64_t id) { return bindings[getOrCreateBinding(id)]; }
+    binding const& get(uint64_t id) { return _bindings[getOrCreateBinding(id)]; }
 
     // returns index into bindings member
     unsigned getOrCreateBinding(uint64_t id);
@@ -130,16 +131,24 @@ private:
         float delta_mul;
     };
 
-    cc::vector<binding> bindings; // never resizes
-    cc::vector<keycode_assoc> keycode_assocs;
-    cc::vector<scancode_assoc> scancode_assocs;
-    cc::vector<mousebutton_assoc> mousebutton_assocs;
-    cc::vector<joybutton_assoc> joybutton_assocs;
-    cc::vector<joyaxis_assoc> joyaxis_assocs;
+    struct mousewheel_assoc
+    {
+        unsigned binding_idx;
+        float scale;
+        bool is_vertical;
+    };
 
-    cc::vector<mouseaxis_assoc> mouseaxis_assocs_x;
-    cc::vector<mouseaxis_assoc> mouseaxis_assocs_y;
+    cc::vector<binding> _bindings; // never resizes
+    cc::vector<keycode_assoc> _keycode_assocs;
+    cc::vector<scancode_assoc> _scancode_assocs;
+    cc::vector<mousebutton_assoc> _mousebutton_assocs;
+    cc::vector<joybutton_assoc> _joybutton_assocs;
+    cc::vector<joyaxis_assoc> _joyaxis_assocs;
 
-    SDL_GameController* game_controller = nullptr;
+    cc::vector<mouseaxis_assoc> _mouseaxis_assocs_x;
+    cc::vector<mouseaxis_assoc> _mouseaxis_assocs_y;
+    cc::vector<mousewheel_assoc> _mousewheel_assocs;
+
+    SDL_GameController* _game_controller = nullptr;
 };
 }
