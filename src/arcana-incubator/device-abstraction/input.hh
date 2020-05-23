@@ -78,7 +78,7 @@ struct input_manager
     void bindMouseButton(uint64_t id, uint8_t sdl_mouse_button);
     void bindControllerButton(uint64_t id, uint8_t sdl_controller_button);
 
-    void bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.15f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f);
+    void bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f);
     void bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier = 1.f);
     void bindMouseWheel(uint64_t id, float scale = 1.f, bool vertical = false);
 

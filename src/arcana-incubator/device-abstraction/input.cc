@@ -29,16 +29,20 @@ void inc::da::binding::addKeyEvent(bool is_press)
 void inc::da::binding::addControllerAxisEvent(Sint16 value, float threshold, float deadzone, float scale, float bias)
 {
     // always overrides activation
-    activation = (float(value) / 32767);
-    if (std::abs(activation) <= deadzone)
+
+    float const abs_scaled_value = std::abs(float(value) / 32767);
+    if (abs_scaled_value <= deadzone)
     {
         // snap to zero
         activation = 0.f;
     }
     else
     {
-        // apply scale and bias
-        activation = activation * scale + bias;
+        // rescale to be in [-1, 0] / [0,1] outside of deadzone
+        float const remapped_value = ((abs_scaled_value - deadzone) / (1.f - deadzone)) * (value < 0 ? -1 : 1);
+
+        // apply custom scale and bias
+        activation = remapped_value * scale + bias;
     }
 
     if (std::abs(activation) >= threshold)
@@ -148,6 +152,8 @@ void inc::da::input_manager::bindControllerButton(uint64_t id, uint8_t sdl_contr
 
 void inc::da::input_manager::bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone, float threshold, float scale, float bias)
 {
+    // NOTE: the default deadzone argument, 0.2395f, is XInput's recommended deadzone (= 7849 / 32767)
+    CC_ASSERT(deadzone < 1.f && deadzone >= 0.f && "invalid deadzone");
     _joyaxis_assocs.push_back({sdl_controller_axis, getOrCreateBinding(id), deadzone, threshold, scale, bias});
 }
 
