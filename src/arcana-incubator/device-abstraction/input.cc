@@ -30,6 +30,9 @@ void inc::da::binding::addControllerAxisEvent(Sint16 value, float threshold, flo
 {
     // always overrides activation
 
+    // NOTE: this deadzone handling is pretty poor
+    // see: http://blog.hypersect.com/interpreting-analog-sticks/
+    // to fix it someday
     float const abs_scaled_value = std::abs(float(value) / 32767);
     if (abs_scaled_value <= deadzone)
     {
