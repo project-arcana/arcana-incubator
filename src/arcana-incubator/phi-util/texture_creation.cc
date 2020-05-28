@@ -138,7 +138,7 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     auto const upbuff_handle = backend->createUploadBuffer(inc::get_mipmap_upload_size(format, img_size, true));
     resources_to_free.push_back(upbuff_handle);
 
-    cmd_writer.add_command(cmd::debug_marker{"load_texture"});
+    cmd_writer.add_command(cmd::begin_debug_label{"load_texture"});
 
     {
         cmd::transition_resources transition_cmd;
@@ -155,13 +155,15 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     // make writes to the upload buffer visible
     backend->unmapBuffer(upbuff_handle);
 
-    cmd_writer.add_command(cmd::debug_marker{"load_texture end"});
+    cmd_writer.add_command(cmd::end_debug_label{});
 
     return res_handle;
 }
 
 handle::resource inc::texture_creator::load_filtered_specular_map(const char* hdr_equirect_path)
 {
+    cmd_writer.add_command(cmd::begin_debug_label{"load_filtered_specular_map"});
+
     constexpr auto cube_width = 1024u;
     constexpr auto cube_height = 1024u;
     auto const cube_num_mips = phi::util::get_num_mips(cube_width, cube_height);
@@ -192,8 +194,6 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
             shader_views_to_free.push_back(sv);
         }
 
-        cmd_writer.add_command(cmd::debug_marker{"equirect to cubemap start"});
-
         // pre transition
         {
             cmd::transition_resources tcmd;
@@ -209,8 +209,6 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
             dcmd.add_shader_arg(handle::null_resource, 0, sv);
             cmd_writer.add_command(dcmd);
         }
-
-        cmd_writer.add_command(cmd::debug_marker{"equirect to cubemap end"});
     }
 
     // generate mipmaps for the unfiltered envmap
@@ -219,7 +217,6 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
 
     // generate pre-filtered specular cubemap
     {
-        cmd_writer.add_command(cmd::debug_marker{"specular cubemap pre-filter start"});
         // pre transition
         {
             cmd::transition_resources tcmd;
@@ -273,9 +270,9 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
                 cmd_writer.add_command(dcmd);
             }
         }
-
-        cmd_writer.add_command(cmd::debug_marker{"specular cubemap pre-filter end"});
     }
+
+    cmd_writer.add_command(cmd::end_debug_label{});
 
     return filtered_env_handle;
 }
@@ -288,7 +285,7 @@ handle::resource inc::texture_creator::create_diffuse_irradiance_map(handle::res
 
     auto const irradiance_map_handle = backend->createTexture(gc_ibl_cubemap_format, {cube_width, cube_height}, 1, texture_dimension::t2d, 6, true);
 
-    cmd_writer.add_command(cmd::debug_marker{"diffuse irradiance start"});
+    cmd_writer.add_command(cmd::begin_debug_label{"create_diffuse_irradiance_map"});
     // prepare for UAV
     {
         cmd::transition_resources tcmd;
@@ -317,7 +314,7 @@ handle::resource inc::texture_creator::create_diffuse_irradiance_map(handle::res
         cmd_writer.add_command(dcmd);
     }
 
-    cmd_writer.add_command(cmd::debug_marker{"diffuse irradiance end"});
+    cmd_writer.add_command(cmd::end_debug_label{});
 
     return irradiance_map_handle;
 }
@@ -328,7 +325,7 @@ handle::resource inc::texture_creator::create_brdf_lut(int width_height)
 
     auto const brdf_lut_handle = backend->createTexture(format::rg16f, {width_height, width_height}, 1, texture_dimension::t2d, 1, true);
 
-    cmd_writer.add_command(cmd::debug_marker{"brdf lut start"});
+    cmd_writer.add_command(cmd::begin_debug_label{"create_brdf_lut"});
     // prepare for UAV
     {
         cmd::transition_resources tcmd;
@@ -350,7 +347,7 @@ handle::resource inc::texture_creator::create_brdf_lut(int width_height)
         cmd_writer.add_command(dcmd);
     }
 
-    cmd_writer.add_command(cmd::debug_marker{"brdf lut end"});
+    cmd_writer.add_command(cmd::end_debug_label{});
 
 
     return brdf_lut_handle;
