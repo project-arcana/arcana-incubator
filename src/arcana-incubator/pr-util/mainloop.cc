@@ -3,6 +3,7 @@
 #include <phantasm-renderer/Frame.hh>
 
 #include <arcana-incubator/imgui/imgui_impl_sdl2.hh>
+#include <arcana-incubator/imgui/imguizmo/imguizmo.hh>
 
 void inc::pre::quick_app::perform_default_imgui(float dt) const
 {
@@ -59,8 +60,14 @@ bool inc::pre::quick_app::_on_frame_start()
     if (window.clearPendingResize())
         context.on_window_resize(window.getSize());
 
+    // imgui new frame
     ImGui_ImplSDL2_NewFrame(window.getSdlWindow());
     ImGui::NewFrame();
+
+    // imguizmo new frame
+    ImGuizmo::BeginFrame();
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
 
     return true;
 }
