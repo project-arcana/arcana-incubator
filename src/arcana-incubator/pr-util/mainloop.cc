@@ -5,6 +5,8 @@
 #include <arcana-incubator/imgui/imgui_impl_sdl2.hh>
 #include <arcana-incubator/imgui/imguizmo/imguizmo.hh>
 
+#include <phantasm-hardware-interface/config.hh>
+
 void inc::pre::quick_app::perform_default_imgui(float dt) const
 {
     ImGui::Begin("quick_app default window", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
@@ -34,6 +36,7 @@ void inc::pre::quick_app::_init()
     // core
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
+
     context.initialize({window.getSdlWindow()}, pr::backend::vulkan);
 
     // input + camera
