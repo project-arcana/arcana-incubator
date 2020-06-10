@@ -1,7 +1,30 @@
 #include "timestamp_bundle.hh"
 
+#include <algorithm>
+
 #include <phantasm-renderer/Context.hh>
 #include <phantasm-renderer/Frame.hh>
+
+
+void inc::pre::timing_metric::init(unsigned ring_size)
+{
+    cpu_times = cpu_times.filled(ring_size, 0.f);
+    gpu_times = gpu_times.filled(ring_size, 0.f);
+}
+
+void inc::pre::timing_metric::on_frame(float cpu_time, float gpu_time)
+{
+    cpu_times[index] = cpu_time;
+    gpu_times[index] = gpu_time;
+    index = cc::wrapped_increment(index, unsigned(cpu_times.size()));
+
+    max_cpu = *std::max_element(cpu_times.begin(), cpu_times.end());
+    min_cpu = *std::min_element(cpu_times.begin(), cpu_times.end());
+
+    max_gpu = *std::max_element(gpu_times.begin(), gpu_times.end());
+    min_gpu = *std::min_element(gpu_times.begin(), gpu_times.end());
+}
+
 
 void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timers)
 {

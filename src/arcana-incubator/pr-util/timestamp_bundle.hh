@@ -8,6 +8,21 @@
 
 namespace inc::pre
 {
+struct timing_metric
+{
+    void init(unsigned ring_size);
+
+    void on_frame(float cpu_time, float gpu_time);
+
+    cc::array<float> cpu_times;
+    cc::array<float> gpu_times;
+    float min_gpu = 0.f;
+    float max_gpu = 0.f;
+    float min_cpu = 0.f;
+    float max_cpu = 0.f;
+    unsigned index = 0;
+};
+
 struct timestamp_bundle
 {
     void initialize(pr::Context& ctx, unsigned num_timers);

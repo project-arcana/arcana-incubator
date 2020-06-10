@@ -37,7 +37,9 @@ void inc::pre::quick_app::_init()
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
 
-    context.initialize({window.getSdlWindow()}, pr::backend::vulkan);
+    phi::backend_config conf;
+    conf.validation = phi::validation_level::off;
+    context.initialize({window.getSdlWindow()}, pr::backend::d3d12, conf);
 
     // input + camera
     input.initialize();
