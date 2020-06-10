@@ -39,7 +39,7 @@ void inc::pre::quick_app::_init()
 
     phi::backend_config conf;
     conf.validation = phi::validation_level::off;
-    context.initialize({window.getSdlWindow()}, pr::backend::d3d12, conf);
+    context.initialize({window.getSdlWindow()}, pr::backend::vulkan, conf);
 
     // input + camera
     input.initialize();
