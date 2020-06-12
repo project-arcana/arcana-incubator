@@ -153,15 +153,15 @@ void inc::ImGuiPhantasmImpl::initialize_with_contained_shaders(phi::Backend* bac
                              float4 main_ps(PS_INPUT input) : SV_TARGET
                              { float4 res = input.col * g_texture.Sample(g_sampler, input.uv); return res; })";
 
-    auto const output = backend->getBackendType() == phi::backend_type::d3d12 ? phi::sc::output::dxil : phi::sc::output::spirv;
+    auto const output = backend->getBackendType() == phi::backend_type::d3d12 ? dxcw::output::dxil : dxcw::output::spirv;
 
-    phi::sc::compiler comp;
+    dxcw::compiler comp;
     comp.initialize();
-    auto const vs = comp.compile_binary(imgui_code, "main_vs", phi::sc::target::vertex, output);
-    auto const ps = comp.compile_binary(imgui_code, "main_ps", phi::sc::target::pixel, output);
+    auto const vs = comp.compile_binary(imgui_code, "main_vs", dxcw::target::vertex, output);
+    auto const ps = comp.compile_binary(imgui_code, "main_ps", dxcw::target::pixel, output);
     initialize(backend, ps.data, ps.size, vs.data, vs.size);
-    phi::sc::destroy_blob(vs.internal_blob);
-    phi::sc::destroy_blob(ps.internal_blob);
+    dxcw::destroy_blob(vs.internal_blob);
+    dxcw::destroy_blob(ps.internal_blob);
     comp.destroy();
 }
 
