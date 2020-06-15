@@ -31,15 +31,15 @@ void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_
     frame.end_debug_label();
 }
 
-void inc::pre::quick_app::_init()
+void inc::pre::quick_app::_init(pr::backend backend, bool validate)
 {
     // core
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
 
     phi::backend_config conf;
-    conf.validation = phi::validation_level::off;
-    context.initialize({window.getSdlWindow()}, pr::backend::vulkan, conf);
+    conf.validation = validate ? phi::validation_level::on_extended : phi::validation_level::off;
+    context.initialize({window.getSdlWindow()}, backend, conf);
 
     // input + camera
     input.initialize();
