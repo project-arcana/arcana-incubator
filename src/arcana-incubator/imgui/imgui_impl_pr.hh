@@ -16,7 +16,10 @@ class ImGuiPhantasmImpl
 public:
     ImGuiPhantasmImpl() : mCmdWriter(1024 * 10) {}
 
-    void initialize(phi::Backend* backend, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size);
+    void initialize(phi::Backend* backend, const std::byte *ps_data, size_t ps_size, std::byte const* vs_data, size_t vs_size);
+
+    /// initializes using live-compiled included shaders
+    void initialize_with_contained_shaders(phi::Backend* backend);
 
     void destroy();
 

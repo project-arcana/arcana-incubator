@@ -16,11 +16,11 @@ void shutdown();
 class SDLWindow
 {
 public:
-    void initialize(char const* title, int width = 850, int height = 550, bool enable_vk = true);
+    void initialize(char const* title, int width = 1600, int height = 900, bool enable_vk = true);
     void destroy();
 
     SDLWindow() = default;
-    SDLWindow(char const* title, int width = 850, int height = 550, bool enable_vk = true) { initialize(title, width, height, enable_vk); }
+    SDLWindow(char const* title, int width = 1600, int height = 900, bool enable_vk = true) { initialize(title, width, height, enable_vk); }
     SDLWindow(SDLWindow const&) = delete;
     SDLWindow(SDLWindow&&) noexcept = delete;
     SDLWindow& operator=(SDLWindow const&) = delete;

@@ -7,7 +7,10 @@
 #include <phantasm-hardware-interface/Backend.hh>
 #include <phantasm-hardware-interface/commands.hh>
 
+#include <dxc-wrapper/compiler.hh>
+
 #include <arcana-incubator/phi-util/texture_util.hh>
+
 
 namespace
 {
@@ -27,7 +30,7 @@ namespace
 }
 }
 
-void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src, size_t ps_size, std::byte* vs_src, size_t vs_size)
+void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* ps_data, size_t ps_size, std::byte const* vs_data, size_t vs_size)
 {
     using namespace phi;
     mBackend = backend;
@@ -67,8 +70,8 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
         shader_shape.num_samplers = 1;
 
         cc::capped_vector<arg::graphics_shader, 2> shader_stages;
-        shader_stages.push_back(arg::graphics_shader{{vs_src, vs_size}, shader_stage::vertex});
-        shader_stages.push_back(arg::graphics_shader{{ps_src, ps_size}, shader_stage::pixel});
+        shader_stages.push_back(arg::graphics_shader{{vs_data, vs_size}, shader_stage::vertex});
+        shader_stages.push_back(arg::graphics_shader{{ps_data, ps_size}, shader_stage::pixel});
 
         phi::pipeline_config config;
         config.depth = phi::depth_function::none;
@@ -129,6 +132,37 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte* ps_src
     mPerFrameResources.emplace(num_frames_in_flight);
 
     mBackend->flushGPU();
+}
+
+void inc::ImGuiPhantasmImpl::initialize_with_contained_shaders(phi::Backend* backend)
+{
+    char const* imgui_code = R"(
+                             cbuffer vertexBuffer:register(b0, space0){ float4x4 proj;};
+                             struct VS_INPUT { float2 pos : POSITION; float2 uv : TEXCOORD0; float4 col : COLOR0; };
+                             struct PS_INPUT { float4 pos : SV_POSITION; float4 col : COLOR0; float2 uv : TEXCOORD0; };
+                             struct vert_globals { float4x4 proj; };
+                             ConstantBuffer<vert_globals> g_vert_globals : register(b0, space0);
+                             SamplerState g_sampler : register(s0, space0);
+                             Texture2D g_texture : register(t0, space0);
+                             PS_INPUT main_vs(VS_INPUT input)
+                             {
+                                 PS_INPUT output;
+                                 output.pos = mul(g_vert_globals.proj, float4(input.pos.xy, 0.f, 1.f));
+                                 output.col = input.col; output.uv = input.uv; return output;
+                             }
+                             float4 main_ps(PS_INPUT input) : SV_TARGET
+                             { float4 res = input.col * g_texture.Sample(g_sampler, input.uv); return res; })";
+
+    auto const output = backend->getBackendType() == phi::backend_type::d3d12 ? dxcw::output::dxil : dxcw::output::spirv;
+
+    dxcw::compiler comp;
+    comp.initialize();
+    auto const vs = comp.compile_binary(imgui_code, "main_vs", dxcw::target::vertex, output);
+    auto const ps = comp.compile_binary(imgui_code, "main_ps", dxcw::target::pixel, output);
+    initialize(backend, ps.data, ps.size, vs.data, vs.size);
+    dxcw::destroy_blob(vs.internal_blob);
+    dxcw::destroy_blob(ps.internal_blob);
+    comp.destroy();
 }
 
 void inc::ImGuiPhantasmImpl::destroy()

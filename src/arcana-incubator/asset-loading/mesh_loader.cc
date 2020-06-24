@@ -73,7 +73,7 @@ void calculate_tangents(inc::assets::simple_mesh_data& mesh)
         auto const& b = intermediate_bitangents[i];
         auto const& n = vert.normal;
 
-        auto const xyz = tg::normalize(reject(t, n));
+        auto const xyz = tg::normalize_safe(reject(t, n));
         vert.tangent = tg::vec4(xyz, tg::dot(tg::cross(t, b), n) > 0.f ? 1.f : -1.f);
     }
 }
