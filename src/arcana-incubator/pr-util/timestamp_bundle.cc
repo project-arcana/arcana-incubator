@@ -38,6 +38,8 @@ void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timer
     readback_buffers = readback_buffers.defaulted(num_backbuffers);
     last_timings = cc::array<double>::filled(num_timers, 0.f);
     readback_memory = cc::array<uint64_t>::filled(num_timers * 2, 0);
+    timing_usage_flags = cc::array<bool>::uninitialized(num_timers);
+    std::memset(timing_usage_flags.data(), 0, timing_usage_flags.size_bytes());
 
     unsigned const buffer_size = sizeof(uint64_t) * 2 * num_timers;
     for (auto& buf : readback_buffers)
@@ -49,6 +51,7 @@ void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timer
 void inc::pre::timestamp_bundle::begin_timing(pr::raii::Frame& frame, unsigned idx)
 {
     frame.write_timestamp(query_range, frame_index * num_timings * 2 + idx * 2);
+    timing_usage_flags[idx] = true;
 }
 
 void inc::pre::timestamp_bundle::end_timing(pr::raii::Frame& frame, unsigned idx)
@@ -59,7 +62,34 @@ void inc::pre::timestamp_bundle::end_timing(pr::raii::Frame& frame, unsigned idx
 void inc::pre::timestamp_bundle::finalize_frame(pr::raii::Frame& frame)
 {
     // resolve queries from current frame
-    frame.resolve_queries(query_range, readback_buffers[frame_index], frame_index * num_timings * 2, num_timings * 2);
+    auto const base_index = frame_index * num_timings * 2;
+    pr::buffer const& readback_target = readback_buffers[frame_index];
+
+    unsigned num_contiguous_used = 0;
+    for (auto i = 0u; i < num_timings; ++i)
+    {
+        if (timing_usage_flags[i] == false)
+        {
+            if (num_contiguous_used > 0)
+            {
+                auto const first_query = i - num_contiguous_used;
+                frame.resolve_queries(query_range, readback_target, base_index + 2 * first_query, num_contiguous_used * 2, first_query * 2 * sizeof(uint64_t));
+            }
+
+            num_contiguous_used = 0;
+        }
+        else
+        {
+            ++num_contiguous_used;
+        }
+    }
+
+    if (num_contiguous_used > 0)
+    {
+        auto const first_query = num_timings - num_contiguous_used;
+        frame.resolve_queries(query_range, readback_target, base_index + 2 * first_query, num_contiguous_used * 2, first_query * 2 * sizeof(uint64_t));
+    }
+
 
     // map and copy the queries from _next_ frame (which was recorded the longest ago)
     frame.context().read_from_buffer(readback_buffers[cc::wrapped_increment(frame_index, unsigned(readback_buffers.size()))], readback_memory);
@@ -70,4 +100,5 @@ void inc::pre::timestamp_bundle::finalize_frame(pr::raii::Frame& frame)
     }
 
     frame_index = cc::wrapped_increment(frame_index, unsigned(readback_buffers.size()));
+    std::memset(timing_usage_flags.data(), 0, timing_usage_flags.size_bytes());
 }

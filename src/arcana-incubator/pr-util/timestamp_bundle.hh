@@ -48,6 +48,7 @@ struct timestamp_bundle
     pr::auto_query_range query_range;
     cc::capped_array<pr::auto_buffer, 5> readback_buffers;
 
+    cc::array<bool> timing_usage_flags;
     cc::array<double> last_timings;
     cc::array<uint64_t> readback_memory;
 };
