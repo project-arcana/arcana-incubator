@@ -27,8 +27,11 @@ struct timestamp_bundle
 {
     void initialize(pr::Context& ctx, unsigned num_timers);
 
+    // threadsafe but must not interleave with finalize_frame
     void begin_timing(pr::raii::Frame& frame, unsigned idx);
-    void end_timing(pr::raii::Frame& frame, unsigned idx);
+
+    // fully threadsafe
+    void end_timing(pr::raii::Frame& frame, unsigned idx) const;
 
     auto scoped_timing(pr::raii::Frame& frame, unsigned idx)
     {

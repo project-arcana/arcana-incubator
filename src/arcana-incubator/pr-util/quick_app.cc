@@ -1,4 +1,4 @@
-#include "mainloop.hh"
+#include "quick_app.hh"
 
 #include <phantasm-renderer/Frame.hh>
 

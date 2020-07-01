@@ -50,12 +50,14 @@ void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timer
 
 void inc::pre::timestamp_bundle::begin_timing(pr::raii::Frame& frame, unsigned idx)
 {
+    CC_CONTRACT(idx < num_timings);
     frame.write_timestamp(query_range, frame_index * num_timings * 2 + idx * 2);
     timing_usage_flags[idx] = true;
 }
 
-void inc::pre::timestamp_bundle::end_timing(pr::raii::Frame& frame, unsigned idx)
+void inc::pre::timestamp_bundle::end_timing(pr::raii::Frame& frame, unsigned idx) const
 {
+    CC_CONTRACT(idx < num_timings);
     frame.write_timestamp(query_range, frame_index * num_timings * 2 + idx * 2 + 1);
 }
 
