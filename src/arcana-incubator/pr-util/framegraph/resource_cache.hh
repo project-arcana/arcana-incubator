@@ -59,9 +59,16 @@ public:
 class GraphCache
 {
 public:
-    GraphCache(pr::Context* backend) : _backend(backend) { _cache.reserve(512); }
+    GraphCache() = default;
+    GraphCache(pr::Context* backend) { init(backend); }
     GraphCache(GraphCache const&) = delete;
     GraphCache(GraphCache&&) noexcept = default;
+
+    void init(pr::Context* backend)
+    {
+        _backend = backend;
+        _cache.reserve(512);
+    }
 
     void onNewFrame() { _cache.on_new_frame(); }
 

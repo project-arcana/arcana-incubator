@@ -279,15 +279,14 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
 }
 
 
-inc::frag::GraphBuilder::GraphBuilder(pr::Context& ctx, unsigned max_num_passes)
+void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_passes)
 {
     setBackbufferSize(ctx.get_backbuffer_size());
     mTiming.initialize(ctx, max_num_passes);
-
     mPasses.reserve(max_num_passes);
 }
 
-void inc::frag::GraphBuilder::compile(inc::frag::GraphCache &cache)
+void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache)
 {
     runFloodfillCulling();
     realizePhysicalResources(cache);

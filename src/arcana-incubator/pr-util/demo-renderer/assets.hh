@@ -52,8 +52,8 @@ private:
         pr::auto_prebuilt_argument sv;
     };
 
-    phi::detail::linked_pool<material_node, unsigned> _materials;
-    phi::detail::linked_pool<inc::pre::pr_mesh, unsigned> _meshes;
+    phi::detail::linked_pool<material_node> _materials;
+    phi::detail::linked_pool<inc::pre::pr_mesh> _meshes;
 };
 
 }
