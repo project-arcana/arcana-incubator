@@ -4,12 +4,19 @@
 
 #include <phantasm-hardware-interface/Backend.hh>
 
+#include <phantasm-renderer/Context.hh>
+#include <phantasm-renderer/Frame.hh>
+
+#include <arcana-incubator/imgui/lib/imgui.hh>
+
+#include "resource_cache.hh"
 
 inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_idx pass_idx,
                                                                            inc::frag::res_guid_t guid,
                                                                            const phi::arg::create_resource_info& info,
                                                                            inc::frag::access_mode mode)
 {
+    CC_CONTRACT(info.type != phi::arg::create_resource_info::e_resource_undefined);
     auto const new_idx = addResource(pass_idx, guid, info);
 
     auto& guidstate = getGuidState(guid);
@@ -84,7 +91,7 @@ inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerReadWrite(in
 
 inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerMove(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t source_guid, inc::frag::res_guid_t dest_guid)
 {
-    auto const& src_state = getGuidState(source_guid);
+    auto const src_state = getGuidState(source_guid); // copy! a ref would stay alive beyond the next getGuidState, invalidating it
     CC_ASSERT(src_state.is_valid() && "moving from invalid resource");
     auto const src_idx = src_state.virtual_res;
 
@@ -105,6 +112,24 @@ inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerMove(inc::fr
         // moving into a new GUID state, there is no virtual resource being shadowed
         dest_state.on_move_create(src_idx, src_state.virtual_res_version);
         return dest_state.get_handle();
+    }
+}
+
+void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& cache)
+{
+    CC_ASSERT(mPhysicalResources.empty() && "ran twice");
+
+    mPhysicalResources.reserve(mVirtualResources.size());
+    for (auto& virt : mVirtualResources)
+    {
+        if (virt.is_culled)
+            continue;
+
+        // passthrough imported resources or call the realize_func
+        pr::raw_resource const physical = virt.is_imported ? virt.imported_resource : cache.get(virt.create_info);
+
+        mPhysicalResources.push_back({physical, virt.create_info.get()});
+        virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);
     }
 }
 
@@ -146,6 +171,62 @@ void inc::frag::GraphBuilder::calculateBarriers()
         for (auto const& create : pass.creates)
             f_add_barrier(create.res, create.mode);
     }
+}
+
+void inc::frag::GraphBuilder::startTiming(inc::frag::pass_idx pass, pr::raii::Frame* frame) { mTiming.begin_timing(*frame, pass); }
+
+void inc::frag::GraphBuilder::endTiming(inc::frag::pass_idx pass, pr::raii::Frame* frame) { mTiming.end_timing(*frame, pass); }
+
+void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame)
+{
+    for (auto const& pass : mPasses)
+    {
+        if (pass.can_cull())
+            continue;
+
+        for (auto const& transition_pre : pass.transitions_before)
+            frame->transition(transition_pre.resource, transition_pre.target_state, transition_pre.dependent_shaders);
+
+        pass.execute_func(this, frame);
+    }
+
+    mTiming.finalize_frame(*frame);
+}
+
+void inc::frag::GraphBuilder::reset()
+{
+    mPasses.clear();
+    mGuidStates.clear();
+    mVirtualResources.clear();
+    mVirtualResourceVersions.clear();
+    mPhysicalResources.clear();
+}
+
+void inc::frag::GraphBuilder::performInfoImgui() const
+{
+    ImGui::Begin("Framegraph passes");
+
+    ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
+
+    ImGui::Separator();
+
+    unsigned num_culled = 0;
+    for (pass_idx i = 0; i < mPasses.size(); ++i)
+    {
+        auto const& pass = mPasses[i];
+        if (pass.can_cull())
+        {
+            ++num_culled;
+            continue;
+        }
+
+        ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_root_pass ? '>' : ':', pass.debug_name, int(pass.writes.size()),
+                    int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
+    }
+
+    ImGui::Separator();
+    ImGui::Text("%u culled", num_culled);
+    ImGui::End();
 }
 
 void inc::frag::GraphBuilder::runFloodfillCulling()
@@ -198,6 +279,20 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
 }
 
 
+void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_passes)
+{
+    setBackbufferSize(ctx.get_backbuffer_size());
+    mTiming.initialize(ctx, max_num_passes);
+    mPasses.reserve(max_num_passes);
+}
+
+void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache)
+{
+    runFloodfillCulling();
+    realizePhysicalResources(cache);
+    calculateBarriers();
+}
+
 void inc::frag::GraphBuilder::printState() const
 {
     for (auto const& pass : mPasses)
@@ -227,6 +322,11 @@ void inc::frag::GraphBuilder::printState() const
         {
             LOG("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
         }
+    }
+
+    for (auto const& guidstate : mGuidStates)
+    {
+        LOG("guid {}, state {}, virtual res {}, v{}", guidstate.guid, guidstate.state, guidstate.virtual_res, guidstate.virtual_res_version);
     }
 
     for (auto const& resver : mVirtualResourceVersions)
@@ -280,7 +380,7 @@ inc::frag::virtual_resource_version& inc::frag::GraphBuilder::getVirtualVersion(
     return mVirtualResourceVersions.back();
 }
 
-inc::frag::guid_state& inc::frag::GraphBuilder::getGuidState(inc::frag::res_guid_t guid)
+inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::frag::res_guid_t guid)
 {
     for (auto& state : mGuidStates)
     {
@@ -289,4 +389,55 @@ inc::frag::guid_state& inc::frag::GraphBuilder::getGuidState(inc::frag::res_guid
     }
 
     return mGuidStates.emplace_back(guid);
+}
+
+void inc::frag::virtual_resource::_copy_info(const phi::arg::create_resource_info& info)
+{
+    // this little game is required to maintain the hashable_storage
+    create_info.get().type = info.type;
+
+    switch (info.type)
+    {
+    case phi::arg::create_resource_info::e_resource_render_target:
+        create_info.get().info_render_target = info.info_render_target;
+        break;
+    case phi::arg::create_resource_info::e_resource_texture:
+        create_info.get().info_texture = info.info_texture;
+        break;
+    case phi::arg::create_resource_info::e_resource_buffer:
+        create_info.get().info_buffer = info.info_buffer;
+        break;
+    case phi::arg::create_resource_info::e_resource_undefined:
+        break;
+    }
+}
+
+void inc::frag::GraphBuilder::guid_state::on_create(inc::frag::virtual_res_idx new_res)
+{
+    CC_ASSERT(!is_valid());
+    state = state_valid_created;
+    virtual_res = new_res;
+}
+
+void inc::frag::GraphBuilder::guid_state::on_move_create(inc::frag::virtual_res_idx new_res, int new_version)
+{
+    CC_ASSERT(!is_valid());
+    state = state_valid_move_created;
+    virtual_res = new_res;
+    virtual_res_version = new_version;
+}
+
+void inc::frag::GraphBuilder::guid_state::on_move_modify(inc::frag::virtual_res_idx new_res, int new_version)
+{
+    CC_ASSERT(is_valid());
+    state = state_valid_moved_to;
+    virtual_res = new_res;
+    virtual_res_version = new_version;
+}
+
+inc::frag::virtual_resource_handle inc::frag::GraphBuilder::guid_state::get_handle_and_bump_version()
+{
+    auto const res = get_handle();
+    ++virtual_res_version;
+    return res;
 }
