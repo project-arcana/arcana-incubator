@@ -21,6 +21,10 @@ struct camera_gpudata
     tg::mat4 prev_clean_vp_inv; ///< inverse of unjittered (proj * view) from previous frame
 
     void fill_data(tg::isize2 res, tg::pos3 campos, tg::vec3 camforward, unsigned halton_index);
+
+    // utility
+    tg::pos3 extract_campos() const { return tg::pos3(view_inv[3]); }
+    tg::ray3 calculate_view_ray(tg::vec2 normalized_mouse_pos) const;
 };
 
 struct frame_index_state

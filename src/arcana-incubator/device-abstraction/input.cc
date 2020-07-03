@@ -139,21 +139,24 @@ void inc::da::input_manager::updatePostPoll()
         binding.postPoll();
 }
 
-void inc::da::input_manager::bindKey(uint64_t id, SDL_Keycode keycode) { _keycode_assocs.push_back({keycode, getOrCreateBinding(id)}); }
+void inc::da::input_manager::bindKeyRawKeycode(uint64_t id, SDL_Keycode keycode) { _keycode_assocs.push_back({keycode, getOrCreateBinding(id)}); }
 
-void inc::da::input_manager::bindKey(uint64_t id, SDL_Scancode scancode) { _scancode_assocs.push_back({scancode, getOrCreateBinding(id)}); }
+void inc::da::input_manager::bindKeyRawScancode(uint64_t id, SDL_Scancode scancode)
+{
+    _scancode_assocs.push_back({scancode, getOrCreateBinding(id)});
+}
 
-void inc::da::input_manager::bindMouseButton(uint64_t id, uint8_t sdl_mouse_button)
+void inc::da::input_manager::bindMouseButtonRaw(uint64_t id, uint8_t sdl_mouse_button)
 {
     _mousebutton_assocs.push_back({sdl_mouse_button, getOrCreateBinding(id)});
 }
 
-void inc::da::input_manager::bindControllerButton(uint64_t id, uint8_t sdl_controller_button)
+void inc::da::input_manager::bindControllerButtonRaw(uint64_t id, uint8_t sdl_controller_button)
 {
     _joybutton_assocs.push_back({sdl_controller_button, getOrCreateBinding(id)});
 }
 
-void inc::da::input_manager::bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone, float threshold, float scale, float bias)
+void inc::da::input_manager::bindControllerAxisRaw(uint64_t id, uint8_t sdl_controller_axis, float deadzone, float threshold, float scale, float bias)
 {
     // NOTE: the default deadzone argument, 0.2395f, is XInput's recommended deadzone (= 7849 / 32767)
     CC_ASSERT(deadzone < 1.f && deadzone >= 0.f && "invalid deadzone");

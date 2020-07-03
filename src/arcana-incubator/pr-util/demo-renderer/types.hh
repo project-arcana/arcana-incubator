@@ -4,20 +4,16 @@
 
 #include <typed-geometry/tg-lean.hh>
 
+#include <phantasm-hardware-interface/handles.hh>
+
 namespace inc::pre::dmr
 {
-// handles
 namespace handle
 {
-struct material
-{
-    uint32_t idx = uint32_t(-1);
-};
-struct mesh
-{
-    uint32_t idx = uint32_t(-1);
-};
+PHI_DEFINE_HANDLE(mesh);
+PHI_DEFINE_HANDLE(material);
 }
+
 struct instance_cpu
 {
     handle::mesh mesh;

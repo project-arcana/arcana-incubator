@@ -10,7 +10,7 @@ namespace
 {
 enum e_input : uint64_t
 {
-    ge_input_forward,
+    ge_input_forward = 100'000'000,
     ge_input_left,
     ge_input_back,
     ge_input_right,
@@ -51,25 +51,6 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
     forward = tg::vec3(cal * caz, sal, cal * saz);
 }
 
-tg::quat inc::da::fps_cam_state::forward_to_rotation(tg::vec3 forward, tg::vec3 up)
-{
-    auto const fwd = -tg::normalize(forward);
-    tg::vec3 rightVector = tg::normalize(tg::cross(fwd, up));
-    tg::vec3 upVector = tg::cross(rightVector, fwd);
-
-    tg::mat3 rotMatrix;
-    rotMatrix[0][0] = rightVector.x;
-    rotMatrix[0][1] = upVector.x;
-    rotMatrix[0][2] = -fwd.x;
-    rotMatrix[1][0] = rightVector.y;
-    rotMatrix[1][1] = upVector.y;
-    rotMatrix[1][2] = -fwd.y;
-    rotMatrix[2][0] = rightVector.z;
-    rotMatrix[2][1] = upVector.z;
-    rotMatrix[2][2] = -fwd.z;
-    return tg::quat::from_rotation_matrix(rotMatrix);
-}
-
 void inc::da::smooth_fps_cam::interpolate_to_target(float dt)
 {
     auto const alpha_rotation = tg::min(1.f, exponential_decay_alpha(sensitivity_rotation, dt));
@@ -81,27 +62,27 @@ void inc::da::smooth_fps_cam::interpolate_to_target(float dt)
 
 void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input)
 {
-    input.bindKey(ge_input_forward, SDL_SCANCODE_W);
-    input.bindKey(ge_input_left, SDL_SCANCODE_A);
-    input.bindKey(ge_input_back, SDL_SCANCODE_S);
-    input.bindKey(ge_input_right, SDL_SCANCODE_D);
-    input.bindKey(ge_input_up, SDL_SCANCODE_E);
-    input.bindKey(ge_input_down, SDL_SCANCODE_Q);
-    input.bindKey(ge_input_speedup, SDL_SCANCODE_LSHIFT);
-    input.bindKey(ge_input_slowdown, SDL_SCANCODE_LCTRL);
+    input.bindKey(ge_input_forward, inc::da::scancode::sc_W);
+    input.bindKey(ge_input_left, inc::da::scancode::sc_A);
+    input.bindKey(ge_input_back, inc::da::scancode::sc_S);
+    input.bindKey(ge_input_right, inc::da::scancode::sc_D);
+    input.bindKey(ge_input_up, inc::da::scancode::sc_E);
+    input.bindKey(ge_input_down, inc::da::scancode::sc_Q);
+    input.bindKey(ge_input_speedup, inc::da::scancode::sc_LSHIFT);
+    input.bindKey(ge_input_slowdown, inc::da::scancode::sc_LCTRL);
 
-    input.bindControllerAxis(ge_input_back, SDL_CONTROLLER_AXIS_LEFTY);
-    input.bindControllerAxis(ge_input_right, SDL_CONTROLLER_AXIS_LEFTX);
-    input.bindControllerAxis(ge_input_down, SDL_CONTROLLER_AXIS_TRIGGERLEFT, 0.239f, 0.5f, 0.5f, 0.5f);
-    input.bindControllerAxis(ge_input_up, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 0.239f, 0.5f, 0.5f, 0.5f);
-    input.bindControllerAxis(ge_input_camlook_x_analog, SDL_CONTROLLER_AXIS_RIGHTX);
-    input.bindControllerAxis(ge_input_camlook_y_analog, SDL_CONTROLLER_AXIS_RIGHTY);
+    input.bindControllerAxis(ge_input_back, inc::da::controller_axis::ca_LEFTY);
+    input.bindControllerAxis(ge_input_right, inc::da::controller_axis::ca_LEFTX);
+    input.bindControllerAxis(ge_input_down, inc::da::controller_axis::ca_TRIGGERLEFT, 0.239f, 0.5f, 0.5f, 0.5f);
+    input.bindControllerAxis(ge_input_up, inc::da::controller_axis::ca_TRIGGERRIGHT, 0.239f, 0.5f, 0.5f, 0.5f);
+    input.bindControllerAxis(ge_input_camlook_x_analog, inc::da::controller_axis::ca_RIGHTX);
+    input.bindControllerAxis(ge_input_camlook_y_analog, inc::da::controller_axis::ca_RIGHTY);
 
-    input.bindControllerButton(ge_input_speedup, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-    input.bindControllerButton(ge_input_slowdown, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-    input.bindControllerButton(ge_input_camlook_active, SDL_CONTROLLER_BUTTON_B);
+    input.bindControllerButton(ge_input_speedup, inc::da::controller_button::cb_RIGHTSHOULDER);
+    input.bindControllerButton(ge_input_slowdown, inc::da::controller_button::cb_LEFTSHOULDER);
+    input.bindControllerButton(ge_input_camlook_active, inc::da::controller_button::cb_B);
 
-    input.bindMouseButton(ge_input_camlook_active, SDL_BUTTON_RIGHT);
+    input.bindMouseButton(ge_input_camlook_active, inc::da::mouse_button::mb_right);
     input.bindMouseAxis(ge_input_camlook_x, 0, -.65f);
     input.bindMouseAxis(ge_input_camlook_y, 1, -.65f);
 }
@@ -153,4 +134,23 @@ void inc::da::smooth_fps_cam::update_default_inputs(SDL_Window* window, inc::da:
     target.mouselook(mouse_delta.x, mouse_delta.y);
 
     interpolate_to_target(dt);
+}
+
+tg::quat inc::da::forward_to_rotation(tg::vec3 forward, tg::vec3 up)
+{
+    auto const fwd = -tg::normalize(forward);
+    tg::vec3 rightVector = tg::normalize(tg::cross(fwd, up));
+    tg::vec3 upVector = tg::cross(rightVector, fwd);
+
+    tg::mat3 rotMatrix;
+    rotMatrix[0][0] = rightVector.x;
+    rotMatrix[0][1] = upVector.x;
+    rotMatrix[0][2] = -fwd.x;
+    rotMatrix[1][0] = rightVector.y;
+    rotMatrix[1][1] = upVector.y;
+    rotMatrix[1][2] = -fwd.y;
+    rotMatrix[2][0] = rightVector.z;
+    rotMatrix[2][1] = upVector.z;
+    rotMatrix[2][2] = -fwd.z;
+    return tg::quat::from_rotation_matrix(rotMatrix);
 }
