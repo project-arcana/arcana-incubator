@@ -16,16 +16,16 @@ struct texture_processing;
 
 namespace inc::pre::dmr
 {
-struct asset_pack
+struct AssetPack
 {
 public:
-    asset_pack() = default;
-    explicit asset_pack(unsigned max_num_meshes, unsigned max_num_materials) { initialize(max_num_meshes, max_num_materials); }
+    AssetPack() = default;
+    explicit AssetPack(unsigned max_num_meshes, unsigned max_num_materials) { initialize(max_num_meshes, max_num_materials); }
 
-    asset_pack(asset_pack const&) = delete;
-    asset_pack(asset_pack&&) = delete;
+    AssetPack(AssetPack const&) = delete;
+    AssetPack(AssetPack&&) = delete;
 
-    ~asset_pack() { destroy(); }
+    ~AssetPack() { destroy(); }
 
     void initialize(unsigned max_num_meshes = 100, unsigned max_num_materials = 100)
     {

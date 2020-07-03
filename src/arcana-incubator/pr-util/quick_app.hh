@@ -27,15 +27,22 @@ struct quick_app
 
     ImGuiPhantasmImpl imgui;
 
-    explicit quick_app(pr::backend backend_type, phi::backend_config const& config = {}) { _init(backend_type, config); }
-    ~quick_app() { _destroy(); }
+    quick_app() = default;
+    explicit quick_app(pr::backend backend_type, phi::backend_config const& config = {}) { initialize(backend_type, config); }
     quick_app(quick_app const&) = delete;
     quick_app(quick_app&&) = delete;
+
+    ~quick_app() { destroy(); }
+
+    void initialize(pr::backend backend_type = pr::backend::vulkan, phi::backend_config const& config = {});
+
+    void destroy();
 
     /// canonical main loop with a provided lambda
     template <class F>
     void main_loop(F&& func)
     {
+        CC_ASSERT(context.is_initialized() && "uninitialized");
         timer.restart();
         while (!window.isRequestingClose())
         {
@@ -59,12 +66,8 @@ struct quick_app
     void render_imgui(pr::raii::Frame& frame, pr::render_target const& backbuffer);
 
 private:
-    void _init(pr::backend backend_type, phi::backend_config const& config);
-
     /// perform start-of-frame event handling, called in main_loop
     bool _on_frame_start();
-
-    void _destroy();
 };
 
 }

@@ -31,7 +31,7 @@ void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_
     frame.end_debug_label();
 }
 
-void inc::pre::quick_app::_init(pr::backend backend_type, const phi::backend_config &config)
+void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backend_config& config)
 {
     // core
     da::initialize(); // SDL Init
@@ -75,14 +75,17 @@ bool inc::pre::quick_app::_on_frame_start()
     return true;
 }
 
-void inc::pre::quick_app::_destroy()
+void inc::pre::quick_app::destroy()
 {
-    context.flush();
+    if (context.is_initialized())
+    {
+        context.flush();
 
-    imgui.destroy();
-    ImGui_ImplSDL2_Shutdown();
+        imgui.destroy();
+        ImGui_ImplSDL2_Shutdown();
 
-    context.destroy();
-    window.destroy();
-    da::shutdown();
+        context.destroy();
+        window.destroy();
+        da::shutdown();
+    }
 }
