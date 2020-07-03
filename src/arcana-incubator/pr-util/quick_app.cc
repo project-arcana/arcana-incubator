@@ -31,15 +31,13 @@ void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_
     frame.end_debug_label();
 }
 
-void inc::pre::quick_app::_init(pr::backend backend, bool validate)
+void inc::pre::quick_app::_init(pr::backend backend_type, const phi::backend_config &config)
 {
     // core
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
 
-    phi::backend_config conf;
-    conf.validation = validate ? phi::validation_level::on_extended : phi::validation_level::off;
-    context.initialize({window.getSdlWindow()}, backend, conf);
+    context.initialize({window.getSdlWindow()}, backend_type, config);
 
     // input + camera
     input.initialize();

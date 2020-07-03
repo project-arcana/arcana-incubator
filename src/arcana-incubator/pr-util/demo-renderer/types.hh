@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <typed-geometry/tg-lean.hh>
 
 namespace inc::pre::dmr
@@ -9,14 +11,14 @@ namespace handle
 {
 struct material
 {
-    unsigned idx = unsigned(-1);
+    uint32_t idx = uint32_t(-1);
 };
 struct mesh
 {
-    unsigned idx = unsigned(-1);
+    uint32_t idx = uint32_t(-1);
 };
 }
-struct instance
+struct instance_cpu
 {
     handle::mesh mesh;
     handle::material mat;

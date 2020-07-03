@@ -1,5 +1,7 @@
 #pragma once
 
+#include <phantasm-hardware-interface/config.hh>
+
 #include <phantasm-renderer/Context.hh>
 
 #include <arcana-incubator/device-abstraction/device_abstraction.hh>
@@ -25,7 +27,7 @@ struct quick_app
 
     ImGuiPhantasmImpl imgui;
 
-    quick_app(pr::backend backend = pr::backend::vulkan, bool validate = true) { _init(backend, validate); }
+    explicit quick_app(pr::backend backend_type, phi::backend_config const& config = {}) { _init(backend_type, config); }
     ~quick_app() { _destroy(); }
     quick_app(quick_app const&) = delete;
     quick_app(quick_app&&) = delete;
@@ -57,7 +59,7 @@ struct quick_app
     void render_imgui(pr::raii::Frame& frame, pr::render_target const& backbuffer);
 
 private:
-    void _init(pr::backend backend, bool validate);
+    void _init(pr::backend backend_type, phi::backend_config const& config);
 
     /// perform start-of-frame event handling, called in main_loop
     bool _on_frame_start();

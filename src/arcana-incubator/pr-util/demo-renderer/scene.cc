@@ -37,9 +37,6 @@ void inc::pre::dmr::scene::init(pr::Context& ctx, unsigned max_num_instances)
 {
     num_backbuffers = ctx.get_num_backbuffers();
 
-    instances.reserve(max_num_instances);
-    instance_transforms.reserve(max_num_instances);
-
     per_frame_resources.emplace(num_backbuffers);
     for (auto& per_frame : per_frame_resources)
     {
@@ -57,10 +54,10 @@ void inc::pre::dmr::scene::on_next_frame()
     is_history_a = !is_history_a;
 }
 
-void inc::pre::dmr::scene::upload_current_frame(pr::Context& ctx)
+void inc::pre::dmr::scene::upload_current_frame(pr::Context& ctx, cc::span<instance_gpudata const> instances)
 {
     auto& frame = current_frame();
 
     ctx.write_to_buffer(frame.cb_camdata, camdata);
-    ctx.write_to_buffer(frame.sb_modeldata, instance_transforms);
+    ctx.write_to_buffer(frame.sb_modeldata, instances);
 }

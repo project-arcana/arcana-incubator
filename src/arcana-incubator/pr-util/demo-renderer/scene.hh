@@ -31,11 +31,6 @@ struct scene_gpudata
 struct scene
 {
     //
-    // parallel instance arrays
-    cc::vector<instance> instances;
-    cc::vector<instance_gpudata> instance_transforms;
-
-    //
     // global data
     tg::isize2 resolution;
     unsigned halton_index = 0;
@@ -62,13 +57,7 @@ struct scene
 
     void on_next_frame();
 
-    void upload_current_frame(pr::Context& ctx);
-
-    void addInstance(handle::mesh mesh, handle::material mat, tg::mat4 transform)
-    {
-        instances.push_back({mesh, mat});
-        instance_transforms.push_back({transform});
-    }
+    void upload_current_frame(pr::Context& ctx, cc::span<instance_gpudata const> instances);
 };
 
 }
