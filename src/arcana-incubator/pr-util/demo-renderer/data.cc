@@ -1,4 +1,4 @@
-#include "global_gpu_buffers.hh"
+#include "data.hh"
 
 #include <typed-geometry/tg.hh>
 
