@@ -71,15 +71,15 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
     input.bindKey(ge_input_speedup, inc::da::scancode::sc_LSHIFT);
     input.bindKey(ge_input_slowdown, inc::da::scancode::sc_LCTRL);
 
-    input.bindControllerAxis(ge_input_back, inc::da::controller_axis::ca_LEFTY);
-    input.bindControllerAxis(ge_input_right, inc::da::controller_axis::ca_LEFTX);
-    input.bindControllerAxis(ge_input_down, inc::da::controller_axis::ca_TRIGGERLEFT, 0.239f, 0.5f, 0.5f, 0.5f);
-    input.bindControllerAxis(ge_input_up, inc::da::controller_axis::ca_TRIGGERRIGHT, 0.239f, 0.5f, 0.5f, 0.5f);
-    input.bindControllerAxis(ge_input_camlook_x_analog, inc::da::controller_axis::ca_RIGHTX);
-    input.bindControllerAxis(ge_input_camlook_y_analog, inc::da::controller_axis::ca_RIGHTY);
+    input.bindControllerAxis(ge_input_back, inc::da::controller_axis::ca_left_y);
+    input.bindControllerAxis(ge_input_right, inc::da::controller_axis::ca_left_x);
+    input.bindControllerAxis(ge_input_down, inc::da::controller_axis::ca_left_trigger, 0.239f, 0.5f, 0.5f, 0.5f);
+    input.bindControllerAxis(ge_input_up, inc::da::controller_axis::ca_right_trigger, 0.239f, 0.5f, 0.5f, 0.5f);
+    input.bindControllerAxis(ge_input_camlook_x_analog, inc::da::controller_axis::ca_right_x);
+    input.bindControllerAxis(ge_input_camlook_y_analog, inc::da::controller_axis::ca_right_y);
 
-    input.bindControllerButton(ge_input_speedup, inc::da::controller_button::cb_RIGHTSHOULDER);
-    input.bindControllerButton(ge_input_slowdown, inc::da::controller_button::cb_LEFTSHOULDER);
+    input.bindControllerButton(ge_input_speedup, inc::da::controller_button::cb_right_shoulder);
+    input.bindControllerButton(ge_input_slowdown, inc::da::controller_button::cb_left_shoulder);
     input.bindControllerButton(ge_input_camlook_active, inc::da::controller_button::cb_B);
 
     input.bindMouseButton(ge_input_camlook_active, inc::da::mouse_button::mb_right);

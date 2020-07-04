@@ -6,7 +6,7 @@ namespace inc::da
 {
 // NOTE: these translate exactly to SDL_Scancode and SDL_Keycode,
 // the only purpose of this is an enum class and typesafety
-// every single scancode and keycovde value is static_asserted in this file's TU
+// every single scancode and keycovde value is static_asserted in this file's TU, do not rename them
 
 enum class scancode : int
 {
@@ -573,15 +573,17 @@ enum class keycode : int
 
 #undef DA_SCANCODE_TO_KEYCODE
 
+// NOTE: While these can be renamed, their values must still match
+// DO NOT change / reorder
+
 enum class controller_axis : int
 {
-    ca_LEFTX = 0,
-    ca_LEFTY,
-    ca_RIGHTX,
-    ca_RIGHTY,
-    ca_TRIGGERLEFT,
-    ca_TRIGGERRIGHT,
-    ca_MAX,
+    ca_left_x = 0,
+    ca_left_y,
+    ca_right_x,
+    ca_right_y,
+    ca_left_trigger,
+    ca_right_trigger
 };
 
 enum class controller_button : int
@@ -590,26 +592,25 @@ enum class controller_button : int
     cb_B,
     cb_X,
     cb_Y,
-    cb_BACK,
-    cb_GUIDE,
-    cb_START,
-    cb_LEFTSTICK,
-    cb_RIGHTSTICK,
-    cb_LEFTSHOULDER,
-    cb_RIGHTSHOULDER,
-    cb_DPAD_UP,
-    cb_DPAD_DOWN,
-    cb_DPAD_LEFT,
-    cb_DPAD_RIGHT,
-    cb_MAX
+    cb_back,
+    cb_guide,
+    cb_start,
+    cb_left_stick,
+    cb_right_stick,
+    cb_left_shoulder,
+    cb_right_shoulder,
+    cb_dpad_up,
+    cb_dpad_down,
+    cb_dpad_left,
+    cb_dpad_right
 };
 
-enum class mouse_button : uint8_t
+enum class mouse_button : int
 {
     mb_left = 1,
     mb_middle,
     mb_right,
-    mb_5,
-    mb_4
+    mb_4,
+    mb_5
 };
 }

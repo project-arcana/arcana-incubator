@@ -20,11 +20,13 @@ struct camera_gpudata
     tg::mat4 prev_clean_vp;     ///< unjittered (proj * view) from previous frame
     tg::mat4 prev_clean_vp_inv; ///< inverse of unjittered (proj * view) from previous frame
 
-    void fill_data(tg::isize2 res, tg::pos3 campos, tg::vec3 camforward, unsigned halton_index);
+    void fill_data(tg::isize2 res, tg::pos3 campos, tg::vec3 camforward, unsigned halton_index, tg::angle fov = 60_deg, float nearplane = 0.1f);
 
-    // utility
+    /// returns the camera position, reading it out of the inverse view matrix
     tg::pos3 extract_campos() const { return tg::pos3(view_inv[3]); }
-    tg::ray3 calculate_view_ray(tg::vec2 normalized_mouse_pos) const;
+
+    /// calculates a view ray based on the mouse position, normalized (in [0,1])
+    tg::ray3 calculate_view_ray(tg::vec2 mousepos_normalized) const;
 };
 
 struct frame_index_state

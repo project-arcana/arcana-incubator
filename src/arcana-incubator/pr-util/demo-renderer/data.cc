@@ -4,9 +4,9 @@
 
 #include <arcana-incubator/device-abstraction/freefly_camera.hh>
 
-void inc::pre::dmr::camera_gpudata::fill_data(tg::isize2 res, tg::pos3 campos, tg::vec3 camforward, unsigned halton_index)
+void inc::pre::dmr::camera_gpudata::fill_data(tg::isize2 res, tg::pos3 campos, tg::vec3 camforward, unsigned halton_index, tg::angle fov, float nearplane)
 {
-    auto const clean_proj = tg::perspective_reverse_z_directx(60_deg, res.width / float(res.height), 0.1f);
+    auto const clean_proj = tg::perspective_reverse_z_directx(fov, res.width / float(res.height), nearplane);
 
     auto const jitter_x = (inc::da::halton_sequence(halton_index, 2) - 0.5f) / float(res.width);
     auto const jitter_y = (inc::da::halton_sequence(halton_index, 3) - 0.5f) / float(res.height);
@@ -29,22 +29,16 @@ void inc::pre::dmr::camera_gpudata::fill_data(tg::isize2 res, tg::pos3 campos, t
     clean_vp_inv = tg::inverse(clean_vp);
 }
 
-tg::ray3 inc::pre::dmr::camera_gpudata::calculate_view_ray(tg::vec2 normalized_mouse_pos) const
+tg::ray3 inc::pre::dmr::camera_gpudata::calculate_view_ray(tg::vec2 mousepos_norm) const
 {
-    CC_ASSERT(0.f <= normalized_mouse_pos.x && normalized_mouse_pos.x <= 1.f && "mouse pos not normalized");
-    CC_ASSERT(0.f <= normalized_mouse_pos.y && normalized_mouse_pos.y <= 1.f && "mouse pos not normalized");
+    auto hdc_far = tg::vec4{tg::clamp(mousepos_norm.x, 0, 1) * +2.f - 1.f, // x
+                            tg::clamp(mousepos_norm.y, 0, 1) * -2.f + 1.f, // y
+                            0.1f,                                          // z - far but not 0
+                            1};
+    hdc_far = vp_inv * hdc_far;
+    hdc_far /= hdc_far.w;
 
-    tg::vec3 ps[2];
-    auto i = 0;
-    for (auto d : {0.5f, -0.5f})
-    {
-        tg::vec4 v{normalized_mouse_pos.x * 2.f - 1.f, 1 - normalized_mouse_pos.y * 2.f, d * 2.f - 1.f, 1.f};
-
-        v = this->proj_inv * v;
-        v /= v.w;
-        v = this->view_inv * v;
-        ps[i++] = tg::vec3(v);
-    }
-
-    return tg::ray3{extract_campos(), tg::normalize(ps[0] - ps[1])};
+    auto const world_far = tg::pos3(hdc_far);
+    auto const campos = extract_campos();
+    return tg::ray3{campos, tg::normalize(world_far - campos)};
 }
