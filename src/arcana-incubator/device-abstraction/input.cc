@@ -174,6 +174,13 @@ void inc::da::input_manager::bindMouseWheel(uint64_t id, float scale, bool verti
     _mousewheel_assocs.push_back({getOrCreateBinding(id), scale, vertical});
 }
 
+tg::ivec2 inc::da::input_manager::getMousePositionRelative() const
+{
+    tg::ivec2 res;
+    SDL_GetMouseState(&res.x, &res.y);
+    return res;
+}
+
 bool inc::da::input_manager::detectController()
 {
     if (_game_controller != nullptr)
