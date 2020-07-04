@@ -65,6 +65,10 @@ struct quick_app
     /// use to render imgui, given a frame and an already acquired backbuffer
     void render_imgui(pr::raii::Frame& frame, pr::render_target const& backbuffer);
 
+    // utility
+public:
+    tg::vec2 get_normalized_mouse_pos() const;
+
 private:
     /// perform start-of-frame event handling, called in main_loop
     bool _on_frame_start();

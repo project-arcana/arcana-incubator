@@ -30,7 +30,6 @@ void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_
     imgui.write_commands(drawdata, backbuffer.res.handle, frame.write_raw_bytes(framesize), framesize);
     frame.end_debug_label();
 }
-
 void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backend_config& config)
 {
     // core
@@ -88,4 +87,11 @@ void inc::pre::quick_app::destroy()
         window.destroy();
         da::shutdown();
     }
+}
+
+tg::vec2 inc::pre::quick_app::get_normalized_mouse_pos() const
+{
+    tg::isize2 const res = window.getSize();
+    tg::ivec2 const mousepos = input.getMousePositionRelative();
+    return tg::vec2(mousepos.x / float(res.width), mousepos.y / float(res.height));
 }
