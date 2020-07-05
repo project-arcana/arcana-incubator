@@ -27,7 +27,7 @@ cc::pair<pr::auto_shader_binary, phi::detail::unique_buffer> inc::pre::load_shad
     std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, ending);
     auto buffer = phi::detail::unique_buffer::create_from_binary_file(name_formatted);
     CC_RUNTIME_ASSERT(buffer.is_valid() && "failed to load shader");
-    auto pr_shader = ctx.make_shader(buffer.get(), buffer.size(), stage);
+    auto pr_shader = ctx.make_shader(buffer, stage);
     return {cc::move(pr_shader), cc::move(buffer)};
 }
 
