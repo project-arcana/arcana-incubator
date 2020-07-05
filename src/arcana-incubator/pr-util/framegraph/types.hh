@@ -72,7 +72,4 @@ struct virtual_resource_version
 
     virtual_resource_version(virtual_res_idx res, pass_idx producer, int ver) : res_idx(res), producer_pass(producer), version(ver) {}
 };
-
-using pass_execute_func_ptr = cc::function_ptr<void(GraphBuilder&, pass_idx, void*)>;
-
 }

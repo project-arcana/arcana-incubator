@@ -1,22 +1,20 @@
 #pragma once
 
+#include <cstdint>
+
 #include <typed-geometry/tg-lean.hh>
+
+#include <phantasm-hardware-interface/handles.hh>
 
 namespace inc::pre::dmr
 {
-// handles
 namespace handle
 {
-struct material
-{
-    unsigned idx = unsigned(-1);
-};
-struct mesh
-{
-    unsigned idx = unsigned(-1);
-};
+PHI_DEFINE_HANDLE(mesh);
+PHI_DEFINE_HANDLE(material);
 }
-struct instance
+
+struct instance_cpu
 {
     handle::mesh mesh;
     handle::material mat;

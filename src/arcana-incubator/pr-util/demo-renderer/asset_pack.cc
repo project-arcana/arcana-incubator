@@ -1,18 +1,18 @@
-#include "assets.hh"
+#include "asset_pack.hh"
 
 #include <phantasm-renderer/Context.hh>
 #include <phantasm-renderer/Frame.hh>
 
 #include <arcana-incubator/pr-util/texture_processing.hh>
 
-inc::pre::dmr::handle::mesh inc::pre::dmr::asset_pack::loadMesh(pr::Context& ctx, const char* path, bool binary)
+inc::pre::dmr::handle::mesh inc::pre::dmr::AssetPack::loadMesh(pr::Context& ctx, const char* path, bool binary)
 {
     auto const res = _meshes.acquire();
     _meshes.get(res) = inc::pre::load_mesh(ctx, path, binary);
     return {res};
 }
 
-inc::pre::dmr::handle::material inc::pre::dmr::asset_pack::loadMaterial(
+inc::pre::dmr::handle::material inc::pre::dmr::AssetPack::loadMaterial(
     pr::Context& ctx, inc::pre::texture_processing& tex, const char* p_albedo, const char* p_normal, const char* p_arm)
 {
     auto frame = ctx.make_frame();

@@ -5,6 +5,10 @@
 #include <clean-core/map.hh>
 #include <clean-core/vector.hh>
 
+#include <typed-geometry/types/vec.hh>
+
+#include "input_enums.hh"
+
 namespace inc::da
 {
 struct input_manager;
@@ -73,19 +77,53 @@ struct input_manager
     //
     // binding
 
-    void bindKey(uint64_t id, SDL_Keycode keycode);
-    void bindKey(uint64_t id, SDL_Scancode scancode);
-    void bindMouseButton(uint64_t id, uint8_t sdl_mouse_button);
-    void bindControllerButton(uint64_t id, uint8_t sdl_controller_button);
-
-    void bindControllerAxis(uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f);
+    void bindKey(uint64_t id, scancode sc) { bindKeyRawScancode(id, SDL_Scancode(sc)); }
+    void bindKey(uint64_t id, keycode kc) { bindKeyRawKeycode(id, SDL_Keycode(kc)); }
+    void bindMouseButton(uint64_t id, mouse_button btn) { bindMouseButtonRaw(id, uint8_t(btn)); }
+    void bindControllerButton(uint64_t id, controller_button btn) { bindControllerButtonRaw(id, uint8_t(btn)); }
+    void bindControllerAxis(uint64_t id, controller_axis axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f)
+    {
+        bindControllerAxisRaw(id, uint8_t(axis), deadzone, threshold, scale, bias);
+    }
     void bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier = 1.f);
     void bindMouseWheel(uint64_t id, float scale = 1.f, bool vertical = false);
+
+    //
+    // binding - deprecated
+
+    [[deprecated("Use enum overload - inc::da::keycode::...")]] void bindKey(uint64_t id, SDL_Keycode keycode) { bindKeyRawKeycode(id, keycode); }
+    [[deprecated("Use enum overload - inc::da::scancode::...")]] void bindKey(uint64_t id, SDL_Scancode scancode)
+    {
+        bindKeyRawScancode(id, scancode);
+    }
+    [[deprecated("Use enum overload - inc::da::mouse_button::...")]] void bindMouseButton(uint64_t id, uint8_t sdl_mouse_button)
+    {
+        bindMouseButtonRaw(id, sdl_mouse_button);
+    }
+    [[deprecated("Use enum overload - inc::da::controller_button::...")]] void bindControllerButton(uint64_t id, uint8_t sdl_controller_button)
+    {
+        bindControllerButtonRaw(id, sdl_controller_button);
+    }
+    [[deprecated("Use enum overload - inc::da::controller_axis::...")]] void bindControllerAxis(
+        uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f)
+    {
+        bindControllerAxisRaw(id, sdl_controller_axis, deadzone, threshold, scale, bias);
+    }
 
     //
     // polling
 
     binding const& get(uint64_t id) { return _bindings[getOrCreateBinding(id)]; }
+
+    tg::ivec2 getMousePositionRelative() const;
+
+private:
+    void bindKeyRawKeycode(uint64_t id, SDL_Keycode keycode);
+    void bindKeyRawScancode(uint64_t id, SDL_Scancode scancode);
+    void bindMouseButtonRaw(uint64_t id, uint8_t sdl_mouse_button);
+    void bindControllerButtonRaw(uint64_t id, uint8_t sdl_controller_button);
+
+    void bindControllerAxisRaw(uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f);
 
     // returns index into bindings member
     unsigned getOrCreateBinding(uint64_t id);

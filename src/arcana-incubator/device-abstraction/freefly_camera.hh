@@ -20,7 +20,6 @@ struct fps_cam_state
 
     void move_relative(tg::vec3 distance);
     void mouselook(float dx, float dy);
-    static tg::quat forward_to_rotation(tg::vec3 fwd, tg::vec3 up = {0, 1, 0});
 };
 
 /// exponential smoothing camera, assumes LHS world space
@@ -53,6 +52,8 @@ inline float smooth_lerp_alpha(float smoothing, float dt) { return 1 - std::pow(
 inline float exponential_decay_alpha(float lambda, float dt) { return 1 - std::exp(-lambda * dt); }
 /// alpha based on the halftime between current and target state
 inline float halftime_lerp_alpha(float halftime, float dt) { return 1 - std::pow(.5f, dt / halftime); }
+
+tg::quat forward_to_rotation(tg::vec3 fwd, tg::vec3 up = {0, 1, 0});
 
 constexpr float halton_sequence(int index, int base)
 {

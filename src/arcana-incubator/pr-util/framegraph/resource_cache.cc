@@ -21,5 +21,5 @@ void inc::frag::GraphCache::freeAll()
         _backend->free_untyped(val);
     }
 
-    _cache.free_all();
+    _cache.reset();
 }

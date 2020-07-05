@@ -16,26 +16,42 @@ struct texture_processing;
 
 namespace inc::pre::dmr
 {
-struct asset_pack
+struct AssetPack
 {
 public:
-    asset_pack(unsigned max_num_meshes = 100, unsigned max_num_materials = 100)
+    AssetPack() = default;
+    explicit AssetPack(unsigned max_num_meshes, unsigned max_num_materials) { initialize(max_num_meshes, max_num_materials); }
+
+    AssetPack(AssetPack const&) = delete;
+    AssetPack(AssetPack&&) = delete;
+
+    ~AssetPack() { destroy(); }
+
+    void initialize(unsigned max_num_meshes = 100, unsigned max_num_materials = 100)
     {
         _meshes.initialize(max_num_meshes);
         _materials.initialize(max_num_materials);
+    }
+
+    void destroy()
+    {
+        _meshes.release_all();
+        _materials.release_all();
+        _meshes.destroy();
+        _materials.destroy();
     }
 
     [[nodiscard]] handle::mesh loadMesh(pr::Context& ctx, char const* path, bool binary = false);
 
     [[nodiscard]] handle::material loadMaterial(pr::Context& ctx, inc::pre::texture_processing& tex, char const* p_albedo, char const* p_normal, char const* p_arm);
 
-    pr::prebuilt_argument const& getMaterial(handle::material mat) const { return _materials.get(mat.idx).sv; }
+    pr::prebuilt_argument const& getMaterial(handle::material mat) const { return _materials.get(mat._value).sv; }
 
-    inc::pre::pr_mesh const& getMesh(handle::mesh mesh) const { return _meshes.get(mesh.idx); }
+    inc::pre::pr_mesh const& getMesh(handle::mesh mesh) const { return _meshes.get(mesh._value); }
 
-    void free(handle::mesh m) { _meshes.release(m.idx); }
+    void free(handle::mesh m) { _meshes.release(m._value); }
 
-    void free(handle::material m) { _materials.release(m.idx); }
+    void free(handle::material m) { _materials.release(m._value); }
 
     void freeAll()
     {

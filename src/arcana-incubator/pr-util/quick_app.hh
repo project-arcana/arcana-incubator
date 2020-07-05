@@ -1,5 +1,7 @@
 #pragma once
 
+#include <phantasm-hardware-interface/config.hh>
+
 #include <phantasm-renderer/Context.hh>
 
 #include <arcana-incubator/device-abstraction/device_abstraction.hh>
@@ -25,15 +27,22 @@ struct quick_app
 
     ImGuiPhantasmImpl imgui;
 
-    quick_app(pr::backend backend = pr::backend::vulkan, bool validate = true) { _init(backend, validate); }
-    ~quick_app() { _destroy(); }
+    quick_app() = default;
+    explicit quick_app(pr::backend backend_type, phi::backend_config const& config = {}) { initialize(backend_type, config); }
     quick_app(quick_app const&) = delete;
     quick_app(quick_app&&) = delete;
+
+    ~quick_app() { destroy(); }
+
+    void initialize(pr::backend backend_type = pr::backend::vulkan, phi::backend_config const& config = {});
+
+    void destroy();
 
     /// canonical main loop with a provided lambda
     template <class F>
     void main_loop(F&& func)
     {
+        CC_ASSERT(context.is_initialized() && "uninitialized");
         timer.restart();
         while (!window.isRequestingClose())
         {
@@ -56,13 +65,13 @@ struct quick_app
     /// use to render imgui, given a frame and an already acquired backbuffer
     void render_imgui(pr::raii::Frame& frame, pr::render_target const& backbuffer);
 
-private:
-    void _init(pr::backend backend, bool validate);
+    // utility
+public:
+    tg::vec2 get_normalized_mouse_pos() const;
 
+private:
     /// perform start-of-frame event handling, called in main_loop
     bool _on_frame_start();
-
-    void _destroy();
 };
 
 }

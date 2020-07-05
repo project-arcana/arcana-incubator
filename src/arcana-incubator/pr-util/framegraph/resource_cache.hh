@@ -38,7 +38,7 @@ public:
     }
 
     void on_new_frame() { ++_current_frame; }
-    void free_all()
+    void reset()
     {
         _hashes.clear();
         _values.clear();
@@ -64,10 +64,22 @@ public:
     GraphCache(GraphCache const&) = delete;
     GraphCache(GraphCache&&) noexcept = default;
 
+    ~GraphCache() { destroy(); }
+
     void init(pr::Context* backend)
     {
+        CC_ASSERT(_backend == nullptr && "double init");
         _backend = backend;
         _cache.reserve(512);
+    }
+
+    void destroy()
+    {
+        if (_backend != nullptr)
+        {
+            freeAll();
+            _backend = nullptr;
+        }
     }
 
     void onNewFrame() { _cache.on_new_frame(); }
@@ -77,7 +89,7 @@ public:
     void freeAll();
 
 private:
-    pr::Context* _backend;
+    pr::Context* _backend = nullptr;
     resource_cache _cache;
 };
 }

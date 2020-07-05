@@ -30,16 +30,13 @@ void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_
     imgui.write_commands(drawdata, backbuffer.res.handle, frame.write_raw_bytes(framesize), framesize);
     frame.end_debug_label();
 }
-
-void inc::pre::quick_app::_init(pr::backend backend, bool validate)
+void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backend_config& config)
 {
     // core
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
 
-    phi::backend_config conf;
-    conf.validation = validate ? phi::validation_level::on_extended : phi::validation_level::off;
-    context.initialize({window.getSdlWindow()}, backend, conf);
+    context.initialize({window.getSdlWindow()}, backend_type, config);
 
     // input + camera
     input.initialize();
@@ -77,14 +74,24 @@ bool inc::pre::quick_app::_on_frame_start()
     return true;
 }
 
-void inc::pre::quick_app::_destroy()
+void inc::pre::quick_app::destroy()
 {
-    context.flush();
+    if (context.is_initialized())
+    {
+        context.flush();
 
-    imgui.destroy();
-    ImGui_ImplSDL2_Shutdown();
+        imgui.destroy();
+        ImGui_ImplSDL2_Shutdown();
 
-    context.destroy();
-    window.destroy();
-    da::shutdown();
+        context.destroy();
+        window.destroy();
+        da::shutdown();
+    }
+}
+
+tg::vec2 inc::pre::quick_app::get_normalized_mouse_pos() const
+{
+    tg::isize2 const res = window.getSize();
+    tg::ivec2 const mousepos = input.getMousePositionRelative();
+    return tg::vec2(mousepos.x / float(res.width), mousepos.y / float(res.height));
 }
