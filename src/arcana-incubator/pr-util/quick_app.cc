@@ -53,7 +53,10 @@ bool inc::pre::quick_app::_on_frame_start()
     input.updatePrePoll();
     SDL_Event e;
     while (window.pollSingleEvent(e))
+    {
+        ImGui_ImplSDL2_ProcessEvent(&e);
         input.processEvent(e);
+    }
     input.updatePostPoll();
 
     if (window.isMinimized())

@@ -20,17 +20,30 @@ inc::pre::dmr::handle::material inc::pre::dmr::AssetPack::loadMaterial(
     auto const res = _materials.acquire();
     material_node& node = _materials.get(res);
 
-    node.albedo = tex.load_texture(frame, p_albedo, pr::format::rgba8un, true, true);
-    node.normal = tex.load_texture(frame, p_normal, pr::format::rgba8un, true, false);
-    node.ao_rough_metal = tex.load_texture(frame, p_arm, pr::format::rgba8un, true, false);
+    auto arg_builder = ctx.build_argument();
 
-    frame.transition(node.albedo, pr::state::shader_resource, pr::shader::pixel);
-    frame.transition(node.normal, pr::state::shader_resource, pr::shader::pixel);
-    frame.transition(node.ao_rough_metal, pr::state::shader_resource, pr::shader::pixel);
+    if (p_albedo)
+    {
+        node.albedo = tex.load_texture(frame, p_albedo, pr::format::rgba8un, true, true);
+        frame.transition(node.albedo, pr::state::shader_resource, pr::shader::pixel);
+        arg_builder.add(node.albedo);
+    }
+    if (p_normal)
+    {
+        node.normal = tex.load_texture(frame, p_normal, pr::format::rgba8un, true, false);
+        frame.transition(node.normal, pr::state::shader_resource, pr::shader::pixel);
+        arg_builder.add(node.normal);
+    }
+    if (p_arm)
+    {
+        node.ao_rough_metal = tex.load_texture(frame, p_arm, pr::format::rgba8un, true, false);
+        frame.transition(node.ao_rough_metal, pr::state::shader_resource, pr::shader::pixel);
+        arg_builder.add(node.ao_rough_metal);
+    }
 
     ctx.submit(cc::move(frame));
 
-    node.sv = ctx.build_argument().add(node.albedo).add(node.normal).add(node.ao_rough_metal).make_graphics();
+    node.sv = arg_builder.make_graphics();
 
     return {res};
 }
