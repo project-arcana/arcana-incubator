@@ -1,7 +1,6 @@
 #pragma once
 
 #include <clean-core/capped_array.hh>
-#include <clean-core/utility.hh>
 
 #include <phantasm-renderer/resource_types.hh>
 
@@ -19,11 +18,7 @@ struct multi_buffered_buffer
 
     void create(pr::Context& ctx, pr::buffer_info const& info);
 
-    pr::buffer const& head() const { return buffers[head_index]; }
-    void next_frame() { head_index = cc::wrapped_increment(head_index, unsigned(buffers.size())); }
-
     cc::capped_array<pr::auto_buffer, 5> buffers;
     unsigned head_index = 0;
 };
-
 }
