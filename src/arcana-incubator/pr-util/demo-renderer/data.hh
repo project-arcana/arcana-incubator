@@ -35,12 +35,17 @@ struct frame_index_state
     unsigned num_backbuffers = 0;
     // dynamic
     unsigned halton_index = 0;
-    unsigned current_frame_index = 0;
-    bool is_history_a = true;
+    unsigned current_frame_index = 0; // in [0, num_backbuffers - 1]
+    bool is_history_a = true;         // A -> B or B -> A frame
+    bool did_wrap = false;            // if current_frame_index wrapped to every index once
 
     void increment()
     {
         CC_ASSERT(num_backbuffers > 0 && "uninitialized");
+
+        if (current_frame_index == num_backbuffers - 1)
+            did_wrap = true;
+
         current_frame_index = cc::wrapped_increment(current_frame_index, num_backbuffers);
         halton_index = cc::wrapped_increment(halton_index, 8u);
         is_history_a = !is_history_a;

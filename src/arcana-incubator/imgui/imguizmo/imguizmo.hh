@@ -174,10 +174,10 @@ IMGUI_API void Manipulate(const float* view,
                           OPERATION operation,
                           MODE mode,
                           float* matrix,
-                          float* deltaMatrix = 0,
-                          float* snap = 0,
-                          float* localBounds = NULL,
-                          float* boundsSnap = NULL);
+                          float* deltaMatrix = nullptr,
+                          float* snap = nullptr,
+                          float* localBounds = nullptr,
+                          float* boundsSnap = nullptr);
 //
 // Please note that this cubeview is patented by Autodesk : https://patents.google.com/patent/US7782319B2/en
 // It seems to be a defensive patent in the US. I don't think it will bring troubles using it as

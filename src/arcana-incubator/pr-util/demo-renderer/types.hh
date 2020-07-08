@@ -27,4 +27,9 @@ struct instance_gpudata
 
     instance_gpudata(tg::mat4 initial_transform) : model(initial_transform), prev_model(initial_transform) {}
 };
+
+
+struct AssetPack;
+struct camera_gpudata;
+struct frame_index_state;
 }

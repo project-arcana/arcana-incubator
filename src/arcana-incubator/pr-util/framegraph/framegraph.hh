@@ -75,6 +75,7 @@ public:
         virtual_resource_handle move(res_guid_t src_guid, res_guid_t dest_guid) { return _parent->registerMove(_pass, src_guid, dest_guid); }
 
         void setRoot() { _parent->makePassRoot(_pass); }
+        void setResourceRoot(res_guid_t guid) { _parent->makeResourceRoot(guid); }
         void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
 
         tg::isize2 targetSize() const { return _backbuf_size; }
