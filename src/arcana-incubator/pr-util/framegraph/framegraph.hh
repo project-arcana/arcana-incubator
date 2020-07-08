@@ -59,6 +59,12 @@ public:
             return _parent->registerCreate(_pass, guid, info, mode);
         }
 
+        virtual_resource_handle createRead(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
+        {
+            _parent->registerCreate(_pass, guid, info, {});
+            return _parent->registerRead(_pass, guid, mode);
+        }
+
         virtual_resource_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
         {
             return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
@@ -277,7 +283,19 @@ private:
         resver.is_root_resource = true;
     }
 
-    void makePassRoot(pass_idx pass) { mPasses[pass].is_root_pass = true; }
+    void makePassRoot(pass_idx pass)
+    {
+        mPasses[pass].is_root_pass = true;
+
+        for (auto& read : mPasses[pass].reads)
+            getVirtualVersion(read.res, read.version_before).is_root_resource = true;
+
+        for (auto& write : mPasses[pass].writes)
+            getVirtualVersion(write.res, write.version_before).is_root_resource = true;
+
+        for (auto& create : mPasses[pass].creates)
+            getVirtualVersion(create.res, 0).is_root_resource = true;
+    }
 
     void setPassQueue(pass_idx pass, phi::queue_type type) { mPasses[pass].queue = type; }
 

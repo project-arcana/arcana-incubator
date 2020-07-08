@@ -155,6 +155,8 @@ void inc::frag::GraphBuilder::calculateBarriers()
             if (!mode.is_set())
                 return;
 
+            CC_ASSERT(!mVirtualResources[virtual_res].is_culled && "a written or read resource was culled");
+
             CC_ASSERT(virtual_res != gc_invalid_virtual_res);
             auto const physical_idx = mVirtualResources[virtual_res].associated_physical;
             CC_ASSERT(physical_idx != gc_invalid_physical_res);
@@ -265,7 +267,10 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
 
                 // resource now unreferenced, add to stack
                 if (read_resource_version.can_cull())
+                {
+                    // LOG("Culling producer {}, resource {}", producer.debug_name, read.res);
                     unreferenced_res_ver_indices.push_back(read_resource_version_index);
+                }
             }
         }
     }
@@ -276,6 +281,12 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
         auto& res = mVirtualResources[res_ver.res_idx];
         res.is_culled = res.is_culled && res_ver.can_cull();
     }
+
+    //    for (auto const& virt : mVirtualResources)
+    //    {
+    //        if (virt.is_culled)
+    //            LOG_INFO("Virtual resource {} was culled", virt.initial_guid);
+    //    }
 }
 
 
