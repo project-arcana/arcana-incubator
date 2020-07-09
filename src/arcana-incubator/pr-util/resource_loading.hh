@@ -25,6 +25,6 @@ struct pr_mesh
                                                                                        phi::shader_stage stage,
                                                                                        char const* path_prefix = "");
 
-/// loads a .obj or binary mesh from disk and flushes GPU completely, result is usable immediately
+/// loads a .obj or binary mesh from disk, result is usable immediately
 [[nodiscard]] pr_mesh load_mesh(pr::Context& ctx, char const* path, bool binary = false);
 }
