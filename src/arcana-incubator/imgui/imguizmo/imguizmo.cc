@@ -745,8 +745,8 @@ struct Context
 
 static Context gContext;
 
-static const float angleLimit = 0.96f;
-static const float planeLimit = 0.2f;
+[[maybe_unused]] static const float angleLimit = 0.96f;
+[[maybe_unused]] static const float planeLimit = 0.2f;
 
 static const vec_t directionUnary[3] = {makeVect(1.f, 0.f, 0.f), makeVect(0.f, 1.f, 0.f), makeVect(0.f, 0.f, 1.f)};
 static const ImU32 directionColor[3] = {0xFF0000AA, 0xFF00AA00, 0xFFAA0000};
@@ -949,7 +949,7 @@ void Enable(bool enable)
     }
 }
 
-static float GetUniform(const vec_t& position, const matrix_t& mat)
+[[maybe_unused]] static float GetUniform(const vec_t& position, const matrix_t& mat)
 {
     vec_t trf = makeVect(position.x, position.y, position.z, 1.f);
     trf.Transform(mat);
@@ -2246,9 +2246,9 @@ void DrawCubes(const float* view, const float* projection, const float* matrices
     {
         const float* matrix = &matrices[cube * 16];
 
-        const matrix_t& model = *(matrix_t*)matrix;
+        // const matrix_t& model = *(matrix_t*)matrix;
         matrix_t res = *(matrix_t*)matrix * *(matrix_t*)view * *(matrix_t*)projection;
-        matrix_t modelView = *(matrix_t*)matrix * *(matrix_t*)view;
+        // matrix_t modelView = *(matrix_t*)matrix * *(matrix_t*)view;
 
         for (int iFace = 0; iFace < 6; iFace++)
         {
@@ -2445,10 +2445,10 @@ void ViewManipulate(float* view, float length, ImVec2 position, ImVec2 size, ImU
             const vec_t indexVectorX = directionUnary[perpXIndex] * invert;
             const vec_t indexVectorY = directionUnary[perpYIndex] * invert;
             const vec_t boxOrigin = directionUnary[normalIndex] * -invert - indexVectorX - indexVectorY;
-            const vec_t faceCoords[4] = {directionUnary[normalIndex] + directionUnary[perpXIndex] + directionUnary[perpYIndex],
-                                         directionUnary[normalIndex] + directionUnary[perpXIndex] - directionUnary[perpYIndex],
-                                         directionUnary[normalIndex] - directionUnary[perpXIndex] - directionUnary[perpYIndex],
-                                         directionUnary[normalIndex] - directionUnary[perpXIndex] + directionUnary[perpYIndex]};
+            // const vec_t faceCoords[4] = {directionUnary[normalIndex] + directionUnary[perpXIndex] + directionUnary[perpYIndex],
+            //                                         directionUnary[normalIndex] + directionUnary[perpXIndex] - directionUnary[perpYIndex],
+            //                                         directionUnary[normalIndex] - directionUnary[perpXIndex] - directionUnary[perpYIndex],
+            //                                         directionUnary[normalIndex] - directionUnary[perpXIndex] + directionUnary[perpYIndex]};
 
             // plan local space
             const vec_t n = directionUnary[normalIndex] * invert;
