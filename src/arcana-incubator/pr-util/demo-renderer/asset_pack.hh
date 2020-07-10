@@ -27,7 +27,7 @@ public:
 
     ~AssetPack() { destroy(); }
 
-    void initialize(unsigned max_num_meshes = 100, unsigned max_num_materials = 100)
+    void initialize(unsigned max_num_meshes = 1024, unsigned max_num_materials = 1024)
     {
         _meshes.initialize(max_num_meshes);
         _materials.initialize(max_num_materials);
@@ -36,14 +36,20 @@ public:
     void destroy()
     {
         _meshes.release_all();
-        _materials.release_all();
         _meshes.destroy();
+        _materials.release_all();
         _materials.destroy();
     }
 
     [[nodiscard]] handle::mesh loadMesh(pr::Context& ctx, char const* path, bool binary = false);
+    [[nodiscard]] handle::mesh loadMesh(pr::Context& ctx, cc::span<std::byte const> data);
 
     [[nodiscard]] handle::material loadMaterial(pr::Context& ctx, inc::pre::texture_processing& tex, char const* p_albedo, char const* p_normal, char const* p_arm);
+    [[nodiscard]] handle::material loadMaterial(pr::Context& ctx,
+                                                inc::pre::texture_processing& tex,
+                                                cc::span<std::byte const> d_albedo,
+                                                cc::span<std::byte const> d_normal,
+                                                cc::span<std::byte const> d_arm);
 
     pr::prebuilt_argument const& getMaterial(handle::material mat) const { return _materials.get(mat._value).sv; }
 

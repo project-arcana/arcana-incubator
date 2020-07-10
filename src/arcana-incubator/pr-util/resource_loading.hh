@@ -8,6 +8,11 @@
 #include <phantasm-renderer/fwd.hh>
 #include <phantasm-renderer/resource_types.hh>
 
+namespace inc::assets
+{
+struct simple_vertex;
+}
+
 namespace inc::pre
 {
 struct pr_mesh
@@ -25,6 +30,9 @@ struct pr_mesh
                                                                                        phi::shader_stage stage,
                                                                                        char const* path_prefix = "");
 
-/// loads a .obj or binary mesh from disk, result is usable immediately
+/// loads a .obj or binary mesh from disk to GPU
 [[nodiscard]] pr_mesh load_mesh(pr::Context& ctx, char const* path, bool binary = false);
+
+/// loads a mesh from memory to GPU
+[[nodiscard]] pr_mesh load_mesh(pr::Context& ctx, cc::span<uint32_t const> indices, cc::span<inc::assets::simple_vertex const> vertices);
 }

@@ -27,8 +27,8 @@ inc::phi_mesh inc::load_mesh(phi::Backend& backend, const char* path, bool binar
 
         res.num_indices = unsigned(mesh_data.indices.size());
 
-        auto const vert_size = mesh_data.get_vertex_size_bytes();
-        auto const ind_size = mesh_data.get_index_size_bytes();
+        auto const vert_size = mesh_data.vertices.size_bytes();
+        auto const ind_size = mesh_data.indices.size_bytes();
 
         res.vertex_buffer = backend.createBuffer(vert_size, sizeof(inc::assets::simple_vertex));
         res.index_buffer = backend.createBuffer(ind_size, sizeof(uint32_t));

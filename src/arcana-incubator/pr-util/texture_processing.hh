@@ -4,6 +4,12 @@
 #include <phantasm-renderer/fwd.hh>
 #include <phantasm-renderer/resource_types.hh>
 
+namespace inc::assets
+{
+struct image_size;
+struct image_data;
+}
+
 namespace inc::pre
 {
 struct filtered_specular_result
@@ -21,14 +27,20 @@ struct texture_processing
     //
     // Textures
 
-    [[nodiscard]] pr::auto_texture load_texture(pr::raii::Frame& frame, char const* path, pr::format fmt, bool mips = false, bool gamma = false);
+    [[nodiscard]] pr::auto_texture load_texture_from_memory(pr::raii::Frame& frame, cc::span<std::byte const> data, pr::format fmt, bool mips = false, bool gamma = false);
+    [[nodiscard]] pr::auto_texture load_texture_from_file(pr::raii::Frame& frame, char const* path, pr::format fmt, bool mips = false, bool gamma = false);
+
+    [[nodiscard]] pr::auto_texture load_texture(pr::raii::Frame& frame, assets::image_data const& data, assets::image_size const& size, pr::format fmt, bool mips, bool gamma);
 
     void generate_mips(pr::raii::Frame& frame, pr::texture const& texture, bool apply_gamma = false);
 
     //
     // IBL
 
-    [[nodiscard]] filtered_specular_result load_filtered_specular_map(pr::raii::Frame& frame, char const* hdr_equirect_path);
+    [[nodiscard]] filtered_specular_result load_filtered_specular_map_from_memory(pr::raii::Frame& frame, cc::span<std::byte const> data);
+    [[nodiscard]] filtered_specular_result load_filtered_specular_map_from_file(pr::raii::Frame& frame, char const* hdr_equirect_path);
+
+    [[nodiscard]] filtered_specular_result load_filtered_specular_map(pr::raii::Frame& frame, pr::auto_texture&& specular_map);
 
     [[nodiscard]] pr::auto_texture create_diffuse_irradiance_map(pr::raii::Frame& frame, pr::texture const& filtered_specular);
 
