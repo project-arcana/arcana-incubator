@@ -85,6 +85,7 @@ public:
         void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
 
         tg::isize2 targetSize() const { return _backbuf_size; }
+        tg::isize2 targetSizeHalf() const { return _backbuf_size / 2; }
 
     private:
         friend class GraphBuilder;
