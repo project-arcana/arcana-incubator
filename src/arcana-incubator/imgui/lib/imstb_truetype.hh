@@ -836,8 +836,8 @@ extern "C"
     };
 #endif
 
-#ifndef stbtt_vertex // you can predefine this to use different values
-    // (we share this with other code at RAD)
+#ifndef stbtt_vertex            // you can predefine this to use different values
+                                // (we share this with other code at RAD)
 #define stbtt_vertex_type short // can't use stbtt_int16 because that's not visible in the header file
     typedef struct
     {
@@ -2862,11 +2862,11 @@ static stbtt_int32 stbtt__GetGlyphGPOSInfoAdvance(const stbtt_fontinfo* info, in
                     // There are no other cases.
                     STBTT_assert(0);
                     break;
-                };
+                } // [DEAR IMGUI] removed ;
                 }
             }
             break;
-        };
+        } // [DEAR IMGUI] removed ;
 
         default:
             // TODO: Implement other stuff.
@@ -4647,7 +4647,7 @@ STBTT_DEF void stbtt_PackFontRangesPackRects(stbtt_pack_context* spc, stbrp_rect
 STBTT_DEF int stbtt_PackFontRanges(stbtt_pack_context* spc, const unsigned char* fontdata, int font_index, stbtt_pack_range* ranges, int num_ranges)
 {
     stbtt_fontinfo info;
-    int i, j, n, return_value = 1;
+    int i, j, n, return_value; // [DEAR IMGUI] removed = 1
     // stbrp_context *context = (stbrp_context *) spc->pack_info;
     stbrp_rect* rects;
 
