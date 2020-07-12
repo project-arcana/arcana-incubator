@@ -27,6 +27,7 @@ public:
     SDLWindow& operator=(SDLWindow&&) noexcept = delete;
     ~SDLWindow() { destroy(); }
 
+
     /// poll events by the WM/OS
     void pollEvents();
 
@@ -59,6 +60,20 @@ public:
     float getScaleFactor() const { return mScaleFactor; }
 
     SDL_Window* getSdlWindow() const { return mWindow; }
+
+    // fullscreen mode
+    /// set the window to display in proper fullscreen
+    void setFullscreen();
+    /// set the window to display in pseudo fullscreen without a display mode change
+    void setBorderlessFullscreen();
+    /// set the window to display in windowed mode
+    void setWindowed();
+
+    // display mode
+    /// set the display mode, only works in fullscreen
+    void setDisplayMode(int width, int height, int refresh_rate);
+    /// set the display mode to the natively specified desktop display mode, only works in fullscreen
+    void setDesktopDisplayMode(int display_index = 0);
 
 public:
     using event_callback = bool (*)(SDL_Event const* e);
