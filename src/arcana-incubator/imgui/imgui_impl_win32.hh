@@ -12,7 +12,7 @@
 #include <clean-core/native/win32_fwd.hh>
 #ifdef CC_OS_WINDOWS
 
-#include "lib/imgui.hh"
+#include "lib/imgui.h"
 
 IMGUI_IMPL_API bool ImGui_ImplWin32_Init(void* hwnd);
 IMGUI_IMPL_API void ImGui_ImplWin32_Shutdown();

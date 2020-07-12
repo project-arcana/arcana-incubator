@@ -11,7 +11,6 @@
 
 #include <arcana-incubator/phi-util/texture_util.hh>
 
-
 namespace
 {
 [[nodiscard]] phi::handle::shader_view imgui_to_sv(ImTextureID itd)
@@ -40,7 +39,7 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
 
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "ImGuiPhantasmImpl";
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset; // we honor vertex offsets, allowing imgui to use larger vertex buffers
 
     // PSO
     {
@@ -69,9 +68,8 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
         shader_shape.num_srvs = 1;
         shader_shape.num_samplers = 1;
 
-        cc::capped_vector<arg::graphics_shader, 2> shader_stages;
-        shader_stages.push_back(arg::graphics_shader{{vs_data, vs_size}, shader_stage::vertex});
-        shader_stages.push_back(arg::graphics_shader{{ps_data, ps_size}, shader_stage::pixel});
+        arg::graphics_shader shader_stages[]
+            = {arg::graphics_shader{{vs_data, vs_size}, shader_stage::vertex}, arg::graphics_shader{{ps_data, ps_size}, shader_stage::pixel}};
 
         phi::pipeline_config config;
         config.depth = phi::depth_function::none;
@@ -81,6 +79,7 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
     }
 
     // Font tex
+    phi::handle::resource temp_upload_buffer;
     {
         unsigned char* pixels;
         int width, height;
@@ -96,9 +95,8 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
 
         mGlobalResources.font_tex_sv = mBackend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
 
-        auto const upbuff = mBackend->createBuffer(
-            inc::get_mipmap_upload_size(format::rgba8un, assets::image_size{static_cast<unsigned>(width), static_cast<unsigned>(height), 1, 1}, true),
-            0, resource_heap::upload, false);
+        temp_upload_buffer = mBackend->createBuffer(
+            inc::get_mipmap_upload_size(format::rgba8un, assets::image_size{unsigned(width), unsigned(height), 1, 1}, true), 0, resource_heap::upload, false);
 
 
         {
@@ -108,19 +106,17 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
             mCmdWriter.add_command(tcmd);
 
             mCmdWriter.accomodate_t<cmd::copy_buffer_to_texture>();
-            inc::copy_data_to_texture(mCmdWriter.raw_writer(), upbuff, mBackend->mapBuffer(upbuff), mGlobalResources.font_tex, format::rgba8un, width,
-                                      height, cc::bit_cast<std::byte const*>(pixels), d3d12_alignment);
+            inc::copy_data_to_texture(mCmdWriter.raw_writer(), temp_upload_buffer, mBackend->mapBuffer(temp_upload_buffer), mGlobalResources.font_tex,
+                                      format::rgba8un, width, height, reinterpret_cast<std::byte const*>(pixels), d3d12_alignment);
 
             cmd::transition_resources tcmd2;
             tcmd2.add(mGlobalResources.font_tex, resource_state::shader_resource, shader_stage::pixel);
             mCmdWriter.add_command(tcmd2);
 
             auto const cmdl = mBackend->recordCommandList(mCmdWriter.buffer(), mCmdWriter.size());
-            mBackend->unmapBuffer(upbuff);
+            mBackend->unmapBuffer(temp_upload_buffer);
             mBackend->submit(cc::span{cmdl});
         }
-        mBackend->flushGPU();
-        mBackend->free(upbuff);
 
         io.Fonts->TexID = sv_to_imgui(mGlobalResources.font_tex_sv);
     }
@@ -132,37 +128,24 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
     mPerFrameResources.emplace(num_frames_in_flight);
 
     mBackend->flushGPU();
+    mBackend->free(temp_upload_buffer);
 }
 
 void inc::ImGuiPhantasmImpl::initialize_with_contained_shaders(phi::Backend* backend)
 {
-    char const* imgui_code = R"(
-                             cbuffer vertexBuffer:register(b0, space0){ float4x4 proj;};
-                             struct VS_INPUT { float2 pos : POSITION; float2 uv : TEXCOORD0; float4 col : COLOR0; };
-                             struct PS_INPUT { float4 pos : SV_POSITION; float4 col : COLOR0; float2 uv : TEXCOORD0; };
-                             struct vert_globals { float4x4 proj; };
-                             ConstantBuffer<vert_globals> g_vert_globals : register(b0, space0);
-                             SamplerState g_sampler : register(s0, space0);
-                             Texture2D g_texture : register(t0, space0);
-                             PS_INPUT main_vs(VS_INPUT input)
-                             {
-                                 PS_INPUT output;
-                                 output.pos = mul(g_vert_globals.proj, float4(input.pos.xy, 0.f, 1.f));
-                                 output.col = input.col; output.uv = input.uv; return output;
-                             }
-                             float4 main_ps(PS_INPUT input) : SV_TARGET
-                             { float4 res = input.col * g_texture.Sample(g_sampler, input.uv); return res; })";
+    constexpr char const* imgui_code
+        = R"(cbuffer _0:register(b0,space0){float4x4 prj;};struct vit{float2 pos:POSITION;float2 uv:TEXCOORD0;float4 col:COLOR0;};struct pit{float4 pos:SV_POSITION;float4 col:COLOR0;float2 uv:TEXCOORD0;};struct vgt{float4x4 prj;};ConstantBuffer<vgt> s:register(b0,space0);SamplerState p:register(s0,space0);Texture2D v:register(t0,space0);pit r(vit p){pit v;v.pos=mul(s.prj,float4(p.pos.xy,0.f,1.f));v.col=p.col;v.uv=p.uv;return v;}float4 u(pit s):SV_TARGET{float4 u=s.col*v.Sample(p,s.uv);return u;})";
 
     auto const output = backend->getBackendType() == phi::backend_type::d3d12 ? dxcw::output::dxil : dxcw::output::spirv;
 
     dxcw::compiler comp;
     comp.initialize();
-    auto const vs = comp.compile_binary(imgui_code, "main_vs", dxcw::target::vertex, output);
-    auto const ps = comp.compile_binary(imgui_code, "main_ps", dxcw::target::pixel, output);
+    auto const vs = comp.compile_binary(imgui_code, "r", dxcw::target::vertex, output);
+    auto const ps = comp.compile_binary(imgui_code, "u", dxcw::target::pixel, output);
+    comp.destroy();
     initialize(backend, ps.data, ps.size, vs.data, vs.size);
     dxcw::destroy_blob(vs.internal_blob);
     dxcw::destroy_blob(ps.internal_blob);
-    comp.destroy();
 }
 
 void inc::ImGuiPhantasmImpl::destroy()
@@ -208,7 +191,6 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
             mBackend->free(frame_res.index_buf);
 
         frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
-
         frame_res.index_buf = mBackend->createUploadBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
     }
 
@@ -218,7 +200,6 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
             mBackend->free(frame_res.vertex_buf);
 
         frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
-
         frame_res.vertex_buf = mBackend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
     }
 
@@ -299,8 +280,8 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
                 auto const shader_view = imgui_to_sv(pcmd.TextureId);
                 dcmd.add_shader_arg(mGlobalResources.const_buffer, 0, shader_view);
 
-                dcmd.set_scissor(static_cast<int>(pcmd.ClipRect.x - clip_offset.x), static_cast<int>(pcmd.ClipRect.y - clip_offset.y),
-                                 static_cast<int>(pcmd.ClipRect.z - clip_offset.x), static_cast<int>(pcmd.ClipRect.w - clip_offset.y));
+                dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
+                                 int(pcmd.ClipRect.w - clip_offset.y));
 
                 writer.add_command(dcmd);
             }
@@ -310,6 +291,5 @@ void inc::ImGuiPhantasmImpl::write_commands(const ImDrawData* draw_data, phi::ha
         global_vtx_offset += cmd_list->VtxBuffer.Size;
     }
 
-    phi::cmd::end_render_pass ecmd;
-    writer.add_command(ecmd);
+    writer.add_command(phi::cmd::end_render_pass{});
 }

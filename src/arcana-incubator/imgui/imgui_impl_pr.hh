@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lib/imgui.h"
+
 #include <clean-core/capped_array.hh>
 
 #include <phantasm-hardware-interface/fwd.hh>
@@ -7,7 +9,6 @@
 
 #include <arcana-incubator/phi-util/growing_writer.hh>
 
-#include "lib/imgui.hh"
 
 namespace inc
 {
