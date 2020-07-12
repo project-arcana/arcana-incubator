@@ -8,7 +8,8 @@ endif()
 # =========================================
 # define library
 
-file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.c")
+# the nonstandard file extensions are for external libraries
+file(GLOB_RECURSE SOURCES "src/*.cc" "src/*.c" "src/*.cpp")
 file(GLOB_RECURSE HEADERS "src/*.hh" "src/*.h")
 
 arcana_add_library_no_unity(ARC_INC arcana-incubator SOURCES HEADERS)
