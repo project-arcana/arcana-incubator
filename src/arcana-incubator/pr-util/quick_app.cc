@@ -22,6 +22,7 @@ void inc::pre::quick_app::perform_default_imgui(float dt) const
 void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_target& backbuffer)
 {
     ImGui::Render();
+
     auto* const drawdata = ImGui::GetDrawData();
     auto const framesize = imgui.get_command_size(drawdata);
 
@@ -43,8 +44,18 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     camera.setup_default_inputs(input);
 
     // imgui
-    ImGui::SetCurrentContext(ImGui::CreateContext(nullptr));
-    ImGui_ImplSDL2_Init(window.getSdlWindow());
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable docking
+                                                          // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;   // Enable multi-viewport
+
+    if (context.get_backend_type() == pr::backend::d3d12)
+        ImGui_ImplSDL2_InitForD3D(window.getSdlWindow());
+    else
+        ImGui_ImplSDL2_InitForVulkan(window.getSdlWindow());
+
     imgui.initialize_with_contained_shaders(&context.get_backend());
 }
 

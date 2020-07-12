@@ -7,7 +7,7 @@
 #include <phantasm-renderer/Context.hh>
 #include <phantasm-renderer/Frame.hh>
 
-#include <arcana-incubator/imgui/lib/imgui.hh>
+#include <arcana-incubator/imgui/imgui.hh>
 
 #include "resource_cache.hh"
 
