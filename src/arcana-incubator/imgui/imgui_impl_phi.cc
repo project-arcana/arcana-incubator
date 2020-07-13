@@ -44,6 +44,7 @@ struct ImGui_ImplPHI_RenderBuffers
     int index_buf_size = 0; ///< size of the index buffer, in number of indices
     phi::handle::resource vertex_buf = phi::handle::null_resource;
     int vertex_buf_size = 0; ///< size of the vertex buffer, in number of vertices
+    phi::handle::resource mvp_buffer = phi::handle::null_resource;
 
     void destroy()
     {
@@ -51,9 +52,12 @@ struct ImGui_ImplPHI_RenderBuffers
             g_backend->free(index_buf);
         if (vertex_buf.is_valid())
             g_backend->free(vertex_buf);
+        if (mvp_buffer.is_valid())
+            g_backend->free(mvp_buffer);
 
         index_buf = phi::handle::null_resource;
         vertex_buf = phi::handle::null_resource;
+        mvp_buffer = phi::handle::null_resource;
     }
 };
 
@@ -61,8 +65,6 @@ struct ImGuiViewportDataPHI
 {
     // only valid for non-main viewports
     phi::handle::swapchain swapchain = phi::handle::null_swapchain;
-    // always valid
-    phi::handle::resource mvp_buffer = phi::handle::null_resource;
 
     // Render buffers
     unsigned frame_index = 0;
@@ -205,7 +207,6 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 
     ImGuiViewportDataPHI* const main_viewport_renderdata = IM_NEW(ImGuiViewportDataPHI)();
-    main_viewport_renderdata->mvp_buffer = backend->createUploadBuffer(sizeof(float[4][4]));
     main_viewport->RendererUserData = main_viewport_renderdata;
 
 
@@ -229,9 +230,6 @@ void ImGui_ImplPHI_Shutdown()
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
     if (ImGuiViewportDataPHI* data = (ImGuiViewportDataPHI*)main_viewport->RendererUserData)
     {
-        g_backend->free(data->mvp_buffer);
-
-        // We could just call ImGui_ImplPHI_DestroyWindow(main_viewport) as a convenience but that would be misleading since we only use data->Resources[]
         for (auto i = 0; i < g_num_frames_in_flight; i++)
         {
             data->frame_render_buffers[i].destroy();
@@ -287,6 +285,10 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
         frame_res.vertex_buf = g_backend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
     }
 
+    if (!frame_res.mvp_buffer.is_valid())
+    {
+        frame_res.mvp_buffer = g_backend->createUploadBuffer(sizeof(float[4][4]));
+    }
 
     // upload vertices and indices
     {
@@ -323,9 +325,9 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
             {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
         };
 
-        auto* const const_buffer_map = g_backend->mapBuffer(render_data->mvp_buffer);
+        auto* const const_buffer_map = g_backend->mapBuffer(frame_res.mvp_buffer);
         std::memcpy(const_buffer_map, mvp, sizeof(mvp));
-        g_backend->unmapBuffer(render_data->mvp_buffer);
+        g_backend->unmapBuffer(frame_res.mvp_buffer);
     }
 
     auto global_vtx_offset = 0;
@@ -358,7 +360,7 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
                           pcmd.VtxOffset + global_vtx_offset);
 
                 auto const shader_view = imgui_to_sv(pcmd.TextureId);
-                dcmd.add_shader_arg(render_data->mvp_buffer, 0, shader_view);
+                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
 
                 dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
                                  int(pcmd.ClipRect.w - clip_offset.y));
@@ -397,7 +399,6 @@ unsigned ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
 static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* viewport)
 {
     ImGuiViewportDataPHI* data = IM_NEW(ImGuiViewportDataPHI)();
-    data->mvp_buffer = g_backend->createUploadBuffer(sizeof(float[4][4]));
     viewport->RendererUserData = data;
 
     // PlatformHandleRaw should always be a HWND, whereas PlatformHandle might be a higher-level handle (e.g. GLFWWindow*, SDL_Window*).
@@ -417,8 +418,6 @@ static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* viewport)
         {
             g_backend->free(data->swapchain);
         }
-
-        g_backend->free(data->mvp_buffer);
 
         for (auto& render_buf : data->frame_render_buffers)
         {
@@ -440,6 +439,8 @@ static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* viewport, void*)
     ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
 
     auto const backbuffer = g_backend->acquireBackbuffer(data->swapchain);
+    if (!backbuffer.is_valid())
+        return;
 
     unsigned const drawdata_command_size = ImGui_ImplPHI_GetDrawDataCommandSize(viewport->DrawData);
     cc::array<std::byte> buffer = cc::array<std::byte>::uninitialized(2 * sizeof(phi::cmd::transition_resources) + sizeof(phi::cmd::begin_render_pass)
@@ -456,8 +457,8 @@ static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* viewport, void*)
     auto& bcmd = writer.emplace_command<phi::cmd::begin_render_pass>();
     bcmd.add_backbuffer_rt(backbuffer, true);
     bcmd.set_null_depth_stencil();
-    bcmd.viewport.width = viewport->Size.x;
-    bcmd.viewport.height = viewport->Size.y;
+    bcmd.viewport.width = int(viewport->Size.x);
+    bcmd.viewport.height = int(viewport->Size.y);
 
     ImGui_ImplPHI_RenderDrawData(viewport->DrawData, {writer.buffer_head(), size_t(writer.remaining_bytes())});
     writer.advance_cursor(drawdata_command_size);
