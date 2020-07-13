@@ -26,8 +26,6 @@ struct quick_app
     da::smooth_fps_cam camera;
     da::Timer timer;
 
-    ImGuiPhantasmImpl imgui;
-
     quick_app() = default;
     explicit quick_app(pr::backend backend_type, phi::backend_config const& config = {}) { initialize(backend_type, config); }
     quick_app(quick_app const&) = delete;
@@ -62,9 +60,6 @@ struct quick_app
 
     /// draw a window containing camera state, frametime and control info
     void perform_default_imgui(float dt) const;
-
-    /// use to render imgui, given a frame and an already acquired backbuffer
-    void render_imgui(pr::raii::Frame& frame, pr::render_target const& backbuffer);
 
     // utility
 public:
