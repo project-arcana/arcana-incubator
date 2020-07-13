@@ -81,7 +81,6 @@ public:
         virtual_resource_handle move(res_guid_t src_guid, res_guid_t dest_guid) { return _parent->registerMove(_pass, src_guid, dest_guid); }
 
         void setRoot() { _parent->makePassRoot(_pass); }
-        void setResourceRoot(res_guid_t guid) { _parent->makeResourceRoot(guid); }
         void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
 
         tg::isize2 targetSize() const { return _backbuf_size; }
@@ -100,7 +99,7 @@ public:
 
     struct execute_context
     {
-        physical_resource const& get(virtual_resource_handle handle) const { return _parent->getPhysical(handle, _pass); }
+        physical_resource const& get(virtual_resource_handle handle) const { return _parent->getPhysical(handle); }
 
         pr::buffer get_buffer(virtual_resource_handle handle) const { return get(handle).as_buffer(); }
 
@@ -178,7 +177,7 @@ private:
     };
 
 public:
-    void initialize(pr::Context& ctx, pr::swapchain sc, unsigned max_num_passes = 50);
+    void initialize(pr::Context& ctx, unsigned max_num_passes = 50);
 
     template <class PassDataT, class ExecF>
     pass_idx addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func)
@@ -210,11 +209,21 @@ public:
         return new_pass_idx;
     }
 
+    // before compile, after all passes are added
+    [[nodiscard]] virtual_resource_handle promoteRootResource(res_guid_t guid)
+    {
+        makeResourceRoot(guid);
+        return getGuidState(guid).get_handle();
+    }
+
     void compile(GraphCache& cache);
 
     void printState() const;
 
     void execute(pr::raii::Frame* frame);
+
+    // after execute
+    physical_resource const& getRootResource(virtual_resource_handle handle) { return getPhysical(handle); }
 
     // resets, can now re-record passes
     void reset();
@@ -302,12 +311,8 @@ private:
 
     // execute-time API
 private:
-    physical_resource const& getPhysical(virtual_resource_handle handle, pass_idx pass) const
-    {
-        // NOTE: we could perform some asserts here with the pass and handle version
-        (void)pass;
-
-        // unneccesary double indirection right now
+    physical_resource const& getPhysical(virtual_resource_handle handle) const
+    { // unneccesary double indirection right now
         auto const physical_idx = mVirtualResources[handle.resource].associated_physical;
         CC_ASSERT(physical_idx != gc_invalid_physical_res && "resource was never realized");
         return mPhysicalResources[physical_idx];

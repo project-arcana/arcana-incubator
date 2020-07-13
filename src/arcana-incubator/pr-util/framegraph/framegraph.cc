@@ -206,28 +206,30 @@ void inc::frag::GraphBuilder::reset()
 
 void inc::frag::GraphBuilder::performInfoImgui() const
 {
-    ImGui::Begin("Framegraph passes");
-
-    ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
-
-    ImGui::Separator();
-
-    unsigned num_culled = 0;
-    for (pass_idx i = 0; i < mPasses.size(); ++i)
+    if (ImGui::Begin("GraphBuilder info"))
     {
-        auto const& pass = mPasses[i];
-        if (pass.can_cull())
+        ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
+
+        ImGui::Separator();
+
+        unsigned num_culled = 0;
+        for (pass_idx i = 0; i < mPasses.size(); ++i)
         {
-            ++num_culled;
-            continue;
+            auto const& pass = mPasses[i];
+            if (pass.can_cull())
+            {
+                ++num_culled;
+                continue;
+            }
+
+            ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_root_pass ? '>' : ':', pass.debug_name, int(pass.writes.size()),
+                        int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
         }
 
-        ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_root_pass ? '>' : ':', pass.debug_name, int(pass.writes.size()),
-                    int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
-    }
+        ImGui::Separator();
+        ImGui::Text("%u culled", num_culled);
 
-    ImGui::Separator();
-    ImGui::Text("%u culled", num_culled);
+    }
     ImGui::End();
 }
 
@@ -290,9 +292,8 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
 }
 
 
-void inc::frag::GraphBuilder::initialize(pr::Context& ctx, pr::swapchain sc, unsigned max_num_passes)
+void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_passes)
 {
-    setBackbufferSize(ctx.get_backbuffer_size(sc));
     mTiming.initialize(ctx, max_num_passes);
     mPasses.reserve(max_num_passes);
 }

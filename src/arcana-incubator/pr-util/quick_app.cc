@@ -10,13 +10,15 @@
 
 void inc::pre::quick_app::perform_default_imgui(float dt) const
 {
-    ImGui::Begin("quick_app default window", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
-    ImGui::SetWindowSize(ImVec2{210, 160}, ImGuiCond_Always);
-    ImGui::Text("frametime: %.2f ms", double(dt * 1000.f));
-    ImGui::Text("cam pos: %.2f %.2f %.2f", double(camera.physical.position.x), double(camera.physical.position.y), double(camera.physical.position.z));
-    ImGui::Text("cam fwd: %.2f %.2f %.2f", double(camera.physical.forward.x), double(camera.physical.forward.y), double(camera.physical.forward.z));
-    ImGui::Separator();
-    ImGui::Text("WASD - move\nE/Q - raise/lower\nhold RMB - mouselook\nshift - speedup\nctrl - slowdown");
+    ImGui::SetNextWindowSize(ImVec2{210, 160}, ImGuiCond_Always);
+    if (ImGui::Begin("quick_app", nullptr, ImGuiWindowFlags_NoResize))
+    {
+        ImGui::Text("frametime: %.2f ms", double(dt * 1000.f));
+        ImGui::Text("cam pos: %.2f %.2f %.2f", double(camera.physical.position.x), double(camera.physical.position.y), double(camera.physical.position.z));
+        ImGui::Text("cam fwd: %.2f %.2f %.2f", double(camera.physical.forward.x), double(camera.physical.forward.y), double(camera.physical.forward.z));
+        ImGui::Separator();
+        ImGui::Text("WASD - move\nE/Q - raise/lower\nhold RMB - mouselook\nshift - speedup\nctrl - slowdown");
+    }
     ImGui::End();
 }
 
