@@ -2,6 +2,7 @@
 
 #include <phantasm-renderer/Frame.hh>
 
+#include <arcana-incubator/imgui/imgui_impl_phi.hh>
 #include <arcana-incubator/imgui/imgui_impl_sdl2.hh>
 #include <arcana-incubator/imgui/imguizmo/imguizmo.hh>
 

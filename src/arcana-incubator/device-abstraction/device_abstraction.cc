@@ -100,10 +100,20 @@ bool inc::da::SDLWindow::pollSingleEvent(SDL_Event& out_event)
         }
         else if (out_event.type == SDL_WINDOWEVENT)
         {
-            int new_w, new_h;
-            SDL_GetWindowSize(mWindow, &new_w, &new_h);
-            bool const is_minimized = SDL_GetWindowFlags(mWindow) & SDL_WINDOW_MINIMIZED;
-            onResizeEvent(new_w, new_h, is_minimized);
+            if (out_event.window.event == SDL_WINDOWEVENT_CLOSE)
+            {
+                mIsRequestingClose = true;
+            }
+            else if (out_event.window.event == SDL_WINDOWEVENT_RESIZED ||      //
+                     out_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || //
+                     out_event.window.event == SDL_WINDOWEVENT_MINIMIZED ||    //
+                     out_event.window.event == SDL_WINDOWEVENT_MAXIMIZED)
+            {
+                int new_w, new_h;
+                SDL_GetWindowSize(mWindow, &new_w, &new_h);
+                bool const is_minimized = SDL_GetWindowFlags(mWindow) & SDL_WINDOW_MINIMIZED;
+                onResizeEvent(new_w, new_h, is_minimized);
+            }
         }
     }
 

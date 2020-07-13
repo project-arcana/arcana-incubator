@@ -9,8 +9,6 @@
 #include <arcana-incubator/device-abstraction/input.hh>
 #include <arcana-incubator/device-abstraction/timer.hh>
 
-#include <arcana-incubator/imgui/imgui_impl_pr.hh>
-
 namespace inc::pre
 {
 // simple out of the box mainloop with timing and imgui
