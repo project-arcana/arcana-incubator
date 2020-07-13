@@ -27,7 +27,7 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     window.initialize("quick_app window");
 
     context.initialize(backend_type, config);
-    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize());
+    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize()).unlock();
 
     // input + camera
     input.initialize();
@@ -87,7 +87,7 @@ void inc::pre::quick_app::destroy()
         ImGui_ImplPHI_Shutdown();
         ImGui_ImplSDL2_Shutdown();
 
-        context.destroy_swapchain(main_swapchain);
+        context.free(main_swapchain);
         context.destroy();
         window.destroy();
         da::shutdown();
