@@ -25,8 +25,7 @@ namespace
 
 [[nodiscard]] ImTextureID sv_to_imgui(phi::handle::shader_view sv)
 {
-    ImTextureID res = nullptr;
-    std::memset(&res, 0, sizeof(res));
+    ImTextureID res;
     std::memcpy(&res, &sv, sizeof(sv));
     return res;
 }
@@ -140,8 +139,8 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
         shader_shape.num_srvs = 1;
         shader_shape.num_samplers = 1;
 
-        phi::arg::graphics_shader shader_stages[]
-            = {phi::arg::graphics_shader{vs_data, phi::shader_stage::vertex}, phi::arg::graphics_shader{ps_data, phi::shader_stage::pixel}};
+        phi::arg::graphics_shader shader_stages[] = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
+                                                     phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
 
         phi::pipeline_config config;
         config.depth = phi::depth_function::none;
