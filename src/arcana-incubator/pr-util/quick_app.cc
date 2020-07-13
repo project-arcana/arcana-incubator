@@ -37,7 +37,8 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
 
-    context.initialize({window.getSdlWindow()}, backend_type, config);
+    context.initialize(backend_type, config);
+    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize());
 
     // input + camera
     input.initialize();
@@ -56,7 +57,7 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     else
         ImGui_ImplSDL2_InitForVulkan(window.getSdlWindow());
 
-    imgui.initialize_with_contained_shaders(&context.get_backend());
+    imgui.initialize_with_contained_shaders(&context.get_backend(), main_swapchain);
 }
 
 bool inc::pre::quick_app::_on_frame_start()
@@ -74,7 +75,7 @@ bool inc::pre::quick_app::_on_frame_start()
         return false;
 
     if (window.clearPendingResize())
-        context.on_window_resize(window.getSize());
+        context.on_window_resize(main_swapchain, window.getSize());
 
     // imgui new frame
     ImGui_ImplSDL2_NewFrame(window.getSdlWindow());

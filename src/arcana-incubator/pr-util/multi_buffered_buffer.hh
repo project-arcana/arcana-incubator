@@ -11,12 +11,12 @@ namespace inc::pre
 struct multi_buffered_buffer
 {
     multi_buffered_buffer() = default;
-    multi_buffered_buffer(pr::Context& ctx, unsigned size, unsigned stride = 0, pr::resource_heap heap = pr::resource_heap::upload, bool allow_uav = false)
+    multi_buffered_buffer(pr::Context& ctx, pr::swapchain sc, unsigned size, unsigned stride = 0, pr::resource_heap heap = pr::resource_heap::upload, bool allow_uav = false)
     {
-        create(ctx, pr::buffer_info::create(size, stride, heap, allow_uav));
+        create(ctx, sc, pr::buffer_info::create(size, stride, heap, allow_uav));
     }
 
-    void create(pr::Context& ctx, pr::buffer_info const& info);
+    void create(pr::Context& ctx, pr::swapchain sc, pr::buffer_info const& info);
 
     cc::capped_array<pr::auto_buffer, 5> buffers;
     unsigned head_index = 0;

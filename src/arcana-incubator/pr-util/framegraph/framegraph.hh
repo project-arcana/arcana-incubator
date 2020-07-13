@@ -178,7 +178,7 @@ private:
     };
 
 public:
-    void initialize(pr::Context& ctx, unsigned max_num_passes = 50);
+    void initialize(pr::Context& ctx, pr::swapchain sc, unsigned max_num_passes = 50);
 
     template <class PassDataT, class ExecF>
     pass_idx addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func)

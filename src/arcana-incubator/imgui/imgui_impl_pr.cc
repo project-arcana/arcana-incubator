@@ -29,12 +29,12 @@ namespace
 }
 }
 
-void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* ps_data, size_t ps_size, std::byte const* vs_data, size_t vs_size)
+void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, phi::handle::swapchain main_swapchain, std::byte const* ps_data, size_t ps_size, std::byte const* vs_data, size_t vs_size)
 {
     using namespace phi;
     mBackend = backend;
 
-    auto const num_frames_in_flight = backend->getNumBackbuffers();
+    auto const num_frames_in_flight = backend->getNumBackbuffers(main_swapchain);
     bool const d3d12_alignment = backend->getBackendType() == phi::backend_type::d3d12;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -51,7 +51,7 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
         arg::vertex_format vert_format = {vert_attrs, sizeof(ImDrawVert)};
 
         arg::framebuffer_config fb_format;
-        fb_format.add_render_target(mBackend->getBackbufferFormat());
+        fb_format.add_render_target(mBackend->getBackbufferFormat(main_swapchain));
         {
             auto& rt = fb_format.render_targets.back();
             rt.blend_enable = true;
@@ -131,7 +131,7 @@ void inc::ImGuiPhantasmImpl::initialize(phi::Backend* backend, std::byte const* 
     mBackend->free(temp_upload_buffer);
 }
 
-void inc::ImGuiPhantasmImpl::initialize_with_contained_shaders(phi::Backend* backend)
+void inc::ImGuiPhantasmImpl::initialize_with_contained_shaders(phi::Backend* backend, phi::handle::swapchain main_swapchain)
 {
     constexpr char const* imgui_code
         = R"(cbuffer _0:register(b0,space0){float4x4 prj;};struct vit{float2 pos:POSITION;float2 uv:TEXCOORD0;float4 col:COLOR0;};struct pit{float4 pos:SV_POSITION;float4 col:COLOR0;float2 uv:TEXCOORD0;};struct vgt{float4x4 prj;};ConstantBuffer<vgt> s:register(b0,space0);SamplerState p:register(s0,space0);Texture2D v:register(t0,space0);pit r(vit p){pit v;v.pos=mul(s.prj,float4(p.pos.xy,0.f,1.f));v.col=p.col;v.uv=p.uv;return v;}float4 u(pit s):SV_TARGET{float4 u=s.col*v.Sample(p,s.uv);return u;})";
@@ -143,7 +143,7 @@ void inc::ImGuiPhantasmImpl::initialize_with_contained_shaders(phi::Backend* bac
     auto const vs = comp.compile_binary(imgui_code, "r", dxcw::target::vertex, output);
     auto const ps = comp.compile_binary(imgui_code, "u", dxcw::target::pixel, output);
     comp.destroy();
-    initialize(backend, ps.data, ps.size, vs.data, vs.size);
+    initialize(backend, main_swapchain, ps.data, ps.size, vs.data, vs.size);
     dxcw::destroy_blob(vs.internal_blob);
     dxcw::destroy_blob(ps.internal_blob);
 }

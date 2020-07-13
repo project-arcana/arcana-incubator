@@ -20,6 +20,7 @@ struct quick_app
 {
     pr::Context context;
     da::SDLWindow window;
+    pr::swapchain main_swapchain;
 
     da::input_manager input;
     da::smooth_fps_cam camera;

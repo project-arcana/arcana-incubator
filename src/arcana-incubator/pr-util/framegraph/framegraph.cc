@@ -290,9 +290,9 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
 }
 
 
-void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_passes)
+void inc::frag::GraphBuilder::initialize(pr::Context& ctx, pr::swapchain sc, unsigned max_num_passes)
 {
-    setBackbufferSize(ctx.get_backbuffer_size());
+    setBackbufferSize(ctx.get_backbuffer_size(sc));
     mTiming.initialize(ctx, max_num_passes);
     mPasses.reserve(max_num_passes);
 }

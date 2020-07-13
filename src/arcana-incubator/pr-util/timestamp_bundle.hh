@@ -25,7 +25,7 @@ struct timing_metric
 
 struct timestamp_bundle
 {
-    void initialize(pr::Context& ctx, unsigned num_timers);
+    void initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers = 3);
 
     // threadsafe but must not interleave with finalize_frame
     void begin_timing(pr::raii::Frame& frame, unsigned idx);
