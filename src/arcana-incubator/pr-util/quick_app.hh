@@ -9,8 +9,6 @@
 #include <arcana-incubator/device-abstraction/input.hh>
 #include <arcana-incubator/device-abstraction/timer.hh>
 
-#include <arcana-incubator/imgui/imgui_impl_pr.hh>
-
 namespace inc::pre
 {
 // simple out of the box mainloop with timing and imgui
@@ -20,12 +18,11 @@ struct quick_app
 {
     pr::Context context;
     da::SDLWindow window;
+    pr::swapchain main_swapchain;
 
     da::input_manager input;
     da::smooth_fps_cam camera;
     da::Timer timer;
-
-    ImGuiPhantasmImpl imgui;
 
     quick_app() = default;
     explicit quick_app(pr::backend backend_type, phi::backend_config const& config = {}) { initialize(backend_type, config); }
@@ -61,9 +58,6 @@ struct quick_app
 
     /// draw a window containing camera state, frametime and control info
     void perform_default_imgui(float dt) const;
-
-    /// use to render imgui, given a frame and an already acquired backbuffer
-    void render_imgui(pr::raii::Frame& frame, pr::render_target const& backbuffer);
 
     // utility
 public:

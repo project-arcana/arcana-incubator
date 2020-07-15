@@ -26,10 +26,8 @@ void inc::pre::timing_metric::on_frame(float cpu_time, float gpu_time)
 }
 
 
-void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timers)
+void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers)
 {
-    auto const num_backbuffers = ctx.get_num_backbuffers();
-
     this->num_timings = num_timers;
     this->active_timing = num_timers;
 

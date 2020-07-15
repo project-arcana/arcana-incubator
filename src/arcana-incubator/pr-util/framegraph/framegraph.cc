@@ -7,7 +7,7 @@
 #include <phantasm-renderer/Context.hh>
 #include <phantasm-renderer/Frame.hh>
 
-#include <arcana-incubator/imgui/lib/imgui.hh>
+#include <arcana-incubator/imgui/imgui.hh>
 
 #include "resource_cache.hh"
 
@@ -155,6 +155,8 @@ void inc::frag::GraphBuilder::calculateBarriers()
             if (!mode.is_set())
                 return;
 
+            CC_ASSERT(!mVirtualResources[virtual_res].is_culled && "a written or read resource was culled");
+
             CC_ASSERT(virtual_res != gc_invalid_virtual_res);
             auto const physical_idx = mVirtualResources[virtual_res].associated_physical;
             CC_ASSERT(physical_idx != gc_invalid_physical_res);
@@ -204,28 +206,30 @@ void inc::frag::GraphBuilder::reset()
 
 void inc::frag::GraphBuilder::performInfoImgui() const
 {
-    ImGui::Begin("Framegraph passes");
-
-    ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
-
-    ImGui::Separator();
-
-    unsigned num_culled = 0;
-    for (pass_idx i = 0; i < mPasses.size(); ++i)
+    if (ImGui::Begin("GraphBuilder info"))
     {
-        auto const& pass = mPasses[i];
-        if (pass.can_cull())
+        ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
+
+        ImGui::Separator();
+
+        unsigned num_culled = 0;
+        for (pass_idx i = 0; i < mPasses.size(); ++i)
         {
-            ++num_culled;
-            continue;
+            auto const& pass = mPasses[i];
+            if (pass.can_cull())
+            {
+                ++num_culled;
+                continue;
+            }
+
+            ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_root_pass ? '>' : ':', pass.debug_name, int(pass.writes.size()),
+                        int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
         }
 
-        ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_root_pass ? '>' : ':', pass.debug_name, int(pass.writes.size()),
-                    int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
-    }
+        ImGui::Separator();
+        ImGui::Text("%u culled", num_culled);
 
-    ImGui::Separator();
-    ImGui::Text("%u culled", num_culled);
+    }
     ImGui::End();
 }
 
@@ -265,7 +269,10 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
 
                 // resource now unreferenced, add to stack
                 if (read_resource_version.can_cull())
+                {
+                    // LOG("Culling producer {}, resource {}", producer.debug_name, read.res);
                     unreferenced_res_ver_indices.push_back(read_resource_version_index);
+                }
             }
         }
     }
@@ -276,12 +283,17 @@ void inc::frag::GraphBuilder::runFloodfillCulling()
         auto& res = mVirtualResources[res_ver.res_idx];
         res.is_culled = res.is_culled && res_ver.can_cull();
     }
+
+    //    for (auto const& virt : mVirtualResources)
+    //    {
+    //        if (virt.is_culled)
+    //            LOG_INFO("Virtual resource {} was culled", virt.initial_guid);
+    //    }
 }
 
 
 void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_passes)
 {
-    setBackbufferSize(ctx.get_backbuffer_size());
     mTiming.initialize(ctx, max_num_passes);
     mPasses.reserve(max_num_passes);
 }

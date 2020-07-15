@@ -13,39 +13,55 @@
 
 #include <phantasm-hardware-interface/util.hh>
 
-
-inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, int desired_channels, bool use_hdr_float)
+namespace
 {
-    int width, height, num_channels;
-
-    image_data res;
-
-    if (use_hdr_float)
-    {
-        res.raw = ::stbi_loadf(filename, &width, &height, &num_channels, desired_channels);
-        res.is_hdr = true;
-    }
-    else
-    {
-        res.raw = ::stbi_load(filename, &width, &height, &num_channels, desired_channels);
-        res.is_hdr = false;
-    }
+inc::assets::image_data load_image_internal(void* stbi_data, int w, int h, inc::assets::image_size& out_size, int desired_channels, bool use_hdr_float)
+{
+    inc::assets::image_data res;
+    res.raw = stbi_data;
+    res.is_hdr = use_hdr_float;
 
     if (!res.raw)
         return res;
 
     res.num_channels = uint8_t(desired_channels);
 
-    out_size.width = unsigned(width);
-    out_size.height = unsigned(height);
+    out_size.width = unsigned(w);
+    out_size.height = unsigned(h);
     out_size.num_mipmaps = phi::util::get_num_mips(out_size.width, out_size.height);
     out_size.array_size = 1;
 
-
     return res;
 }
+}
 
-void inc::assets::rowwise_copy(std::byte const* src, std::byte* dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels)
+inc::assets::image_data inc::assets::load_image(cc::span<const std::byte> data, inc::assets::image_size& out_size, int desired_channels, bool use_hdr_float)
+{
+    int w, h, num_ch;
+    void* stbi_data;
+
+    if (use_hdr_float)
+        stbi_data = ::stbi_loadf_from_memory(reinterpret_cast<stbi_uc const*>(data.data()), int(data.size()), &w, &h, &num_ch, desired_channels);
+    else
+        stbi_data = ::stbi_load_from_memory(reinterpret_cast<stbi_uc const*>(data.data()), int(data.size()), &w, &h, &num_ch, desired_channels);
+
+    return load_image_internal(stbi_data, w, h, out_size, desired_channels, use_hdr_float);
+}
+
+inc::assets::image_data inc::assets::load_image(const char* filename, inc::assets::image_size& out_size, int desired_channels, bool use_hdr_float)
+{
+    int w, h, num_ch;
+    void* stbi_data;
+
+    if (use_hdr_float)
+        stbi_data = ::stbi_loadf(filename, &w, &h, &num_ch, desired_channels);
+    else
+        stbi_data = ::stbi_load(filename, &w, &h, &num_ch, desired_channels);
+
+    return load_image_internal(stbi_data, w, h, out_size, desired_channels, use_hdr_float);
+}
+
+void inc::assets::rowwise_copy(std::byte const* __restrict src, std::byte* __restrict dest, unsigned dest_row_stride_bytes, unsigned row_size_bytes, unsigned height_pixels)
 {
     for (auto y = 0u; y < height_pixels; ++y)
     {

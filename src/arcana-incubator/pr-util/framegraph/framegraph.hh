@@ -59,6 +59,12 @@ public:
             return _parent->registerCreate(_pass, guid, info, mode);
         }
 
+        virtual_resource_handle createRead(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
+        {
+            _parent->registerCreate(_pass, guid, info, {});
+            return _parent->registerRead(_pass, guid, mode);
+        }
+
         virtual_resource_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
         {
             return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
@@ -75,10 +81,10 @@ public:
         virtual_resource_handle move(res_guid_t src_guid, res_guid_t dest_guid) { return _parent->registerMove(_pass, src_guid, dest_guid); }
 
         void setRoot() { _parent->makePassRoot(_pass); }
-        void setResourceRoot(res_guid_t guid) { _parent->makeResourceRoot(guid); }
         void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
 
         tg::isize2 targetSize() const { return _backbuf_size; }
+        tg::isize2 targetSizeHalf() const { return _backbuf_size / 2; }
 
     private:
         friend class GraphBuilder;
@@ -93,7 +99,7 @@ public:
 
     struct execute_context
     {
-        physical_resource const& get(virtual_resource_handle handle) const { return _parent->getPhysical(handle, _pass); }
+        physical_resource const& get(virtual_resource_handle handle) const { return _parent->getPhysical(handle); }
 
         pr::buffer get_buffer(virtual_resource_handle handle) const { return get(handle).as_buffer(); }
 
@@ -203,11 +209,21 @@ public:
         return new_pass_idx;
     }
 
+    // before compile, after all passes are added
+    [[nodiscard]] virtual_resource_handle promoteRootResource(res_guid_t guid)
+    {
+        makeResourceRoot(guid);
+        return getGuidState(guid).get_handle();
+    }
+
     void compile(GraphCache& cache);
 
     void printState() const;
 
     void execute(pr::raii::Frame* frame);
+
+    // after execute
+    physical_resource const& getRootResource(virtual_resource_handle handle) { return getPhysical(handle); }
 
     // resets, can now re-record passes
     void reset();
@@ -277,18 +293,26 @@ private:
         resver.is_root_resource = true;
     }
 
-    void makePassRoot(pass_idx pass) { mPasses[pass].is_root_pass = true; }
+    void makePassRoot(pass_idx pass)
+    {
+        mPasses[pass].is_root_pass = true;
+
+        for (auto& read : mPasses[pass].reads)
+            getVirtualVersion(read.res, read.version_before).is_root_resource = true;
+
+        for (auto& write : mPasses[pass].writes)
+            getVirtualVersion(write.res, write.version_before).is_root_resource = true;
+
+        for (auto& create : mPasses[pass].creates)
+            getVirtualVersion(create.res, 0).is_root_resource = true;
+    }
 
     void setPassQueue(pass_idx pass, phi::queue_type type) { mPasses[pass].queue = type; }
 
     // execute-time API
 private:
-    physical_resource const& getPhysical(virtual_resource_handle handle, pass_idx pass) const
-    {
-        // NOTE: we could perform some asserts here with the pass and handle version
-        (void)pass;
-
-        // unneccesary double indirection right now
+    physical_resource const& getPhysical(virtual_resource_handle handle) const
+    { // unneccesary double indirection right now
         auto const physical_idx = mVirtualResources[handle.resource].associated_physical;
         CC_ASSERT(physical_idx != gc_invalid_physical_res && "resource was never realized");
         return mPhysicalResources[physical_idx];

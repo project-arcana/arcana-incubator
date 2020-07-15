@@ -60,24 +60,43 @@ void inc::pre::texture_processing::free()
     pso_brdf_lut_gen.free();
 }
 
-pr::auto_texture inc::pre::texture_processing::load_texture(pr::raii::Frame& frame, const char* path, phi::format fmt, bool mips, bool gamma)
+pr::auto_texture inc::pre::texture_processing::load_texture_from_memory(pr::raii::Frame& frame, cc::span<const std::byte> data, phi::format fmt, bool mips, bool gamma)
 {
-    CC_ASSERT((gamma ? mips : true) && "gamma setting meaningless without mipmap generation");
-
-    auto _label = frame.scoped_debug_label("texture_processing - load texture");
-
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
         unsigned const num_components = phi::detail::format_num_components(fmt);
         bool const is_hdr = phi::detail::format_size_bytes(fmt) / num_components > 1;
-        img_data = inc::assets::load_image(path, img_size, static_cast<int>(num_components), is_hdr);
-        CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture");
+        img_data = inc::assets::load_image(data, img_size, int(num_components), is_hdr);
+        CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture from memory");
     }
-    CC_DEFER { inc::assets::free(img_data); };
+    auto res = load_texture(frame, img_data, img_size, fmt, mips, gamma);
+    inc::assets::free(img_data);
+    return res;
+}
 
+pr::auto_texture inc::pre::texture_processing::load_texture_from_file(pr::raii::Frame& frame, const char* path, pr::format fmt, bool mips, bool gamma)
+{
+    inc::assets::image_size img_size;
+    inc::assets::image_data img_data;
+    {
+        unsigned const num_components = phi::detail::format_num_components(fmt);
+        bool const is_hdr = phi::detail::format_size_bytes(fmt) / num_components > 1;
+        img_data = inc::assets::load_image(path, img_size, int(num_components), is_hdr);
+        CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture from file");
+    }
+    auto res = load_texture(frame, img_data, img_size, fmt, mips, gamma);
+    inc::assets::free(img_data);
+    return res;
+}
 
-    auto res = frame.context().make_texture({int(img_size.width), int(img_size.height)}, fmt, mips ? img_size.num_mipmaps : 1, true);
+pr::auto_texture inc::pre::texture_processing::load_texture(
+    pr::raii::Frame& frame, const inc::assets::image_data& data, const inc::assets::image_size& size, pr::format fmt, bool mips, bool gamma)
+{
+    CC_ASSERT((gamma ? mips : true) && "gamma setting meaningless without mipmap generation");
+    auto _label = frame.scoped_debug_label("texture_processing - load texture");
+
+    auto res = frame.context().make_texture({int(size.width), int(size.height)}, fmt, mips ? size.num_mipmaps : 1, true);
 
     // ceil size to 2.5MB to make cache hits more likely in the future
     unsigned const ceiled_upload_size = ceil_to_2_5mb(frame.context().calculate_texture_upload_size(res, 1));
@@ -85,7 +104,7 @@ pr::auto_texture inc::pre::texture_processing::load_texture(pr::raii::Frame& fra
     // get a cached upload buffer so we can just drop it
     auto b_upload = frame.context().get_upload_buffer(ceiled_upload_size);
 
-    frame.upload_texture_data(static_cast<std::byte const*>(img_data.raw), b_upload, res);
+    frame.upload_texture_data(static_cast<std::byte const*>(data.raw), b_upload, res);
 
     if (mips)
         generate_mips(frame, res, gamma);
@@ -147,14 +166,26 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
     }
 }
 
-inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map(pr::raii::Frame& frame, const char* hdr_equirect_path)
+inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map_from_memory(pr::raii::Frame& frame, cc::span<const std::byte> data)
+{
+    auto tex_specular_map = load_texture_from_memory(frame, data, phi::format::rgba32f, false);
+    return load_filtered_specular_map(frame, cc::move(tex_specular_map));
+}
+
+inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map_from_file(pr::raii::Frame& frame, const char* hdr_equirect_path)
+{
+    auto tex_specular_map = load_texture_from_file(frame, hdr_equirect_path, phi::format::rgba32f, false);
+    return load_filtered_specular_map(frame, cc::move(tex_specular_map));
+}
+
+inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map(pr::raii::Frame& frame, pr::auto_texture&& specular_map)
 {
     constexpr auto cube_width = 1024;
     constexpr auto cube_height = 1024;
     auto const cube_num_mips = phi::util::get_num_mips(cube_width, cube_height);
 
     filtered_specular_result res;
-    res.equirect_tex = load_texture(frame, hdr_equirect_path, phi::format::rgba32f, false);
+    res.equirect_tex = cc::move(specular_map);
     res.unfiltered_env = frame.context().make_texture_cube({cube_width, cube_height}, pr::format::rgba16f, cube_num_mips, true);
     res.filtered_env = frame.context().make_texture_cube({cube_width, cube_height}, pr::format::rgba16f, cube_num_mips, true);
 

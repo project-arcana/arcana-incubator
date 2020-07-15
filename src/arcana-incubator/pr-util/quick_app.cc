@@ -2,6 +2,7 @@
 
 #include <phantasm-renderer/Frame.hh>
 
+#include <arcana-incubator/imgui/imgui_impl_phi.hh>
 #include <arcana-incubator/imgui/imgui_impl_sdl2.hh>
 #include <arcana-incubator/imgui/imguizmo/imguizmo.hh>
 
@@ -9,43 +10,45 @@
 
 void inc::pre::quick_app::perform_default_imgui(float dt) const
 {
-    ImGui::Begin("quick_app default window", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
-    ImGui::SetWindowSize(ImVec2{210, 160}, ImGuiCond_Always);
-    ImGui::Text("frametime: %.2f ms", double(dt * 1000.f));
-    ImGui::Text("cam pos: %.2f %.2f %.2f", double(camera.physical.position.x), double(camera.physical.position.y), double(camera.physical.position.z));
-    ImGui::Text("cam fwd: %.2f %.2f %.2f", double(camera.physical.forward.x), double(camera.physical.forward.y), double(camera.physical.forward.z));
-    ImGui::Separator();
-    ImGui::Text("WASD - move\nE/Q - raise/lower\nhold RMB - mouselook\nshift - speedup\nctrl - slowdown");
+    ImGui::SetNextWindowSize(ImVec2{210, 160}, ImGuiCond_Always);
+    if (ImGui::Begin("quick_app", nullptr, ImGuiWindowFlags_NoResize))
+    {
+        ImGui::Text("frametime: %.2f ms", double(dt * 1000.f));
+        ImGui::Text("cam pos: %.2f %.2f %.2f", double(camera.physical.position.x), double(camera.physical.position.y), double(camera.physical.position.z));
+        ImGui::Text("cam fwd: %.2f %.2f %.2f", double(camera.physical.forward.x), double(camera.physical.forward.y), double(camera.physical.forward.z));
+        ImGui::Separator();
+        ImGui::Text("WASD - move\nE/Q - raise/lower\nhold RMB - mouselook\nshift - speedup\nctrl - slowdown");
+    }
     ImGui::End();
 }
 
-void inc::pre::quick_app::render_imgui(pr::raii::Frame& frame, const pr::render_target& backbuffer)
-{
-    ImGui::Render();
-    auto* const drawdata = ImGui::GetDrawData();
-    auto const framesize = imgui.get_command_size(drawdata);
-
-    frame.begin_debug_label("imgui");
-    frame.transition(backbuffer, pr::state::render_target);
-    imgui.write_commands(drawdata, backbuffer.res.handle, frame.write_raw_bytes(framesize), framesize);
-    frame.end_debug_label();
-}
 void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backend_config& config)
 {
     // core
     da::initialize(); // SDL Init
     window.initialize("quick_app window");
 
-    context.initialize({window.getSdlWindow()}, backend_type, config);
+    context.initialize(backend_type, config);
+    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize()).unlock();
 
     // input + camera
     input.initialize();
     camera.setup_default_inputs(input);
 
     // imgui
-    ImGui::SetCurrentContext(ImGui::CreateContext(nullptr));
-    ImGui_ImplSDL2_Init(window.getSdlWindow());
-    imgui.initialize_with_contained_shaders(&context.get_backend());
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;   // Enable multi-viewport
+
+    if (context.get_backend_type() == pr::backend::d3d12)
+        ImGui_ImplSDL2_InitForD3D(window.getSdlWindow());
+    else
+        ImGui_ImplSDL2_InitForVulkan(window.getSdlWindow());
+
+    ImGui_ImplPHI_Init(&context.get_backend(), context.get_num_backbuffers(main_swapchain), context.get_backbuffer_format(main_swapchain));
 }
 
 bool inc::pre::quick_app::_on_frame_start()
@@ -63,16 +66,17 @@ bool inc::pre::quick_app::_on_frame_start()
         return false;
 
     if (window.clearPendingResize())
-        context.on_window_resize(window.getSize());
+        context.on_window_resize(main_swapchain, window.getSize());
 
     // imgui new frame
+    ImGui_ImplPHI_NewFrame();
     ImGui_ImplSDL2_NewFrame(window.getSdlWindow());
     ImGui::NewFrame();
 
     // imguizmo new frame
+    ImGuiViewport const& viewport = *ImGui::GetMainViewport();
     ImGuizmo::BeginFrame();
-    ImGuiIO& io = ImGui::GetIO();
-    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    ImGuizmo::SetRect(viewport.Pos.x, viewport.Pos.y, viewport.Size.x, viewport.Size.y);
 
     return true;
 }
@@ -82,10 +86,10 @@ void inc::pre::quick_app::destroy()
     if (context.is_initialized())
     {
         context.flush();
-
-        imgui.destroy();
+        ImGui_ImplPHI_Shutdown();
         ImGui_ImplSDL2_Shutdown();
 
+        context.free(main_swapchain);
         context.destroy();
         window.destroy();
         da::shutdown();

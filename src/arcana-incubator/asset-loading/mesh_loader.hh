@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include <clean-core/span.hh>
 #include <clean-core/vector.hh>
 
 #include <typed-geometry/tg-lean.hh>
@@ -34,14 +35,22 @@ struct simple_mesh_data
 {
     cc::vector<uint32_t> indices;
     cc::vector<simple_vertex> vertices;
+};
 
-    unsigned get_vertex_size_bytes() const { return unsigned(sizeof(vertices[0]) * vertices.size()); }
-    unsigned get_index_size_bytes() const { return unsigned(sizeof(indices[0]) * indices.size()); }
+struct simple_mesh_data_nonowning
+{
+    cc::span<uint32_t const> indices;
+    cc::span<simple_vertex const> vertices;
 };
 
 [[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true);
 
 void write_binary_mesh(simple_mesh_data const& mesh, char const* out_path);
-[[nodiscard]] simple_mesh_data load_binary_mesh(char const* path);
 
+[[nodiscard]] simple_mesh_data load_binary_mesh(char const* path);
+[[nodiscard]] simple_mesh_data load_binary_mesh(cc::span<std::byte const> data);
+
+[[nodiscard]] simple_mesh_data_nonowning parse_binary_mesh(cc::span<std::byte const> data);
+
+tg::aabb3 calculate_mesh_aabb(cc::span<simple_vertex const> vertices);
 }
