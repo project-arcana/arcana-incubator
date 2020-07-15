@@ -126,7 +126,9 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
             continue;
 
         // passthrough imported resources or call the realize_func
-        pr::raw_resource const physical = virt.is_imported ? virt.imported_resource : cache.get(virt.create_info);
+        char namebuf[256];
+        std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%llu]", virt.initial_guid);
+        pr::raw_resource const physical = virt.is_imported ? virt.imported_resource : cache.get(virt.create_info, namebuf);
 
         mPhysicalResources.push_back({physical, virt.create_info.get()});
         virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);

@@ -4,11 +4,10 @@
 #include <functional>
 #include <type_traits>
 
-#include <rich-log/log.hh>
-
 #include <clean-core/capped_vector.hh>
 #include <clean-core/function_ref.hh>
 #include <clean-core/vector.hh>
+
 
 #include <phantasm-hardware-interface/fwd.hh>
 #include <phantasm-hardware-interface/types.hh>
@@ -84,7 +83,7 @@ public:
         void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
 
         tg::isize2 targetSize() const { return _backbuf_size; }
-        tg::isize2 targetSizeHalf() const { return _backbuf_size / 2; }
+        tg::isize2 targetSizeHalf() const { return {_backbuf_size.width / 2, _backbuf_size.height / 2}; }
 
     private:
         friend class GraphBuilder;
