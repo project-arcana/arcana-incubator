@@ -16,11 +16,11 @@ void shutdown();
 class SDLWindow
 {
 public:
-    void initialize(char const* title, int width = 1600, int height = 900, bool enable_vk = true);
+    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true);
     void destroy();
 
     SDLWindow() = default;
-    SDLWindow(char const* title, int width = 1600, int height = 900, bool enable_vk = true) { initialize(title, width, height, enable_vk); }
+    SDLWindow(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true) { initialize(title, size, enable_vulkan); }
     SDLWindow(SDLWindow const&) = delete;
     SDLWindow(SDLWindow&&) noexcept = delete;
     SDLWindow& operator=(SDLWindow const&) = delete;
@@ -56,16 +56,21 @@ public:
     int getWidth() const { return mWidth; }
     int getHeight() const { return mHeight; }
     tg::isize2 getSize() const { return {mWidth, mHeight}; }
+    tg::ivec2 getPosition() const;
     bool isMinimized() const { return mIsMinimized; }
     float getScaleFactor() const { return mScaleFactor; }
 
     SDL_Window* getSdlWindow() const { return mWindow; }
 
     // fullscreen mode
+
     /// set the window to display in proper fullscreen
     void setFullscreen();
+
     /// set the window to display in pseudo fullscreen without a display mode change
-    void setBorderlessFullscreen();
+    /// target_display_index == -1: current display of the window
+    void setBorderlessFullscreen(int target_display_index = -1);
+
     /// set the window to display in windowed mode
     void setWindowed();
 
@@ -73,7 +78,7 @@ public:
     /// set the display mode, only works in fullscreen
     void setDisplayMode(int width, int height, int refresh_rate);
     /// set the display mode to the natively specified desktop display mode, only works in fullscreen
-    void setDesktopDisplayMode(int display_index = 0);
+    void setDesktopDisplayMode();
 
 public:
     using event_callback = bool (*)(SDL_Event const* e);
@@ -83,6 +88,9 @@ public:
 private:
     void onResizeEvent(int w, int h, bool minimized);
 
+    void restoreFromBorderless();
+
+private:
     SDL_Window* mWindow = nullptr;
     event_callback mEventCallback = nullptr;
 
@@ -92,6 +100,14 @@ private:
     bool mIsMinimized = false;
     bool mPendingResize = false;
     bool mIsRequestingClose = false;
+
+    // fullscreen/borderless aux state
+    struct
+    {
+        bool is_in_borderless = false;
+        tg::isize2 prev_size;
+        tg::ivec2 prev_pos;
+    } mBorderlessState;
 
 #ifdef CC_ENABLE_ASSERTIONS
     struct
