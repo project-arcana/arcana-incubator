@@ -48,7 +48,7 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     else
         ImGui_ImplSDL2_InitForVulkan(window.getSdlWindow());
 
-    ImGui_ImplPHI_Init(&context.get_backend(), context.get_num_backbuffers(main_swapchain), context.get_backbuffer_format(main_swapchain));
+    ImGui_ImplPHI_Init(&context.get_backend(), int(context.get_num_backbuffers(main_swapchain)), context.get_backbuffer_format(main_swapchain));
 }
 
 bool inc::pre::quick_app::_on_frame_start()
