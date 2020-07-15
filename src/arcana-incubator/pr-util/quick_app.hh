@@ -1,5 +1,7 @@
 #pragma once
 
+#include <clean-core/function_ref.hh>
+
 #include <phantasm-hardware-interface/config.hh>
 
 #include <phantasm-renderer/Context.hh>
@@ -35,29 +37,11 @@ struct quick_app
 
     void destroy();
 
-    /// canonical main loop with a provided lambda
-    template <class F>
-    void main_loop(F&& func)
-    {
-        CC_ASSERT(context.is_initialized() && "uninitialized");
-        timer.restart();
-        while (!window.isRequestingClose())
-        {
-            if (!_on_frame_start())
-                continue;
-
-            auto const dt = timer.elapsedSeconds();
-            timer.restart();
-
-            camera.update_default_inputs(window.getSdlWindow(), input, dt);
-            func(dt);
-        }
-
-        context.flush();
-    }
+    /// canonical main loop with a provided lambda, receives delta time in microseconds
+    void main_loop(cc::function_ref<void(uint64_t)> func);
 
     /// draw a window containing camera state, frametime and control info
-    void perform_default_imgui(float dt) const;
+    void perform_default_imgui(double dt) const;
 
     // utility
 public:
