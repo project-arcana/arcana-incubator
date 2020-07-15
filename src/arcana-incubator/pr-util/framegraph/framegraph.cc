@@ -228,7 +228,6 @@ void inc::frag::GraphBuilder::performInfoImgui() const
 
         ImGui::Separator();
         ImGui::Text("%u culled", num_culled);
-
     }
     ImGui::End();
 }
