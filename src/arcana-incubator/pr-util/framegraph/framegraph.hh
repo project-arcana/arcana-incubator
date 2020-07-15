@@ -109,6 +109,8 @@ public:
 
         pr::raii::Frame& frame() const { return *_frame; }
 
+        pass_idx get_pass_index() const { return _pass; }
+
     private:
         friend class GraphBuilder;
         execute_context(pass_idx pass, GraphBuilder* parent, pr::raii::Frame* frame) : _pass(pass), _parent(parent), _frame(frame) {}
