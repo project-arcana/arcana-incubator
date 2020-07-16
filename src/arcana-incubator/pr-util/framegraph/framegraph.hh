@@ -115,7 +115,7 @@ public:
         execute_context(execute_context const&) = delete;
         execute_context(execute_context&&) = delete;
 
-        pass_idx const _pass;
+        [[maybe_unused]] pass_idx const _pass;
         GraphBuilder* const _parent;
         pr::raii::Frame* const _frame;
     };
