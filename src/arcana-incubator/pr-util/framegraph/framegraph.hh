@@ -73,7 +73,7 @@ public:
     // resets, can now re-record passes
     void reset();
 
-    void setBackbufferSize(tg::isize2 size) { mBackbufferSize = size; }
+    void setMainTargetSize(tg::isize2 size) { mMainTargetSize = size; }
 
     //
     // Info
@@ -116,22 +116,31 @@ private:
 
     struct virtual_resource
     {
-        res_guid_t const initial_guid; // unique
-        bool const is_imported;
-        physical_res_idx associated_physical = gc_invalid_physical_res;
-        bool is_root_resource = false;
-        bool is_culled = false;
+        enum state_bits : uint8_t
+        {
+            sb_culled = 1 << 0,
+            sb_root = 1 << 1,
+            sb_imported = 1 << 2,
+        };
 
-        pr::hashable_storage<phi::arg::create_resource_info> create_info;
+        res_guid_t const initial_guid; // unique
+        uint8_t state = 0;
+
+        physical_res_idx associated_physical = gc_invalid_physical_res;
+        pr::hashable_storage<phi::arg::create_resource_info> resource_info;
         pr::raw_resource imported_resource;
 
-        virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid), is_imported(false) { _copy_info(info); }
+        virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid) { _copy_info(info); }
 
         virtual_resource(res_guid_t guid, pr::raw_resource import_resource, phi::arg::create_resource_info const& info)
-          : initial_guid(guid), is_imported(true), imported_resource(import_resource)
+          : initial_guid(guid), state(sb_imported), imported_resource(import_resource)
         {
             _copy_info(info);
         }
+
+        bool is_root() const { return !!(state & sb_root); }
+        bool is_culled() const { return !!(state & sb_culled); }
+        bool is_imported() const { return !!(state & sb_imported); }
 
     private:
         void _copy_info(phi::arg::create_resource_info const& info);
@@ -208,7 +217,7 @@ private:
     {
         auto const& state = getGuidState(resource);
         CC_ASSERT(state.is_valid() && "attempted to make invalid resource root");
-        mVirtualResources[state.virtual_res].is_root_resource = true;
+        mVirtualResources[state.virtual_res].state |= virtual_resource::sb_root;
     }
 
     void makePassRoot(pass_idx pass) { mPasses[pass].is_root_pass = true; }
@@ -219,10 +228,10 @@ private:
 private:
     friend struct exec_context;
     physical_resource const& getPhysical(res_handle handle) const
-    { // unneccesary double indirection right now
-        auto const physical_idx = mVirtualResources[handle.resource].associated_physical;
-        CC_ASSERT(physical_idx != gc_invalid_physical_res && "resource was never realized");
-        return mPhysicalResources[physical_idx];
+    {
+        virtual_resource const& virt_res = mVirtualResources[handle.resource];
+        CC_ASSERT(virt_res.associated_physical != gc_invalid_physical_res && "resource was never realized");
+        return mPhysicalResources[virt_res.associated_physical];
     }
 
 private:
@@ -246,7 +255,7 @@ private:
     guid_state& getGuidState(res_guid_t guid);
 
 private:
-    tg::isize2 mBackbufferSize;
+    tg::isize2 mMainTargetSize;
     unsigned mNumReadsTotal = 0;
     unsigned mNumWritesTotal = 0;
     inc::pre::timestamp_bundle mTiming;
@@ -356,7 +365,7 @@ pass_idx GraphBuilder::addPass(char const* debug_name, cc::function_ref<void(Pas
 
     // immediately execute setup
     PassDataT pass_data = {};
-    setup_context setup_ctx = {new_pass_idx, this, mBackbufferSize};
+    setup_context setup_ctx = {new_pass_idx, this, mMainTargetSize};
     setup_func(pass_data, setup_ctx);
 
     // capture pass_data per value, move user exec lambda into capture

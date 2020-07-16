@@ -111,6 +111,8 @@ inc::frag::res_handle inc::frag::GraphBuilder::registerMove(inc::frag::pass_idx 
     }
 }
 
+
+
 void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& cache)
 {
     CC_ASSERT(mPhysicalResources.empty() && "ran twice");
@@ -118,15 +120,23 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
     mPhysicalResources.reserve(mVirtualResources.size());
     for (auto& virt : mVirtualResources)
     {
-        if (virt.is_culled)
+        if (virt.is_culled())
             continue;
 
         // passthrough imported resources or call the realize_func
-        char namebuf[256];
-        std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%llu]", virt.initial_guid);
-        pr::raw_resource const physical = virt.is_imported ? virt.imported_resource : cache.get(virt.create_info, namebuf);
+        pr::raw_resource physical;
+        if (virt.is_imported())
+        {
+            physical = virt.imported_resource;
+        }
+        else
+        {
+            char namebuf[256];
+            std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%llu]", virt.initial_guid);
+            physical = cache.get(virt.resource_info, namebuf);
+        }
 
-        mPhysicalResources.push_back({physical, virt.create_info.get()});
+        mPhysicalResources.push_back({physical, virt.resource_info.get()});
         virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);
     }
 }
@@ -153,7 +163,7 @@ void inc::frag::GraphBuilder::calculateBarriers()
             if (!mode.is_set())
                 return;
 
-            CC_ASSERT(!mVirtualResources[virtual_res].is_culled && "a written or read resource was culled");
+            CC_ASSERT(!mVirtualResources[virtual_res].is_culled() && "a written or read resource was culled");
 
             CC_ASSERT(virtual_res != gc_invalid_virtual_res);
             auto const physical_idx = mVirtualResources[virtual_res].associated_physical;
@@ -285,7 +295,7 @@ void inc::frag::GraphBuilder::runFloodfillCulling(cc::allocator* alloc)
     // mark root resources
     for (auto i = 0u; i < mVirtualResources.size(); ++i)
     {
-        if (mVirtualResources[i].is_root_resource)
+        if (mVirtualResources[i].is_root())
             res_refcounts[i] = 1;
     }
 
@@ -300,7 +310,8 @@ void inc::frag::GraphBuilder::runFloodfillCulling(cc::allocator* alloc)
 
     for (auto i = 0u; i < mVirtualResources.size(); ++i)
     {
-        mVirtualResources[i].is_culled = (res_refcounts[i] == 0);
+        if (res_refcounts[i] == 0)
+            mVirtualResources[i].state |= virtual_resource::sb_culled;
     }
 }
 
@@ -356,7 +367,7 @@ void inc::frag::GraphBuilder::printState() const
 
     for (auto const& res : mVirtualResources)
     {
-        if (res.is_culled)
+        if (res.is_culled())
             continue;
 
         LOG("resource {}", res.initial_guid);
@@ -394,18 +405,18 @@ inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::
 void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::create_resource_info& info)
 {
     // this little game is required to maintain the hashable_storage
-    create_info.get().type = info.type;
+    resource_info.get().type = info.type;
 
     switch (info.type)
     {
     case phi::arg::create_resource_info::e_resource_render_target:
-        create_info.get().info_render_target = info.info_render_target;
+        resource_info.get().info_render_target = info.info_render_target;
         break;
     case phi::arg::create_resource_info::e_resource_texture:
-        create_info.get().info_texture = info.info_texture;
+        resource_info.get().info_texture = info.info_texture;
         break;
     case phi::arg::create_resource_info::e_resource_buffer:
-        create_info.get().info_buffer = info.info_buffer;
+        resource_info.get().info_buffer = info.info_buffer;
         break;
     case phi::arg::create_resource_info::e_resource_undefined:
         break;
