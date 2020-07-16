@@ -10,11 +10,11 @@ void inc::frag::run_floodcull(cc::span<int> producers,
 {
     // phase one - initial refcount values are expected as 0 (default) or 1 (root)
     {
-        for (floodcull_relation write : writes)
+        for (floodcull_relation const& write : writes)
         {
             producers[write.producer_index]++;
         }
-        for (floodcull_relation read : reads)
+        for (floodcull_relation const& read : reads)
         {
             if (producers[read.producer_index] == 0)
                 continue;
@@ -40,7 +40,7 @@ void inc::frag::run_floodcull(cc::span<int> producers,
             CC_ASSERT(resources[popped] == 0 && "unexpected resource refcount");
 
             // go over producers of this resource
-            for (floodcull_relation write : writes)
+            for (floodcull_relation const& write : writes)
             {
                 if (write.resource_index != popped)
                     continue;
@@ -52,7 +52,7 @@ void inc::frag::run_floodcull(cc::span<int> producers,
                 if (producer_refcount == 0)
                 {
                     // go over reads of this pass
-                    for (floodcull_relation read : reads)
+                    for (floodcull_relation const& read : reads)
                     {
                         if (read.producer_index != write.producer_index)
                             continue;
@@ -73,7 +73,7 @@ void inc::frag::run_floodcull(cc::span<int> producers,
     // phase three - write fixup
     // even if a written resource is not required down the line, it must not still not be culled
     // because the pass needs it (internally or simply for GPU layout / logistical reasons)
-    for (floodcull_relation write : writes)
+    for (floodcull_relation const& write : writes)
     {
         if (producers[write.producer_index] == 0)
             continue;

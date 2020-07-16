@@ -46,81 +46,97 @@ struct physical_resource
     }
 };
 
-
 class GraphBuilder
 {
 public:
-    struct setup_context
+    void initialize(pr::Context& ctx, unsigned max_num_passes = 50);
+
+    template <class PassDataT, class ExecF>
+    pass_idx addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func);
+
+    // before compile, after all passes are added
+    [[nodiscard]] res_handle promoteRootResource(res_guid_t guid)
     {
-        virtual_resource_handle create(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
-        {
-            return _parent->registerCreate(_pass, guid, info, mode);
-        }
+        makeResourceRoot(guid);
+        return getGuidState(guid).get_handle();
+    }
 
-        virtual_resource_handle createRead(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
-        {
-            _parent->registerCreate(_pass, guid, info, {});
-            return _parent->registerRead(_pass, guid, mode);
-        }
+    void compile(GraphCache& cache, cc::allocator* alloc);
 
-        virtual_resource_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
-        {
-            return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
-        }
+    void printState() const;
 
-        virtual_resource_handle import(res_guid_t guid, pr::render_target const& rt, access_mode mode = {})
-        {
-            return _parent->registerImport(_pass, guid, rt.res, mode, pr::generic_resource_info::create(rt.info));
-        }
+    void execute(pr::raii::Frame* frame);
 
-        virtual_resource_handle read(res_guid_t guid, access_mode mode = {}) { return _parent->registerRead(_pass, guid, mode); }
-        virtual_resource_handle write(res_guid_t guid, access_mode mode = {}) { return _parent->registerWrite(_pass, guid, mode); }
-        virtual_resource_handle readWrite(res_guid_t guid, access_mode mode = {}) { return _parent->registerReadWrite(_pass, guid, mode); }
-        virtual_resource_handle move(res_guid_t src_guid, res_guid_t dest_guid) { return _parent->registerMove(_pass, src_guid, dest_guid); }
+    // after execute
+    physical_resource const& getRootResource(res_handle handle) { return getPhysical(handle); }
 
-        void setRoot() { _parent->makePassRoot(_pass); }
-        void setQueue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
+    // resets, can now re-record passes
+    void reset();
 
-        tg::isize2 targetSize() const { return _backbuf_size; }
-        tg::isize2 targetSizeHalf() const { return {_backbuf_size.width / 2, _backbuf_size.height / 2}; }
+    void setBackbufferSize(tg::isize2 size) { mBackbufferSize = size; }
 
-    private:
-        friend class GraphBuilder;
-        setup_context(pass_idx pass, GraphBuilder* parent, tg::isize2 bb_s) : _pass(pass), _parent(parent), _backbuf_size(bb_s) {}
-        setup_context(setup_context const&) = delete;
-        setup_context(setup_context&&) = delete;
+    //
+    // Info
+    //
 
-        pass_idx const _pass;
-        GraphBuilder* const _parent;
-        tg::isize2 const _backbuf_size;
-    };
+    [[nodiscard]] double getLastTiming(pass_idx pass) const { return mTiming.get_last_timing(pass); }
 
-    struct execute_context
-    {
-        physical_resource const& get(virtual_resource_handle handle) const { return _parent->getPhysical(handle); }
-
-        pr::buffer get_buffer(virtual_resource_handle handle) const { return get(handle).as_buffer(); }
-
-        pr::render_target get_target(virtual_resource_handle handle) const { return get(handle).as_target(); }
-
-        pr::texture get_texture(virtual_resource_handle handle) const { return get(handle).as_texture(); }
-
-        pr::raii::Frame& frame() const { return *_frame; }
-
-        pass_idx get_pass_index() const { return _pass; }
-
-    private:
-        friend class GraphBuilder;
-        execute_context(pass_idx pass, GraphBuilder* parent, pr::raii::Frame* frame) : _pass(pass), _parent(parent), _frame(frame) {}
-        execute_context(execute_context const&) = delete;
-        execute_context(execute_context&&) = delete;
-
-        pass_idx const _pass;
-        GraphBuilder* const _parent;
-        pr::raii::Frame* const _frame;
-    };
+    void performInfoImgui() const;
 
 private:
+    struct guid_state
+    {
+        enum e_state
+        {
+            state_initial,
+            state_valid_created,
+            state_valid_move_created,
+            state_valid_moved_to
+        };
+
+        res_guid_t const guid;
+        e_state state = state_initial;
+        virtual_res_idx virtual_res = gc_invalid_virtual_res;
+        int virtual_res_version = 0;
+
+        void on_create(virtual_res_idx new_res);
+
+        void on_move_create(virtual_res_idx new_res, int new_version);
+
+        void on_move_modify(virtual_res_idx new_res, int new_version);
+
+        res_handle get_handle() const { return {virtual_res, virtual_res_version}; }
+
+        res_handle get_handle_and_bump_version();
+
+        bool is_valid() const { return state != state_initial; }
+
+        guid_state(res_guid_t g) : guid(g) {}
+    };
+
+    struct virtual_resource
+    {
+        res_guid_t const initial_guid; // unique
+        bool const is_imported;
+        physical_res_idx associated_physical = gc_invalid_physical_res;
+        bool is_root_resource = false;
+        bool is_culled = false;
+
+        pr::hashable_storage<phi::arg::create_resource_info> create_info;
+        pr::raw_resource imported_resource;
+
+        virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid), is_imported(false) { _copy_info(info); }
+
+        virtual_resource(res_guid_t guid, pr::raw_resource import_resource, phi::arg::create_resource_info const& info)
+          : initial_guid(guid), is_imported(true), imported_resource(import_resource)
+        {
+            _copy_info(info);
+        }
+
+    private:
+        void _copy_info(phi::arg::create_resource_info const& info);
+    };
+
     struct internal_pass
     {
         struct pass_write
@@ -158,10 +174,9 @@ private:
 
         char const* const debug_name;
         phi::queue_type queue = phi::queue_type::direct;
-        cc::function<void(GraphBuilder*, pr::raii::Frame*)> execute_func;
-
-        int num_references = 0;
+        cc::function<void(exec_context&)> execute_func;
         bool is_root_pass = false;
+        bool is_culled = false;
 
         cc::capped_vector<pass_write, 16> writes;
         cc::capped_vector<pass_read, 16> reads;
@@ -172,146 +187,39 @@ private:
         cc::capped_vector<phi::transition_info, 64> transitions_before;
 
         internal_pass(char const* name) : debug_name(name) {}
-
-        bool can_cull() const { return num_references == 0 && !is_root_pass; }
-    };
-
-public:
-    void initialize(pr::Context& ctx, unsigned max_num_passes = 50);
-
-    template <class PassDataT, class ExecF>
-    pass_idx addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func)
-    {
-        static_assert(std::is_invocable_r_v<void, ExecF, PassDataT const&, execute_context&>, "exec function has wrong signature");
-
-        // create new pass
-        pass_idx const new_pass_idx = pass_idx(mPasses.size());
-        internal_pass& new_pass = mPasses.emplace_back(debug_name);
-
-        // immediately execute setup
-        PassDataT pass_data = {};
-        setup_context setup_ctx = {new_pass_idx, this, mBackbufferSize};
-        setup_func(pass_data, setup_ctx);
-
-        // capture pass_data per value, move user exec lambda into capture
-        new_pass.execute_func = [this, pass_data, user_func = cc::move(exec_func), new_pass_idx, debug_name](GraphBuilder* builder, pr::raii::Frame* frame) {
-            execute_context exec_ctx = {new_pass_idx, builder, frame};
-
-            frame->begin_debug_label(debug_name);
-            startTiming(new_pass_idx, frame);
-
-            user_func(pass_data, exec_ctx);
-
-            endTiming(new_pass_idx, frame);
-            frame->end_debug_label();
-        };
-
-        return new_pass_idx;
-    }
-
-    // before compile, after all passes are added
-    [[nodiscard]] virtual_resource_handle promoteRootResource(res_guid_t guid)
-    {
-        makeResourceRoot(guid);
-        return getGuidState(guid).get_handle();
-    }
-
-    void compile(GraphCache& cache);
-
-    void printState() const;
-
-    void execute(pr::raii::Frame* frame);
-
-    // after execute
-    physical_resource const& getRootResource(virtual_resource_handle handle) { return getPhysical(handle); }
-
-    // resets, can now re-record passes
-    void reset();
-
-    void setBackbufferSize(tg::isize2 size) { mBackbufferSize = size; }
-
-    //
-    // Info
-    //
-
-    [[nodiscard]] double getLastTiming(pass_idx pass) const { return mTiming.get_last_timing(pass); }
-
-    void performInfoImgui() const;
-
-private:
-    struct guid_state
-    {
-        enum e_state
-        {
-            state_initial,
-            state_valid_created,
-            state_valid_move_created,
-            state_valid_moved_to
-        };
-
-        res_guid_t const guid;
-        e_state state = state_initial;
-        virtual_res_idx virtual_res = gc_invalid_virtual_res;
-        int virtual_res_version = 0;
-
-        void on_create(virtual_res_idx new_res);
-
-        void on_move_create(virtual_res_idx new_res, int new_version);
-
-        void on_move_modify(virtual_res_idx new_res, int new_version);
-
-        virtual_resource_handle get_handle() const { return {virtual_res, virtual_res_version}; }
-
-        virtual_resource_handle get_handle_and_bump_version();
-
-        bool is_valid() const { return state != state_initial; }
-
-        guid_state(res_guid_t g) : guid(g) {}
     };
 
     // setup-time API
 private:
-    virtual_resource_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode);
+    friend struct setup_context;
+    res_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode);
 
-    virtual_resource_handle registerImport(
+    res_handle registerImport(
         pass_idx pass_idx, res_guid_t guid, pr::raw_resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
 
-    virtual_resource_handle registerWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
+    res_handle registerWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
 
-    virtual_resource_handle registerRead(pass_idx pass_idx, res_guid_t guid, access_mode mode);
+    res_handle registerRead(pass_idx pass_idx, res_guid_t guid, access_mode mode);
 
-    virtual_resource_handle registerReadWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
+    res_handle registerReadWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
 
-    virtual_resource_handle registerMove(pass_idx pass_idx, res_guid_t source_guid, res_guid_t dest_guid);
+    res_handle registerMove(pass_idx pass_idx, res_guid_t source_guid, res_guid_t dest_guid);
 
     void makeResourceRoot(res_guid_t resource)
     {
         auto const& state = getGuidState(resource);
         CC_ASSERT(state.is_valid() && "attempted to make invalid resource root");
-
-        auto& resver = getVirtualVersion(state.virtual_res, state.virtual_res_version);
-        resver.is_root_resource = true;
+        mVirtualResources[state.virtual_res].is_root_resource = true;
     }
 
-    void makePassRoot(pass_idx pass)
-    {
-        mPasses[pass].is_root_pass = true;
-
-        for (auto& read : mPasses[pass].reads)
-            getVirtualVersion(read.res, read.version_before).is_root_resource = true;
-
-        for (auto& write : mPasses[pass].writes)
-            getVirtualVersion(write.res, write.version_before).is_root_resource = true;
-
-        for (auto& create : mPasses[pass].creates)
-            getVirtualVersion(create.res, 0).is_root_resource = true;
-    }
+    void makePassRoot(pass_idx pass) { mPasses[pass].is_root_pass = true; }
 
     void setPassQueue(pass_idx pass, phi::queue_type type) { mPasses[pass].queue = type; }
 
     // execute-time API
 private:
-    physical_resource const& getPhysical(virtual_resource_handle handle) const
+    friend struct exec_context;
+    physical_resource const& getPhysical(res_handle handle) const
     { // unneccesary double indirection right now
         auto const physical_idx = mVirtualResources[handle.resource].associated_physical;
         CC_ASSERT(physical_idx != gc_invalid_physical_res && "resource was never realized");
@@ -320,7 +228,7 @@ private:
 
 private:
     // Step 1
-    void runFloodfillCulling();
+    void runFloodfillCulling(cc::allocator* alloc);
 
     // Step 2
     void realizePhysicalResources(GraphCache& cache);
@@ -336,14 +244,12 @@ private:
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::create_resource_info const& info);
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource, pr::generic_resource_info const& info);
 
-    void addVirtualVersion(virtual_res_idx resource, pass_idx producer, int version);
-
-    virtual_resource_version& getVirtualVersion(virtual_res_idx resource, int version, unsigned* out_index = nullptr);
-
     guid_state& getGuidState(res_guid_t guid);
 
 private:
     tg::isize2 mBackbufferSize;
+    unsigned mNumReadsTotal = 0;
+    unsigned mNumWritesTotal = 0;
     inc::pre::timestamp_bundle mTiming;
 
     cc::vector<internal_pass> mPasses;
@@ -351,9 +257,91 @@ private:
     // virtual resource logic
     cc::vector<guid_state> mGuidStates;
     cc::vector<virtual_resource> mVirtualResources;
-    cc::vector<virtual_resource_version> mVirtualResourceVersions;
 
     cc::vector<physical_resource> mPhysicalResources;
 };
 
+struct setup_context
+{
+    res_handle create(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
+    {
+        return _parent->registerCreate(_pass, guid, info, mode);
+    }
+
+    res_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
+    {
+        return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
+    }
+
+    res_handle import(res_guid_t guid, pr::render_target const& rt, access_mode mode = {})
+    {
+        return _parent->registerImport(_pass, guid, rt.res, mode, pr::generic_resource_info::create(rt.info));
+    }
+
+    res_handle read(res_guid_t guid, access_mode mode = {}) { return _parent->registerRead(_pass, guid, mode); }
+    res_handle write(res_guid_t guid, access_mode mode = {}) { return _parent->registerWrite(_pass, guid, mode); }
+    res_handle read_write(res_guid_t guid, access_mode mode = {}) { return _parent->registerReadWrite(_pass, guid, mode); }
+    res_handle move(res_guid_t src_guid, res_guid_t dest_guid) { return _parent->registerMove(_pass, src_guid, dest_guid); }
+
+    void set_root() { _parent->makePassRoot(_pass); }
+    void set_queue(phi::queue_type queue) { _parent->setPassQueue(_pass, queue); }
+
+    tg::isize2 target_size() const { return _backbuf_size; }
+    tg::isize2 target_size_half() const { return {_backbuf_size.width / 2, _backbuf_size.height / 2}; }
+
+private:
+    friend class GraphBuilder;
+    setup_context(pass_idx pass, GraphBuilder* parent, tg::isize2 bb_s) : _pass(pass), _parent(parent), _backbuf_size(bb_s) {}
+    setup_context(setup_context const&) = delete;
+    setup_context(setup_context&&) = delete;
+
+    pass_idx const _pass;
+    GraphBuilder* const _parent;
+    tg::isize2 const _backbuf_size;
+};
+
+struct exec_context
+{
+    physical_resource const& get(res_handle handle) const { return _parent->getPhysical(handle); }
+
+    pr::buffer get_buffer(res_handle handle) const { return get(handle).as_buffer(); }
+
+    pr::render_target get_target(res_handle handle) const { return get(handle).as_target(); }
+
+    pr::texture get_texture(res_handle handle) const { return get(handle).as_texture(); }
+
+    pr::raii::Frame& frame() const { return *_frame; }
+
+    pass_idx get_pass_index() const { return _pass; }
+
+private:
+    friend class GraphBuilder;
+    exec_context(pass_idx pass, GraphBuilder* parent, pr::raii::Frame* frame) : _pass(pass), _parent(parent), _frame(frame) {}
+    exec_context(exec_context const&) = delete;
+    exec_context(exec_context&&) = delete;
+
+    pass_idx const _pass;
+    GraphBuilder* const _parent;
+    pr::raii::Frame* const _frame;
+};
+
+template <class PassDataT, class ExecF>
+pass_idx GraphBuilder::addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func)
+{
+    static_assert(std::is_invocable_r_v<void, ExecF, PassDataT const&, exec_context&>, "exec function has wrong signature");
+
+    // create new pass
+    pass_idx const new_pass_idx = pass_idx(mPasses.size());
+    internal_pass& new_pass = mPasses.emplace_back(debug_name);
+
+    // immediately execute setup
+    PassDataT pass_data = {};
+    setup_context setup_ctx = {new_pass_idx, this, mBackbufferSize};
+    setup_func(pass_data, setup_ctx);
+
+    // capture pass_data per value, move user exec lambda into capture
+    new_pass.execute_func = [pass_data, user_func = cc::move(exec_func)](exec_context& exec_ctx) { user_func(pass_data, exec_ctx); };
+
+    return new_pass_idx;
+}
 }

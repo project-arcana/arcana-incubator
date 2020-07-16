@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include <clean-core/alloc_vector.hh>
+
 #include <phantasm-hardware-interface/Backend.hh>
 
 #include <phantasm-renderer/Context.hh>
@@ -9,12 +11,13 @@
 
 #include <arcana-incubator/imgui/imgui.hh>
 
+#include "floodcull.hh"
 #include "resource_cache.hh"
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_idx pass_idx,
-                                                                           inc::frag::res_guid_t guid,
-                                                                           const phi::arg::create_resource_info& info,
-                                                                           inc::frag::access_mode mode)
+inc::frag::res_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_idx pass_idx,
+                                                              inc::frag::res_guid_t guid,
+                                                              const phi::arg::create_resource_info& info,
+                                                              inc::frag::access_mode mode)
 {
     CC_CONTRACT(info.type != phi::arg::create_resource_info::e_resource_undefined);
     auto const new_idx = addResource(pass_idx, guid, info);
@@ -25,16 +28,16 @@ inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerCreate(inc::
 
     internal_pass& pass = mPasses[pass_idx];
     pass.creates.push_back({new_idx, mode});
-    ++pass.num_references; // increase refcount for each create
+    ++mNumWritesTotal;
 
     return guidstate.get_handle();
 }
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerImport(inc::frag::pass_idx pass_idx,
-                                                                           inc::frag::res_guid_t guid,
-                                                                           pr::raw_resource raw_resource,
-                                                                           inc::frag::access_mode mode,
-                                                                           const pr::generic_resource_info& optional_info)
+inc::frag::res_handle inc::frag::GraphBuilder::registerImport(inc::frag::pass_idx pass_idx,
+                                                              inc::frag::res_guid_t guid,
+                                                              pr::raw_resource raw_resource,
+                                                              inc::frag::access_mode mode,
+                                                              const pr::generic_resource_info& optional_info)
 {
     auto const new_idx = addResource(pass_idx, guid, raw_resource, optional_info);
 
@@ -44,61 +47,54 @@ inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerImport(inc::
 
     internal_pass& pass = mPasses[pass_idx];
     pass.imports.push_back({new_idx, mode});
-    ++pass.num_references; // increase refcount for each import
 
 
     return guidstate.get_handle();
 }
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerWrite(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t guid, inc::frag::access_mode mode)
+inc::frag::res_handle inc::frag::GraphBuilder::registerWrite(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t guid, inc::frag::access_mode mode)
 {
     auto& guidstate = getGuidState(guid);
     CC_ASSERT(guidstate.is_valid() && "writing to resource without prior create");
 
     internal_pass& pass = mPasses[pass_idx];
 
-    ++pass.num_references; // writes increase refcount for the PASS
+    ++mNumWritesTotal;
     pass.writes.push_back({guidstate.virtual_res, guidstate.virtual_res_version, mode});
 
     // writes increase resource version
     auto const return_handle = guidstate.get_handle_and_bump_version();
-
-    // add the new version marking this pass as its producer
-    addVirtualVersion(guidstate.virtual_res, pass_idx, guidstate.virtual_res_version);
-
     return return_handle;
 }
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerRead(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t guid, inc::frag::access_mode mode)
+inc::frag::res_handle inc::frag::GraphBuilder::registerRead(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t guid, inc::frag::access_mode mode)
 {
     auto& guidstate = getGuidState(guid);
     CC_ASSERT(guidstate.is_valid() && "reading from resource without prior create");
 
     internal_pass& pass = mPasses[pass_idx];
     pass.reads.push_back({guidstate.virtual_res, guidstate.virtual_res_version, mode});
-
-    virtual_resource_version& resver = getVirtualVersion(guidstate.virtual_res, guidstate.virtual_res_version);
-    ++resver.num_references; // reads increase refcount for the RESOURCE
+    ++mNumReadsTotal;
 
     return guidstate.get_handle();
 }
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerReadWrite(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t guid, inc::frag::access_mode mode)
+inc::frag::res_handle inc::frag::GraphBuilder::registerReadWrite(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t guid, inc::frag::access_mode mode)
 {
     registerRead(pass_idx, guid, mode);                  // the read takes care of the access_mode
     return registerWrite(pass_idx, guid, access_mode{}); // the write mode is omitted (null state)
 }
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::registerMove(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t source_guid, inc::frag::res_guid_t dest_guid)
+inc::frag::res_handle inc::frag::GraphBuilder::registerMove(inc::frag::pass_idx pass_idx, inc::frag::res_guid_t source_guid, inc::frag::res_guid_t dest_guid)
 {
     auto const src_state = getGuidState(source_guid); // copy! a ref would stay alive beyond the next getGuidState, invalidating it
     CC_ASSERT(src_state.is_valid() && "moving from invalid resource");
     auto const src_idx = src_state.virtual_res;
 
-    // add the move and increase pass references
-    // a move has no effects on refcounts
+    // add the move
     internal_pass& pass = mPasses[pass_idx];
     pass.moves.push_back({src_state.virtual_res, src_state.virtual_res_version, dest_guid});
+    ++mNumWritesTotal;
 
     auto& dest_state = getGuidState(dest_guid);
     if (dest_state.is_valid())
@@ -150,7 +146,7 @@ void inc::frag::GraphBuilder::calculateBarriers()
 
     for (auto& pass : mPasses)
     {
-        if (pass.can_cull())
+        if (pass.is_culled)
             continue;
 
         auto f_add_barrier = [&](virtual_res_idx virtual_res, access_mode mode) {
@@ -183,15 +179,25 @@ void inc::frag::GraphBuilder::endTiming(inc::frag::pass_idx pass, pr::raii::Fram
 
 void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame)
 {
-    for (auto const& pass : mPasses)
+    for (auto i = 0u; i < mPasses.size(); ++i)
     {
-        if (pass.can_cull())
+        auto const& pass = mPasses[i];
+        if (pass.is_culled)
             continue;
 
         for (auto const& transition_pre : pass.transitions_before)
             frame->transition(transition_pre.resource, transition_pre.target_state, transition_pre.dependent_shaders);
 
-        pass.execute_func(this, frame);
+        {
+            frame->begin_debug_label(pass.debug_name);
+            startTiming(i, frame);
+
+            exec_context exec_ctx = {i, this, frame};
+            pass.execute_func(exec_ctx);
+
+            endTiming(i, frame);
+            frame->end_debug_label();
+        }
     }
 
     mTiming.finalize_frame(*frame);
@@ -202,8 +208,9 @@ void inc::frag::GraphBuilder::reset()
     mPasses.clear();
     mGuidStates.clear();
     mVirtualResources.clear();
-    mVirtualResourceVersions.clear();
     mPhysicalResources.clear();
+    mNumReadsTotal = 0;
+    mNumWritesTotal = 0;
 }
 
 void inc::frag::GraphBuilder::performInfoImgui() const
@@ -215,81 +222,86 @@ void inc::frag::GraphBuilder::performInfoImgui() const
         ImGui::Separator();
 
         unsigned num_culled = 0;
+        unsigned num_root = 0;
         for (pass_idx i = 0; i < mPasses.size(); ++i)
         {
             auto const& pass = mPasses[i];
-            if (pass.can_cull())
-            {
+            if (pass.is_culled)
                 ++num_culled;
-                continue;
-            }
+            else if (pass.is_root_pass)
+                ++num_root;
 
-            ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_root_pass ? '>' : ':', pass.debug_name, int(pass.writes.size()),
-                        int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
+            ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_culled ? 'X' : (pass.is_root_pass ? '>' : ':'), pass.debug_name,
+                        int(pass.writes.size()), int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
         }
 
         ImGui::Separator();
-        ImGui::Text("%u culled", num_culled);
+        ImGui::Text("%u culled (X), %u root (>)", num_culled, num_root);
     }
     ImGui::End();
 }
 
-void inc::frag::GraphBuilder::runFloodfillCulling()
+void inc::frag::GraphBuilder::runFloodfillCulling(cc::allocator* alloc)
 {
-    cc::vector<unsigned> unreferenced_res_ver_indices;
-    unreferenced_res_ver_indices.reserve(mVirtualResourceVersions.size());
+    auto pass_refcounts = cc::alloc_vector<int>::filled(mPasses.size(), 0, alloc);
+    auto res_refcounts = cc::alloc_vector<int>::filled(mVirtualResources.size(), 0, alloc);
 
-    // push all initially unreferenced resource versions on the stack
-    for (auto i = 0u; i < mVirtualResourceVersions.size(); ++i)
+    cc::alloc_vector<floodcull_relation> writes(alloc);
+    writes.reserve(mNumWritesTotal);
+
+    cc::alloc_vector<floodcull_relation> reads(alloc);
+    reads.reserve(mNumReadsTotal);
+
+    // mark root passes, fill reads and writes
+    for (auto i = 0u; i < mPasses.size(); ++i)
     {
-        if (mVirtualResourceVersions[i].can_cull())
-            unreferenced_res_ver_indices.push_back(i);
-    }
+        if (mPasses[i].is_root_pass)
+            pass_refcounts[i] = 1;
 
-    // while the stack is nonempty
-    while (!unreferenced_res_ver_indices.empty())
-    {
-        virtual_res_idx const idx = unreferenced_res_ver_indices.back();
-        unreferenced_res_ver_indices.pop_back();
-
-        virtual_resource_version const& resver = mVirtualResourceVersions[idx];
-
-        internal_pass& producer = mPasses[resver.producer_pass];
-        --producer.num_references; // decrement refcount of this resource's producer
-        CC_ASSERT(producer.num_references >= 0 && "programmer error");
-
-        if (producer.can_cull())
+        // writes
+        for (auto const& wr : mPasses[i].writes)
         {
-            // producer culled, decrement refcount of all resources it read
-            for (auto& read : producer.reads)
-            {
-                unsigned read_resource_version_index;
-                auto& read_resource_version = getVirtualVersion(read.res, read.version_before, &read_resource_version_index);
-                --read_resource_version.num_references;
-                CC_ASSERT(read_resource_version.num_references >= 0 && "programmer error");
-
-                // resource now unreferenced, add to stack
-                if (read_resource_version.can_cull())
-                {
-                    // LOG("Culling producer {}, resource {}", producer.debug_name, read.res);
-                    unreferenced_res_ver_indices.push_back(read_resource_version_index);
-                }
-            }
+            writes.push_back(floodcull_relation{i, wr.res});
+        }
+        for (auto const& cr : mPasses[i].creates)
+        {
+            writes.push_back(floodcull_relation{i, cr.res});
+        }
+        for (auto const& mv : mPasses[i].moves)
+        {
+            // moving X somewhere acts like a write to X
+            // this way, subsequent reads from X keep the mover alive
+            // NOTE: this means that moving a used resource to an unused GUID
+            // will keep the pass alive!
+            writes.push_back(floodcull_relation{i, mv.src_res});
+        }
+        // reads
+        for (auto const& rd : mPasses[i].reads)
+        {
+            reads.push_back(floodcull_relation{i, rd.res});
         }
     }
 
-    // merge the per-version cull state into the resource itself (AND)
-    for (auto const& res_ver : mVirtualResourceVersions)
+    // mark root resources
+    for (auto i = 0u; i < mVirtualResources.size(); ++i)
     {
-        auto& res = mVirtualResources[res_ver.res_idx];
-        res.is_culled = res.is_culled && res_ver.can_cull();
+        if (mVirtualResources[i].is_root_resource)
+            res_refcounts[i] = 1;
     }
 
-    //    for (auto const& virt : mVirtualResources)
-    //    {
-    //        if (virt.is_culled)
-    //            LOG_INFO("Virtual resource {} was culled", virt.initial_guid);
-    //    }
+    // run the the algorithm
+    run_floodcull(pass_refcounts, res_refcounts, writes, reads, alloc);
+
+    // mark culled resources and passes
+    for (auto i = 0u; i < mPasses.size(); ++i)
+    {
+        mPasses[i].is_culled = (pass_refcounts[i] == 0);
+    }
+
+    for (auto i = 0u; i < mVirtualResources.size(); ++i)
+    {
+        mVirtualResources[i].is_culled = (res_refcounts[i] == 0);
+    }
 }
 
 
@@ -299,9 +311,9 @@ void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_pass
     mPasses.reserve(max_num_passes);
 }
 
-void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache)
+void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache, cc::allocator* alloc)
 {
-    runFloodfillCulling();
+    runFloodfillCulling(alloc);
     realizePhysicalResources(cache);
     calculateBarriers();
 }
@@ -310,10 +322,10 @@ void inc::frag::GraphBuilder::printState() const
 {
     for (auto const& pass : mPasses)
     {
-        if (pass.can_cull())
+        if (pass.is_culled)
             continue;
 
-        LOG("pass {} ({} refs{})", pass.debug_name, pass.num_references, pass.is_root_pass ? ", root" : "");
+        LOG("pass {}{}", pass.debug_name, pass.is_root_pass ? ", root" : "");
 
         for (auto const& create : pass.creates)
         {
@@ -342,21 +354,20 @@ void inc::frag::GraphBuilder::printState() const
         LOG("guid {}, state {}, virtual res {}, v{}", guidstate.guid, guidstate.state, guidstate.virtual_res, guidstate.virtual_res_version);
     }
 
-    for (auto const& resver : mVirtualResourceVersions)
+    for (auto const& res : mVirtualResources)
     {
-        if (resver.can_cull())
+        if (res.is_culled)
             continue;
 
-        LOG("resource {} at version {} ({} refs{})", resver.res_idx, resver.version, resver.num_references, resver.is_root_resource ? ", root" : "");
+        LOG("resource {}", res.initial_guid);
     }
 }
 
 inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer, inc::frag::res_guid_t guid, const phi::arg::create_resource_info& info)
 {
+    (void)producer; // might be useful later
     mVirtualResources.emplace_back(guid, info);
-    auto const ret_idx = virtual_res_idx(mVirtualResources.size() - 1);
-    addVirtualVersion(ret_idx, producer, 0);
-    return ret_idx;
+    return virtual_res_idx(mVirtualResources.size() - 1);
 }
 
 inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer,
@@ -364,33 +375,9 @@ inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_
                                                                 pr::raw_resource import_resource,
                                                                 pr::generic_resource_info const& info)
 {
+    (void)producer; // might be useful later
     mVirtualResources.emplace_back(guid, import_resource, info);
-    auto const ret_idx = virtual_res_idx(mVirtualResources.size() - 1);
-    addVirtualVersion(ret_idx, producer, 0);
-    return ret_idx;
-}
-
-void inc::frag::GraphBuilder::addVirtualVersion(inc::frag::virtual_res_idx resource, inc::frag::pass_idx producer, int version)
-{
-    mVirtualResourceVersions.emplace_back(resource, producer, version);
-}
-
-inc::frag::virtual_resource_version& inc::frag::GraphBuilder::getVirtualVersion(inc::frag::virtual_res_idx resource, int version, unsigned* out_index)
-{
-    for (auto i = 0u; i < mVirtualResourceVersions.size(); ++i)
-    {
-        auto& virtual_version = mVirtualResourceVersions[i];
-        if (virtual_version.res_idx == resource && virtual_version.version == version)
-        {
-            if (out_index != nullptr)
-                *out_index = i;
-
-            return virtual_version;
-        }
-    }
-
-    CC_UNREACHABLE("version not found");
-    return mVirtualResourceVersions.back();
+    return virtual_res_idx(mVirtualResources.size() - 1);
 }
 
 inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::frag::res_guid_t guid)
@@ -404,7 +391,7 @@ inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::
     return mGuidStates.emplace_back(guid);
 }
 
-void inc::frag::virtual_resource::_copy_info(const phi::arg::create_resource_info& info)
+void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::create_resource_info& info)
 {
     // this little game is required to maintain the hashable_storage
     create_info.get().type = info.type;
@@ -448,7 +435,7 @@ void inc::frag::GraphBuilder::guid_state::on_move_modify(inc::frag::virtual_res_
     virtual_res_version = new_version;
 }
 
-inc::frag::virtual_resource_handle inc::frag::GraphBuilder::guid_state::get_handle_and_bump_version()
+inc::frag::res_handle inc::frag::GraphBuilder::guid_state::get_handle_and_bump_version()
 {
     auto const res = get_handle();
     ++virtual_res_version;
