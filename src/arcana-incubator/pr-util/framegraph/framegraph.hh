@@ -1,13 +1,12 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <type_traits>
 
 #include <clean-core/capped_vector.hh>
+#include <clean-core/function.hh>
 #include <clean-core/function_ref.hh>
 #include <clean-core/vector.hh>
-
 
 #include <phantasm-hardware-interface/fwd.hh>
 #include <phantasm-hardware-interface/types.hh>
@@ -159,7 +158,7 @@ private:
 
         char const* const debug_name;
         phi::queue_type queue = phi::queue_type::direct;
-        std::function<void(GraphBuilder*, pr::raii::Frame*)> execute_func;
+        cc::function<void(GraphBuilder*, pr::raii::Frame*)> execute_func;
 
         int num_references = 0;
         bool is_root_pass = false;
