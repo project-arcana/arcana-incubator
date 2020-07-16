@@ -194,8 +194,7 @@ private:
     friend struct setup_context;
     res_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode);
 
-    res_handle registerImport(
-        pass_idx pass_idx, res_guid_t guid, pr::raw_resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
+    res_handle registerImport(pass_idx pass_idx, res_guid_t guid, pr::raw_resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
 
     res_handle registerWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
 
@@ -266,6 +265,27 @@ struct setup_context
     res_handle create(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
     {
         return _parent->registerCreate(_pass, guid, info, mode);
+    }
+
+    res_handle create_target(res_guid_t guid,
+                             phi::format fmt,
+                             tg::isize2 size,
+                             unsigned num_samples = 1,
+                             unsigned array_size = 1,
+                             phi::rt_clear_value clear_val = {0.f, 0.f, 0.f, 1.f},
+                             access_mode mode = phi::resource_state::render_target)
+    {
+        return create(guid, phi::arg::create_resource_info::render_target(fmt, size, num_samples, array_size, clear_val), mode);
+    }
+
+    res_handle create_buffer(res_guid_t guid,
+                             unsigned size_bytes,
+                             unsigned stride_bytes,
+                             phi::resource_heap heap = phi::resource_heap::gpu,
+                             bool allow_uav = false,
+                             access_mode mode = {})
+    {
+        return create(guid, phi::arg::create_resource_info::buffer(size_bytes, stride_bytes, heap, allow_uav), mode);
     }
 
     res_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
