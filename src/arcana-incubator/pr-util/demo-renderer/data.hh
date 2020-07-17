@@ -27,6 +27,9 @@ struct camera_gpudata
 
     /// calculates a view ray based on the mouse position, normalized (in [0,1])
     tg::ray3 calculate_view_ray(tg::vec2 mousepos_normalized) const;
+
+    /// projects the mouse position to a worldspace plane
+    bool project_mouse_to_plane(tg::vec2 mousepos_normalized, tg::pos3& out_hit, tg::dir3 plane_normal = {0, 1, 0}, tg::pos3 plane_center = {0, 0, 0}) const;
 };
 
 struct frame_index_state

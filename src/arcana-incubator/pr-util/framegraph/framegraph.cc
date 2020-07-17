@@ -112,7 +112,6 @@ inc::frag::res_handle inc::frag::GraphBuilder::registerMove(inc::frag::pass_idx 
 }
 
 
-
 void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& cache)
 {
     CC_ASSERT(mPhysicalResources.empty() && "ran twice");
@@ -225,7 +224,7 @@ void inc::frag::GraphBuilder::reset()
 
 void inc::frag::GraphBuilder::performInfoImgui() const
 {
-    if (ImGui::Begin("GraphBuilder info"))
+    if (ImGui::Begin("Framegraph Timings"))
     {
         ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
 
