@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <type_traits>
 
+#include <clean-core/alloc_function.hh>
 #include <clean-core/capped_vector.hh>
-#include <clean-core/function.hh>
 #include <clean-core/function_ref.hh>
 #include <clean-core/vector.hh>
 
@@ -183,7 +183,7 @@ private:
 
         char const* const debug_name;
         phi::queue_type queue = phi::queue_type::direct;
-        cc::function<void(exec_context&)> execute_func;
+        cc::alloc_function<void(exec_context&)> execute_func;
         bool is_root_pass = false;
         bool is_culled = false;
 
