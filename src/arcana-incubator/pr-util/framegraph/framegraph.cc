@@ -322,6 +322,12 @@ void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_pass
     mPasses.reserve(max_num_passes);
 }
 
+void inc::frag::GraphBuilder::destroy()
+{
+    reset();
+    mTiming = {};
+}
+
 void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache, cc::allocator* alloc)
 {
     runFloodfillCulling(alloc);

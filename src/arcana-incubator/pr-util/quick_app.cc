@@ -108,7 +108,7 @@ void inc::pre::quick_app::main_loop(cc::function_ref<void(uint64_t)> func)
         auto const dt = timer.elapsedMicroseconds();
         timer.restart();
 
-        camera.update_default_inputs(window.getSdlWindow(), input, (double(dt) / 1'000'000));
+        camera.update_default_inputs(window, input, (double(dt) / 1'000'000));
         func(dt);
     }
 

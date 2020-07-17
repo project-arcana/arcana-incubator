@@ -180,6 +180,28 @@ void inc::da::SDLWindow::setDesktopDisplayMode()
     DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
 }
 
+bool inc::da::SDLWindow::captureMouse()
+{
+    if (mMouseCaptureState.captured)
+        return false;
+
+    mMouseCaptureState.captured = true;
+    SDL_GetMouseState(&mMouseCaptureState.x_precap, &mMouseCaptureState.y_precap);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+    return true;
+}
+
+bool inc::da::SDLWindow::uncaptureMouse()
+{
+    if (!mMouseCaptureState.captured)
+        return false;
+
+    mMouseCaptureState.captured = false;
+    SDL_SetRelativeMouseMode(SDL_FALSE);
+    SDL_WarpMouseInWindow(mWindow, mMouseCaptureState.x_precap, mMouseCaptureState.y_precap);
+    return true;
+}
+
 void inc::da::SDLWindow::onResizeEvent(int w, int h, bool minimized)
 {
     if (mWidth == w && mHeight == h && mIsMinimized == minimized)

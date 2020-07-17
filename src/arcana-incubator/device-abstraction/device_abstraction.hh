@@ -75,10 +75,21 @@ public:
     void setWindowed();
 
     // display mode
+
     /// set the display mode, only works in fullscreen
     void setDisplayMode(int width, int height, int refresh_rate);
     /// set the display mode to the natively specified desktop display mode, only works in fullscreen
     void setDesktopDisplayMode();
+
+    // mouse capture
+
+    /// enables relative mouse mode, returns false if already in captured mode
+    bool captureMouse();
+
+    /// disabled relative mouse mode, returns false if not in captured mode
+    bool uncaptureMouse();
+
+    bool isMouseCaptured() const { return mMouseCaptureState.captured; }
 
 public:
     using event_callback = bool (*)(SDL_Event const* e);
@@ -108,6 +119,13 @@ private:
         tg::isize2 prev_size;
         tg::ivec2 prev_pos;
     } mBorderlessState;
+
+    struct
+    {
+        int x_precap = 0;
+        int y_precap = 0;
+        bool captured = false;
+    } mMouseCaptureState;
 
 #ifdef CC_ENABLE_ASSERTIONS
     struct
