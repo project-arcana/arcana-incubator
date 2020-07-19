@@ -1,5 +1,6 @@
 #include "framegraph.hh"
 
+#include <cinttypes>
 #include <cstdio>
 
 #include <clean-core/alloc_vector.hh>
@@ -131,7 +132,7 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
         else
         {
             char namebuf[256];
-            std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%llu]", virt.initial_guid);
+            std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%" PRIu64 "]", virt.initial_guid);
             physical = cache.get(virt.resource_info, namebuf);
         }
 
