@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <clean-core/alloc_function.hh>
 #include <clean-core/capped_vector.hh>
 #include <clean-core/function_ref.hh>
+#include <clean-core/unique_function.hh>
 #include <clean-core/vector.hh>
 
 #include <phantasm-hardware-interface/fwd.hh>
@@ -185,7 +185,7 @@ private:
 
         char const* const debug_name;
         phi::queue_type queue = phi::queue_type::direct;
-        cc::alloc_function<void(exec_context&)> execute_func;
+        cc::unique_function<void(exec_context&)> execute_func;
         bool is_root_pass = false;
         bool is_culled = false;
 
