@@ -20,8 +20,11 @@ public:
     float elapsedMilliseconds() const { return static_cast<float>(elapsedMillisecondsD()); }
     double elapsedMillisecondsD() const { return elapsedSecondsD() * 1000.0; }
 
+    uint64_t elapsedMicroseconds() const;
+
 private:
     uint64_t mResolution;
+    uint64_t mMicrosecondDenom;
     uint64_t mStartTime;
 };
 }

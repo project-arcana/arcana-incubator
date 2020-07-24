@@ -42,3 +42,16 @@ tg::ray3 inc::pre::dmr::camera_gpudata::calculate_view_ray(tg::vec2 mousepos_nor
     auto const campos = extract_campos();
     return tg::ray3{campos, tg::normalize(world_far - campos)};
 }
+
+bool inc::pre::dmr::camera_gpudata::project_mouse_to_plane(tg::vec2 mousepos_normalized, tg::pos3& out_hit, tg::dir3 plane_normal, tg::pos3 plane_center) const
+{
+    auto const ray = calculate_view_ray(mousepos_normalized);
+    auto const plane = tg::plane3(plane_normal, plane_center);
+    auto const res = tg::intersection(ray, plane);
+
+    if (!res.has_value())
+        return false;
+
+    out_hit = res.value();
+    return true;
+}

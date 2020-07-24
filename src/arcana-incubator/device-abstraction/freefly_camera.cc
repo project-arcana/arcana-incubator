@@ -4,6 +4,7 @@
 
 #include <rich-log/log.hh>
 
+#include "device_abstraction.hh"
 #include "input.hh"
 
 namespace
@@ -87,7 +88,7 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
     input.bindMouseAxis(ge_input_camlook_y, 1, -.65f);
 }
 
-void inc::da::smooth_fps_cam::update_default_inputs(SDL_Window* window, inc::da::input_manager& input, float dt)
+void inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, double dt)
 {
     auto speed_mul = 10.f;
 
@@ -110,23 +111,16 @@ void inc::da::smooth_fps_cam::update_default_inputs(SDL_Window* window, inc::da:
 
     if (input.get(ge_input_camlook_active).isActive())
     {
-        if (!_mouse_captured)
-        {
-            SDL_GetMouseState(&_mouse_x_precap, &_mouse_y_precap);
-            SDL_SetRelativeMouseMode(SDL_TRUE);
-            _mouse_captured = true;
-        }
+        window.captureMouse();
 
         mouse_delta = {
             input.get(ge_input_camlook_x).getDelta() * 0.001f, //
             input.get(ge_input_camlook_y).getDelta() * 0.001f  //
         };
     }
-    else if (_mouse_captured)
+    else
     {
-        SDL_SetRelativeMouseMode(SDL_FALSE);
-        SDL_WarpMouseInWindow(window, _mouse_x_precap, _mouse_y_precap);
-        _mouse_captured = false;
+        window.uncaptureMouse();
     }
 
     mouse_delta.x += input.get(ge_input_camlook_x_analog).getAnalog() * -2.f * dt;

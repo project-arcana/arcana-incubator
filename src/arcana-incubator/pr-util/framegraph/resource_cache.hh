@@ -84,7 +84,7 @@ public:
 
     void onNewFrame() { _cache.on_new_frame(); }
 
-    pr::raw_resource get(pr::hashable_storage<pr::generic_resource_info> const& info);
+    pr::raw_resource get(pr::hashable_storage<pr::generic_resource_info> const& info, char const* debug_name);
 
     void freeAll();
 
