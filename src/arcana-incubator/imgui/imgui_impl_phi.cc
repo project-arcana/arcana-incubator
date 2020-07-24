@@ -7,7 +7,9 @@
 #include <clean-core/utility.hh>
 
 #include <phantasm-hardware-interface/Backend.hh>
+#include <phantasm-hardware-interface/arguments.hh>
 #include <phantasm-hardware-interface/commands.hh>
+#include <phantasm-hardware-interface/types.hh>
 #include <phantasm-hardware-interface/window_handle.hh>
 
 #include <dxc-wrapper/compiler.hh>
