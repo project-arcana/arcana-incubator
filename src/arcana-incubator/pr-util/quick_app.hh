@@ -37,8 +37,8 @@ struct quick_app
 
     void destroy();
 
-    /// canonical main loop with a provided lambda, receives delta time in microseconds
-    void main_loop(cc::function_ref<void(uint64_t)> func);
+    /// canonical main loop with a provided lambda, receives delta time in seconds
+    void main_loop(cc::function_ref<void(double)> func);
 
     /// draw a window containing camera state, frametime and control info
     void perform_default_imgui(double dt) const;

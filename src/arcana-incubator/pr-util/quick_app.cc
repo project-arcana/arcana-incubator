@@ -96,7 +96,7 @@ void inc::pre::quick_app::destroy()
     }
 }
 
-void inc::pre::quick_app::main_loop(cc::function_ref<void(uint64_t)> func)
+void inc::pre::quick_app::main_loop(cc::function_ref<void(double)> func)
 {
     CC_ASSERT(context.is_initialized() && "uninitialized");
     timer.restart();
@@ -105,10 +105,10 @@ void inc::pre::quick_app::main_loop(cc::function_ref<void(uint64_t)> func)
         if (!_on_frame_start())
             continue;
 
-        auto const dt = timer.elapsedMicroseconds();
+        auto const dt = timer.elapsedSecondsD();
         timer.restart();
 
-        camera.update_default_inputs(window, input, (double(dt) / 1'000'000));
+        camera.update_default_inputs(window, input, dt);
         func(dt);
     }
 
