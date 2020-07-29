@@ -8,12 +8,12 @@
 
 #include <phantasm-hardware-interface/config.hh>
 
-void inc::pre::quick_app::perform_default_imgui(float dt) const
+void inc::pre::quick_app::perform_default_imgui(double dt) const
 {
     ImGui::SetNextWindowSize(ImVec2{210, 160}, ImGuiCond_Always);
     if (ImGui::Begin("quick_app", nullptr, ImGuiWindowFlags_NoResize))
     {
-        ImGui::Text("frametime: %.2f ms", double(dt * 1000.f));
+        ImGui::Text("frametime: %.2f ms", dt * 1000.);
         ImGui::Text("cam pos: %.2f %.2f %.2f", double(camera.physical.position.x), double(camera.physical.position.y), double(camera.physical.position.z));
         ImGui::Text("cam fwd: %.2f %.2f %.2f", double(camera.physical.forward.x), double(camera.physical.forward.y), double(camera.physical.forward.z));
         ImGui::Separator();
@@ -48,7 +48,7 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     else
         ImGui_ImplSDL2_InitForVulkan(window.getSdlWindow());
 
-    ImGui_ImplPHI_Init(&context.get_backend(), context.get_num_backbuffers(main_swapchain), context.get_backbuffer_format(main_swapchain));
+    ImGui_ImplPHI_Init(&context.get_backend(), int(context.get_num_backbuffers(main_swapchain)), context.get_backbuffer_format(main_swapchain));
 }
 
 bool inc::pre::quick_app::_on_frame_start()
@@ -94,6 +94,25 @@ void inc::pre::quick_app::destroy()
         window.destroy();
         da::shutdown();
     }
+}
+
+void inc::pre::quick_app::main_loop(cc::function_ref<void(double)> func)
+{
+    CC_ASSERT(context.is_initialized() && "uninitialized");
+    timer.restart();
+    while (!window.isRequestingClose())
+    {
+        if (!_on_frame_start())
+            continue;
+
+        auto const dt = timer.elapsedSecondsD();
+        timer.restart();
+
+        camera.update_default_inputs(window, input, dt);
+        func(dt);
+    }
+
+    context.flush();
 }
 
 tg::vec2 inc::pre::quick_app::get_normalized_mouse_pos() const

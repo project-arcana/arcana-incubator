@@ -7,7 +7,9 @@
 #include <clean-core/utility.hh>
 
 #include <phantasm-hardware-interface/Backend.hh>
+#include <phantasm-hardware-interface/arguments.hh>
 #include <phantasm-hardware-interface/commands.hh>
+#include <phantasm-hardware-interface/types.hh>
 #include <phantasm-hardware-interface/window_handle.hh>
 
 #include <dxc-wrapper/compiler.hh>
@@ -180,8 +182,8 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
             tcmd.add(g_font_texture, phi::resource_state::copy_dest);
 
             bool const d3d12_alignment = backend->getBackendType() == phi::backend_type::d3d12;
-            inc::copy_data_to_texture(writer, temp_upload_buffer, backend->mapBuffer(temp_upload_buffer), g_font_texture, phi::format::rgba8un, width,
-                                      height, reinterpret_cast<std::byte const*>(pixels), d3d12_alignment);
+            inc::copy_data_to_texture(writer, temp_upload_buffer, backend->mapBuffer(temp_upload_buffer), g_font_texture, phi::format::rgba8un,
+                                      unsigned(width), unsigned(height), reinterpret_cast<std::byte const*>(pixels), d3d12_alignment);
             backend->unmapBuffer(temp_upload_buffer);
 
             auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
@@ -196,11 +198,6 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
         backend->flushGPU();
         backend->free(temp_upload_buffer);
     }
-
-    //    // per frame res
-    //    CC_RUNTIME_ASSERT(num_frames_in_flight <= mPerFrameResources.max_size() && "too many in-flight frames");
-    //    mPerFrameResources.emplace(num_frames_in_flight);
-
 
     // Create a dummy ImGuiViewportDataPHI holder for the main viewport,
     // Since this is created and managed by the application, we will only use the ->Resources[] fields.

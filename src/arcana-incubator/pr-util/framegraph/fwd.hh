@@ -2,11 +2,17 @@
 
 namespace inc::frag
 {
+// heavy classes
 class GraphCache;
 class GraphBuilder;
 
-struct virtual_resource_handle;
+// types
+struct res_handle;
 struct access_mode;
+
+// contexts
+struct setup_context;
+struct exec_context;
 
 // internal structs
 struct virtual_resource;
