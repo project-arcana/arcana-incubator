@@ -49,41 +49,40 @@ struct physical_resource
 class GraphBuilder
 {
 public:
-    void initialize(pr::Context& ctx, unsigned max_num_passes = 50);
+    void initialize(cc::allocator* alloc, unsigned max_num_passes, unsigned max_num_guids);
 
     void destroy();
 
+public:
+    // 1.
+    // resets, can now re-record passes
+    void reset();
+
+    void setMainTargetSize(tg::isize2 size) { mMainTargetSize = size; }
+
+    // 2.
     template <class PassDataT, class ExecF>
     pass_idx addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func);
 
-    // before compile, after all passes are added
+    // after all passes are added, before compile
     [[nodiscard]] res_handle promoteRootResource(res_guid_t guid)
     {
         makeResourceRoot(guid);
         return getGuidState(guid).get_handle();
     }
 
+    // 3.
     void compile(GraphCache& cache, cc::allocator* alloc);
 
     void printState() const;
 
-    void execute(pr::raii::Frame* frame);
+    // 4.
+    void execute(pr::raii::Frame* frame, pre::timestamp_bundle* timing);
 
     // after execute
     physical_resource const& getRootResource(res_handle handle) { return getPhysical(handle); }
 
-    // resets, can now re-record passes
-    void reset();
-
-    void setMainTargetSize(tg::isize2 size) { mMainTargetSize = size; }
-
-    //
-    // Info
-    //
-
-    [[nodiscard]] double getLastTiming(pass_idx pass) const { return mTiming.get_last_timing(pass); }
-
-    void performInfoImgui() const;
+    void performInfoImgui(pre::timestamp_bundle const* timing) const;
 
 private:
     struct guid_state
@@ -247,10 +246,6 @@ private:
     void calculateBarriers();
 
 private:
-    void startTiming(pass_idx pass, pr::raii::Frame* frame);
-    void endTiming(pass_idx pass, pr::raii::Frame* frame);
-
-private:
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::create_resource_info const& info);
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource, pr::generic_resource_info const& info);
 
@@ -260,15 +255,14 @@ private:
     tg::isize2 mMainTargetSize;
     unsigned mNumReadsTotal = 0;
     unsigned mNumWritesTotal = 0;
-    inc::pre::timestamp_bundle mTiming;
 
-    cc::vector<internal_pass> mPasses;
+    cc::alloc_vector<internal_pass> mPasses;
 
     // virtual resource logic
-    cc::vector<guid_state> mGuidStates;
-    cc::vector<virtual_resource> mVirtualResources;
+    cc::alloc_vector<guid_state> mGuidStates;
+    cc::alloc_vector<virtual_resource> mVirtualResources;
 
-    cc::vector<physical_resource> mPhysicalResources;
+    cc::alloc_vector<physical_resource> mPhysicalResources;
 };
 
 struct setup_context

@@ -20,6 +20,5 @@ struct multi_buffered_buffer
     void destroy() { buffers = {}; }
 
     cc::capped_array<pr::auto_buffer, 5> buffers;
-    unsigned head_index = 0;
 };
 }

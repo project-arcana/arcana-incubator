@@ -33,17 +33,24 @@ void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timer
 
     query_range = ctx.make_query_range(pr::query_type::timestamp, num_timers * 2 * num_backbuffers);
 
-    readback_buffers = readback_buffers.defaulted(num_backbuffers);
     last_timings = cc::array<double>::filled(num_timers, 0.f);
     readback_memory = cc::array<uint64_t>::filled(num_timers * 2, 0);
     timing_usage_flags = cc::array<bool>::uninitialized(num_timers);
     std::memset(timing_usage_flags.data(), 0, timing_usage_flags.size_bytes());
 
+    readback_buffers = readback_buffers.defaulted(num_backbuffers);
     unsigned const buffer_size = sizeof(uint64_t) * 2 * num_timers;
     for (auto& buf : readback_buffers)
     {
         buf = ctx.make_readback_buffer(buffer_size);
     }
+}
+
+void inc::pre::timestamp_bundle::destroy()
+{
+    query_range.free();
+    for (auto& rb : readback_buffers)
+        rb.free();
 }
 
 void inc::pre::timestamp_bundle::begin_timing(pr::raii::Frame& frame, unsigned idx)
