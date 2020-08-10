@@ -121,19 +121,24 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
     for (auto& virt : mVirtualResources)
     {
         if (virt.is_culled())
+        {
+            // LOG_INFO("skipped virtual resource with initial GUID {} (culled)", virt.initial_guid);
             continue;
+        }
 
         // passthrough imported resources or call the realize_func
         pr::raw_resource physical;
         if (virt.is_imported())
         {
             physical = virt.imported_resource;
+            // LOG_INFO("imported virtual resource with initial GUID {}", virt.initial_guid);
         }
         else
         {
             char namebuf[256];
             std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%" PRIu64 "]", virt.initial_guid);
             physical = cache.get(virt.resource_info, namebuf);
+            // LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
         }
 
         mPhysicalResources.push_back({physical, virt.resource_info.get()});
@@ -183,10 +188,9 @@ void inc::frag::GraphBuilder::calculateBarriers()
     }
 }
 
-void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing)
+void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing, int timer_offset)
 {
     CC_CONTRACT(frame != nullptr);
-    CC_CONTRACT(timing != nullptr);
 
     for (auto i = 0u; i < mPasses.size(); ++i)
     {
@@ -199,17 +203,17 @@ void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestam
 
         {
             frame->begin_debug_label(pass.debug_name);
-            timing->begin_timing(*frame, i);
+            if (timing)
+                timing->begin_timing(*frame, i + timer_offset);
 
             exec_context exec_ctx = {i, this, frame};
             pass.execute_func(exec_ctx);
 
-            timing->end_timing(*frame, i);
+            if (timing)
+                timing->end_timing(*frame, i + timer_offset);
             frame->end_debug_label();
         }
     }
-
-    timing->finalize_frame(*frame);
 }
 
 void inc::frag::GraphBuilder::reset()
@@ -283,6 +287,10 @@ void inc::frag::GraphBuilder::runFloodfillCulling(cc::allocator* alloc)
             // NOTE: this means that moving a used resource to an unused GUID
             // will keep the pass alive!
             writes.push_back(floodcull_relation{i, mv.src_res});
+        }
+        for (auto const& im : mPasses[i].imports)
+        {
+            writes.push_back(floodcull_relation{i, im.res});
         }
         // reads
         for (auto const& rd : mPasses[i].reads)

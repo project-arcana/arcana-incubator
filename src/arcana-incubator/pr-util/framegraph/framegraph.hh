@@ -77,7 +77,7 @@ public:
     void printState() const;
 
     // 4.
-    void execute(pr::raii::Frame* frame, pre::timestamp_bundle* timing);
+    void execute(pr::raii::Frame* frame, pre::timestamp_bundle* timing = nullptr, int timer_offset = 0);
 
     // after execute
     physical_resource const& getRootResource(res_handle handle) { return getPhysical(handle); }
@@ -230,6 +230,7 @@ private:
     friend struct exec_context;
     physical_resource const& getPhysical(res_handle handle) const
     {
+        CC_ASSERT(handle.resource != gc_invalid_virtual_res && "accessed invalid handle");
         virtual_resource const& virt_res = mVirtualResources[handle.resource];
         CC_ASSERT(virt_res.associated_physical != gc_invalid_physical_res && "resource was never realized");
         return mPhysicalResources[virt_res.associated_physical];

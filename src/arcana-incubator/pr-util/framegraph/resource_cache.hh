@@ -60,13 +60,13 @@ class GraphCache
 {
 public:
     GraphCache() = default;
-    GraphCache(pr::Context* backend) { init(backend); }
+    GraphCache(pr::Context* backend) { initialize(backend); }
     GraphCache(GraphCache const&) = delete;
     GraphCache(GraphCache&&) noexcept = default;
 
     ~GraphCache() { destroy(); }
 
-    void init(pr::Context* backend)
+    void initialize(pr::Context* backend)
     {
         CC_ASSERT(_backend == nullptr && "double init");
         _backend = backend;
