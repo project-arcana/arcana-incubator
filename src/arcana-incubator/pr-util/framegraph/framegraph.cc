@@ -5,6 +5,8 @@
 
 #include <clean-core/alloc_vector.hh>
 
+#include <rich-log/log.hh>
+
 #include <phantasm-hardware-interface/Backend.hh>
 
 #include <phantasm-renderer/Context.hh>
