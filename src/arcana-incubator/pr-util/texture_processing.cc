@@ -104,7 +104,7 @@ pr::auto_texture inc::pre::texture_processing::load_texture(
     // get a cached upload buffer so we can just drop it
     auto b_upload = frame.context().get_upload_buffer(ceiled_upload_size);
 
-    frame.upload_texture_data(static_cast<std::byte const*>(data.raw), b_upload, res);
+    frame.upload_texture_data(cc::span{static_cast<std::byte const*>(data.raw), data.raw_size_bytes}, b_upload, res);
 
     if (mips)
         generate_mips(frame, res, gamma);

@@ -20,6 +20,7 @@ inc::assets::image_data load_image_internal(void* stbi_data, int w, int h, inc::
     inc::assets::image_data res;
     res.raw = stbi_data;
     res.is_hdr = use_hdr_float;
+    res.raw_size_bytes = w * h * desired_channels * (use_hdr_float ? sizeof(float) : sizeof(uint8_t));
 
     if (!res.raw)
         return res;
