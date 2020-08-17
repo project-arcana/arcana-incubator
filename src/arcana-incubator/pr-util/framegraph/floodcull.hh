@@ -1,7 +1,6 @@
 #pragma once
 
-#include <clean-core/allocator.hh>
-#include <clean-core/function_ptr.hh>
+#include <clean-core/fwd.hh>
 #include <clean-core/span.hh>
 
 namespace inc::frag

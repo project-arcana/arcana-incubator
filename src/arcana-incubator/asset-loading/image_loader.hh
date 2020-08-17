@@ -18,6 +18,7 @@ struct image_size
 struct image_data
 {
     void* raw;
+    size_t raw_size_bytes;
     uint8_t num_channels;
     bool is_hdr;
 };
