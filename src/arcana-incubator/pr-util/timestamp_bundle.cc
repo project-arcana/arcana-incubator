@@ -6,14 +6,15 @@
 #include <phantasm-renderer/Frame.hh>
 
 
-void inc::pre::timing_metric::init(unsigned ring_size)
+void inc::pre::timing_metric::init(unsigned ring_size, cc::allocator* alloc)
 {
-    cpu_times = cpu_times.filled(ring_size, 0.f);
-    gpu_times = gpu_times.filled(ring_size, 0.f);
+    cpu_times = cpu_times.filled(ring_size, 0.f, alloc);
+    gpu_times = gpu_times.filled(ring_size, 0.f, alloc);
 }
 
 void inc::pre::timing_metric::on_frame(float cpu_time, float gpu_time)
 {
+    CC_ASSERT(cpu_times.size() > 0 && "uninitialized");
     cpu_times[index] = cpu_time;
     gpu_times[index] = gpu_time;
     index = cc::wrapped_increment(index, unsigned(cpu_times.size()));
@@ -26,24 +27,31 @@ void inc::pre::timing_metric::on_frame(float cpu_time, float gpu_time)
 }
 
 
-void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers)
+void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers, cc::allocator* alloc)
 {
     this->num_timings = num_timers;
     this->active_timing = num_timers;
 
     query_range = ctx.make_query_range(pr::query_type::timestamp, num_timers * 2 * num_backbuffers);
 
-    readback_buffers = readback_buffers.defaulted(num_backbuffers);
-    last_timings = cc::array<double>::filled(num_timers, 0.f);
-    readback_memory = cc::array<uint64_t>::filled(num_timers * 2, 0);
-    timing_usage_flags = cc::array<bool>::uninitialized(num_timers);
+    last_timings = cc::alloc_array<double>::filled(num_timers, 0.f, alloc);
+    readback_memory = cc::alloc_array<uint64_t>::filled(num_timers * 2, 0, alloc);
+    timing_usage_flags = cc::alloc_array<bool>::uninitialized(num_timers, alloc);
     std::memset(timing_usage_flags.data(), 0, timing_usage_flags.size_bytes());
 
+    readback_buffers = readback_buffers.defaulted(num_backbuffers);
     unsigned const buffer_size = sizeof(uint64_t) * 2 * num_timers;
     for (auto& buf : readback_buffers)
     {
         buf = ctx.make_readback_buffer(buffer_size);
     }
+}
+
+void inc::pre::timestamp_bundle::destroy()
+{
+    query_range.free();
+    for (auto& rb : readback_buffers)
+        rb.free();
 }
 
 void inc::pre::timestamp_bundle::begin_timing(pr::raii::Frame& frame, unsigned idx)

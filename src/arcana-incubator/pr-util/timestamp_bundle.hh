@@ -1,6 +1,6 @@
 #pragma once
 
-#include <clean-core/array.hh>
+#include <clean-core/alloc_array.hh>
 #include <clean-core/capped_array.hh>
 #include <clean-core/defer.hh>
 
@@ -10,12 +10,12 @@ namespace inc::pre
 {
 struct timing_metric
 {
-    void init(unsigned ring_size);
+    void init(unsigned ring_size, cc::allocator* alloc = cc::system_allocator);
 
     void on_frame(float cpu_time, float gpu_time);
 
-    cc::array<float> cpu_times;
-    cc::array<float> gpu_times;
+    cc::alloc_array<float> cpu_times;
+    cc::alloc_array<float> gpu_times;
     float min_gpu = 0.f;
     float max_gpu = 0.f;
     float min_cpu = 0.f;
@@ -25,7 +25,8 @@ struct timing_metric
 
 struct timestamp_bundle
 {
-    void initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers = 3);
+    void initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers = 3, cc::allocator* alloc = cc::system_allocator);
+    void destroy();
 
     // threadsafe but must not interleave with finalize_frame
     void begin_timing(pr::raii::Frame& frame, unsigned idx);
@@ -51,9 +52,9 @@ struct timestamp_bundle
     pr::auto_query_range query_range;
     cc::capped_array<pr::auto_buffer, 5> readback_buffers;
 
-    cc::array<bool> timing_usage_flags;
-    cc::array<double> last_timings;
-    cc::array<uint64_t> readback_memory;
+    cc::alloc_array<bool> timing_usage_flags;
+    cc::alloc_array<double> last_timings;
+    cc::alloc_array<uint64_t> readback_memory;
 };
 
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace inc::da
@@ -22,5 +23,4 @@ inline uint64_t stringhash_runtime(char const* str, size_t prime = 31)
     }
     return hash;
 }
-
 }

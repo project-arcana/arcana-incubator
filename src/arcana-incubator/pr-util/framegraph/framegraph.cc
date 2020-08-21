@@ -5,6 +5,8 @@
 
 #include <clean-core/alloc_vector.hh>
 
+#include <rich-log/log.hh>
+
 #include <phantasm-hardware-interface/Backend.hh>
 
 #include <phantasm-renderer/Context.hh>
@@ -121,19 +123,24 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
     for (auto& virt : mVirtualResources)
     {
         if (virt.is_culled())
+        {
+            // LOG_INFO("skipped virtual resource with initial GUID {} (culled)", virt.initial_guid);
             continue;
+        }
 
         // passthrough imported resources or call the realize_func
         pr::raw_resource physical;
         if (virt.is_imported())
         {
             physical = virt.imported_resource;
+            // LOG_INFO("imported virtual resource with initial GUID {}", virt.initial_guid);
         }
         else
         {
             char namebuf[256];
             std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%" PRIu64 "]", virt.initial_guid);
             physical = cache.get(virt.resource_info, namebuf);
+            // LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
         }
 
         mPhysicalResources.push_back({physical, virt.resource_info.get()});
@@ -183,12 +190,10 @@ void inc::frag::GraphBuilder::calculateBarriers()
     }
 }
 
-void inc::frag::GraphBuilder::startTiming(inc::frag::pass_idx pass, pr::raii::Frame* frame) { mTiming.begin_timing(*frame, pass); }
-
-void inc::frag::GraphBuilder::endTiming(inc::frag::pass_idx pass, pr::raii::Frame* frame) { mTiming.end_timing(*frame, pass); }
-
-void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame)
+void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing, int timer_offset)
 {
+    CC_CONTRACT(frame != nullptr);
+
     for (auto i = 0u; i < mPasses.size(); ++i)
     {
         auto const& pass = mPasses[i];
@@ -200,17 +205,17 @@ void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame)
 
         {
             frame->begin_debug_label(pass.debug_name);
-            startTiming(i, frame);
+            if (timing)
+                timing->begin_timing(*frame, i + timer_offset);
 
             exec_context exec_ctx = {i, this, frame};
             pass.execute_func(exec_ctx);
 
-            endTiming(i, frame);
+            if (timing)
+                timing->end_timing(*frame, i + timer_offset);
             frame->end_debug_label();
         }
     }
-
-    mTiming.finalize_frame(*frame);
 }
 
 void inc::frag::GraphBuilder::reset()
@@ -223,7 +228,7 @@ void inc::frag::GraphBuilder::reset()
     mNumWritesTotal = 0;
 }
 
-void inc::frag::GraphBuilder::performInfoImgui() const
+void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timing) const
 {
     if (ImGui::Begin("Framegraph Timings"))
     {
@@ -242,7 +247,7 @@ void inc::frag::GraphBuilder::performInfoImgui() const
                 ++num_root;
 
             ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_culled ? 'X' : (pass.is_root_pass ? '>' : ':'), pass.debug_name,
-                        int(pass.writes.size()), int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), mTiming.get_last_timing(i));
+                        int(pass.writes.size()), int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), timing->get_last_timing(i));
         }
 
         ImGui::Separator();
@@ -285,6 +290,10 @@ void inc::frag::GraphBuilder::runFloodfillCulling(cc::allocator* alloc)
             // will keep the pass alive!
             writes.push_back(floodcull_relation{i, mv.src_res});
         }
+        for (auto const& im : mPasses[i].imports)
+        {
+            writes.push_back(floodcull_relation{i, im.res});
+        }
         // reads
         for (auto const& rd : mPasses[i].reads)
         {
@@ -316,17 +325,15 @@ void inc::frag::GraphBuilder::runFloodfillCulling(cc::allocator* alloc)
 }
 
 
-void inc::frag::GraphBuilder::initialize(pr::Context& ctx, unsigned max_num_passes)
+void inc::frag::GraphBuilder::initialize(cc::allocator* alloc, unsigned max_num_passes, unsigned max_num_guids)
 {
-    mTiming.initialize(ctx, max_num_passes);
-    mPasses.reserve(max_num_passes);
+    mPasses.reset_reserve(alloc, max_num_passes);
+    mGuidStates.reset_reserve(alloc, max_num_guids);
+    mVirtualResources.reset_reserve(alloc, max_num_guids);
+    mPhysicalResources.reset_reserve(alloc, max_num_guids);
 }
 
-void inc::frag::GraphBuilder::destroy()
-{
-    reset();
-    mTiming = {};
-}
+void inc::frag::GraphBuilder::destroy() { reset(); }
 
 void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache, cc::allocator* alloc)
 {

@@ -37,10 +37,10 @@ struct frame_index_state
     // static
     unsigned num_backbuffers = 0;
     // dynamic
-    unsigned halton_index = 0;
+    unsigned halton_index = 0;        // in [0, 7]
     unsigned current_frame_index = 0; // in [0, num_backbuffers - 1]
     bool is_history_a = true;         // A -> B or B -> A frame
-    bool did_wrap = false;            // if current_frame_index wrapped to every index once
+    bool did_wrap = false;            // if current_frame_index covered its full range at least once
 
     void increment()
     {
