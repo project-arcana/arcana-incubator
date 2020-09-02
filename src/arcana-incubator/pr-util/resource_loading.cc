@@ -49,7 +49,7 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, const char* path, bool b
 
 inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t> indices, cc::span<const inc::assets::simple_vertex> vertices)
 {
-    auto b_upload = ctx.get_upload_buffer(ceil_to_2_5mb(vertices.size_bytes() + indices.size_bytes()));
+    auto b_upload = ctx.get_upload_buffer(ceil_to_2_5mb(unsigned(vertices.size_bytes() + indices.size_bytes())));
     auto* const b_upload_map = ctx.map_buffer(b_upload);
     std::memcpy(b_upload_map, vertices.data(), vertices.size_bytes());
     std::memcpy(b_upload_map + vertices.size_bytes(), indices.data(), indices.size_bytes());
@@ -57,8 +57,8 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t>
 
     // create proper buffers
     pr_mesh res;
-    res.vertex = ctx.make_buffer(vertices.size_bytes(), sizeof(inc::assets::simple_vertex));
-    res.index = ctx.make_buffer(indices.size_bytes(), sizeof(uint32_t));
+    res.vertex = ctx.make_buffer(unsigned(vertices.size_bytes()), sizeof(inc::assets::simple_vertex));
+    res.index = ctx.make_buffer(unsigned(indices.size_bytes()), sizeof(uint32_t));
 
     auto frame = ctx.make_frame();
 

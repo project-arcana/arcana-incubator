@@ -30,8 +30,8 @@ inc::phi_mesh inc::load_mesh(phi::Backend& backend, const char* path, bool binar
         auto const vert_size = mesh_data.vertices.size_bytes();
         auto const ind_size = mesh_data.indices.size_bytes();
 
-        res.vertex_buffer = backend.createBuffer(vert_size, sizeof(inc::assets::simple_vertex));
-        res.index_buffer = backend.createBuffer(ind_size, sizeof(uint32_t));
+        res.vertex_buffer = backend.createBuffer(unsigned(vert_size), sizeof(inc::assets::simple_vertex));
+        res.index_buffer = backend.createBuffer(unsigned(ind_size), sizeof(uint32_t));
 
         {
             cmd::transition_resources tcmd;
@@ -40,7 +40,7 @@ inc::phi_mesh inc::load_mesh(phi::Backend& backend, const char* path, bool binar
             writer.add_command(tcmd);
         }
 
-        upload_buffer = backend.createUploadBuffer(vert_size + ind_size);
+        upload_buffer = backend.createUploadBuffer(unsigned(vert_size + ind_size));
         std::byte* const upload_mapped = backend.mapBuffer(upload_buffer);
 
         std::memcpy(upload_mapped, mesh_data.vertices.data(), vert_size);

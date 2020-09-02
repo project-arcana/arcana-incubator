@@ -142,7 +142,7 @@ void inc::load_imgui_theme(inc::imgui_theme theme)
         style.WindowBorderSize = 1;
         style.ChildBorderSize = 1;
         style.PopupBorderSize = 1;
-        style.FrameBorderSize = is3D;
+        style.FrameBorderSize = is3D ? 1.f : 0.f;
 
         style.WindowRounding = 3;
         style.ChildRounding = 3;
@@ -151,8 +151,8 @@ void inc::load_imgui_theme(inc::imgui_theme theme)
         style.GrabRounding = 3;
 
 #ifdef IMGUI_HAS_DOCK
-        style.TabBorderSize = is3D;
-        style.TabRounding = 3;
+        style.TabBorderSize = is3D ? 1.f : 0.f;
+        style.TabRounding = 3.f;
 
         colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.38f, 0.38f, 0.38f, 1.00f);
         colors[ImGuiCol_Tab] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);

@@ -256,7 +256,7 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
 
 
             const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
-            for (auto level = 1u, size = 512u; level < cube_num_mips; ++level, size /= 2)
+            for (auto level = 1u, size = 512u; int(level) < cube_num_mips; ++level, size /= 2)
             {
                 auto const num_groups = cc::max<unsigned>(1, size / 32);
                 float const spmapRoughness = level * deltaRoughness;

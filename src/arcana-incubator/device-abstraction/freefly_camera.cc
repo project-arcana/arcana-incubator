@@ -88,7 +88,7 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
     input.bindMouseAxis(ge_input_camlook_y, 1, -.65f);
 }
 
-void inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, double dt)
+void inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, float dt)
 {
     auto speed_mul = 10.f;
 

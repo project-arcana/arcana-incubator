@@ -37,7 +37,7 @@ struct smooth_fps_cam
     // default input all-in-one
 
     void setup_default_inputs(input_manager& input);
-    void update_default_inputs(SDLWindow& window, input_manager& input, double dt);
+    void update_default_inputs(SDLWindow& window, input_manager& input, float dt);
 };
 
 /// Smoothed lerp alpha, framerate-correct
