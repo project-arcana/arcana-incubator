@@ -20,7 +20,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
                                bool use_d3d12_per_row_alingment)
 {
     using namespace phi;
-    auto const bytes_per_pixel = detail::format_size_bytes(dest_format);
+    auto const bytes_per_pixel = phi::util::get_format_size_bytes(dest_format);
 
     // CC_RUNTIME_ASSERT(img_size.array_size == 1 && "array upload unimplemented");
     // NOTE: image_data is currently always a single array slice
@@ -46,7 +46,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
 
         if (use_d3d12_per_row_alingment)
             // MIP maps are 256-byte aligned per row in d3d12
-            mip_row_stride_bytes = mem::align_up(mip_row_stride_bytes, 256);
+            mip_row_stride_bytes = phi::util::align_up(mip_row_stride_bytes, 256);
 
         auto const mip_offset_bytes = mip_row_stride_bytes * command.dest_height;
         accumulated_offset_bytes += mip_offset_bytes;
@@ -58,7 +58,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
 unsigned inc::get_mipmap_upload_size(phi::format format, const inc::assets::image_size& img_size, bool no_mips)
 {
     using namespace phi;
-    auto const bytes_per_pixel = detail::format_size_bytes(format);
+    auto const bytes_per_pixel = phi::util::get_format_size_bytes(format);
     auto res_bytes = 0u;
 
     for (auto a = 0u; a < img_size.array_size; ++a)
@@ -69,7 +69,7 @@ unsigned inc::get_mipmap_upload_size(phi::format format, const inc::assets::imag
             auto const mip_width = phi::util::get_mip_size(img_size.width, mip);
             auto const mip_height = phi::util::get_mip_size(img_size.height, mip);
 
-            auto const row_pitch = mem::align_up(bytes_per_pixel * mip_width, 256);
+            auto const row_pitch = phi::util::align_up(bytes_per_pixel * mip_width, 256);
             auto const custom_offset = row_pitch * mip_height;
             res_bytes += custom_offset;
         }

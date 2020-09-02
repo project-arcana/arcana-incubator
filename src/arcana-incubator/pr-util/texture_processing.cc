@@ -65,8 +65,8 @@ pr::auto_texture inc::pre::texture_processing::load_texture_from_memory(pr::raii
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
-        unsigned const num_components = phi::detail::format_num_components(fmt);
-        bool const is_hdr = phi::detail::format_size_bytes(fmt) / num_components > 1;
+        unsigned const num_components = phi::util::get_format_num_components(fmt);
+        bool const is_hdr = phi::util::get_format_size_bytes(fmt) / num_components > 1;
         img_data = inc::assets::load_image(data, img_size, int(num_components), is_hdr);
         CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture from memory");
     }
@@ -80,8 +80,8 @@ pr::auto_texture inc::pre::texture_processing::load_texture_from_file(pr::raii::
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
-        unsigned const num_components = phi::detail::format_num_components(fmt);
-        bool const is_hdr = phi::detail::format_size_bytes(fmt) / num_components > 1;
+        unsigned const num_components = phi::util::get_format_num_components(fmt);
+        bool const is_hdr = phi::util::get_format_size_bytes(fmt) / num_components > 1;
         img_data = inc::assets::load_image(path, img_size, int(num_components), is_hdr);
         CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture from file");
     }
@@ -116,7 +116,7 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
 {
     constexpr auto max_array_size = 16u;
     CC_ASSERT(texture.info.width == texture.info.height && "non-square textures unimplemented");
-    CC_ASSERT(phi::mem::is_power_of_two(texture.info.width) && "non-power of two textures unimplemented");
+    CC_ASSERT(cc::is_pow2(unsigned(texture.info.width)) && "non-power of two textures unimplemented");
 
     auto _label = frame.scoped_debug_label("texture_processing - generate mips");
 
