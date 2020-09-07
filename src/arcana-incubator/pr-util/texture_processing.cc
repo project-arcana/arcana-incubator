@@ -15,16 +15,6 @@
 
 #include "resource_loading.hh"
 
-namespace
-{
-constexpr unsigned ceil_to_2_5mb(unsigned bytes)
-{
-    constexpr unsigned multiple = 2'500'000;
-    return ((bytes + multiple - 1) / multiple) * multiple;
-}
-
-}
-
 void inc::pre::texture_processing::init(pr::Context& ctx, const char* path_prefix)
 {
     {
@@ -98,13 +88,12 @@ pr::auto_texture inc::pre::texture_processing::load_texture(
 
     auto res = frame.context().make_texture({int(size.width), int(size.height)}, fmt, mips ? size.num_mipmaps : 1, true);
 
-    // ceil size to 2.5MB to make cache hits more likely in the future
-    unsigned const ceiled_upload_size = ceil_to_2_5mb(frame.context().calculate_texture_upload_size(res, 1));
-
-    // get a cached upload buffer so we can just drop it
-    auto b_upload = frame.context().get_upload_buffer(ceiled_upload_size);
+    unsigned const upload_size = frame.context().calculate_texture_upload_size(res, 1);
+    auto b_upload = frame.context().make_upload_buffer(upload_size).unlock();
 
     frame.upload_texture_data(cc::span{static_cast<std::byte const*>(data.raw), data.raw_size_bytes}, b_upload, res);
+
+    frame.free_deferred_after_submit(b_upload);
 
     if (mips)
         generate_mips(frame, res, gamma);
