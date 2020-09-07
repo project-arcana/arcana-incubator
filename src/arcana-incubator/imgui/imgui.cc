@@ -319,10 +319,13 @@ void inc::imgui_init(SDL_Window* sdl_window, phi::Backend* backend, int num_fram
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
     if (enable_docking)
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable docking
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
     if (enable_multi_viewport)
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable multi-viewport
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     if (backend->getBackendType() == phi::backend_type::d3d12)
         ImGui_ImplSDL2_InitForD3D(sdl_window);
