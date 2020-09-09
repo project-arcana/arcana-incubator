@@ -339,6 +339,7 @@ void inc::imgui_shutdown()
 {
     ImGui_ImplPHI_Shutdown();
     ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
 }
 
 void inc::imgui_new_frame(SDL_Window* sdl_window)
