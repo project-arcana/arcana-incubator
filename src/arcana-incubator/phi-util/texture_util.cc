@@ -3,8 +3,8 @@
 #include <clean-core/utility.hh>
 
 #include <phantasm-hardware-interface/commands.hh>
-#include <phantasm-hardware-interface/detail/byte_util.hh>
-#include <phantasm-hardware-interface/detail/format_size.hh>
+#include <phantasm-hardware-interface/common/byte_util.hh>
+#include <phantasm-hardware-interface/common/format_size.hh>
 #include <phantasm-hardware-interface/util.hh>
 
 #include <typed-geometry/tg.hh>
