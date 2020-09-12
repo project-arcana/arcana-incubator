@@ -29,10 +29,8 @@ namespace
 {
 void calculate_tangents(inc::assets::simple_mesh_data& mesh)
 {
-    cc::array<tg::vec3> intermediate_tangents(mesh.vertices.size());
-    cc::fill(intermediate_tangents, tg::vec3(0, 0, 0));
-    cc::array<tg::vec3> intermediate_bitangents(mesh.vertices.size());
-    cc::fill(intermediate_bitangents, tg::vec3(0, 0, 0));
+    auto intermediate_tangents = cc::array<tg::vec3>::filled(mesh.vertices.size(), {0, 0, 0});
+    auto intermediate_bitangents = cc::array<tg::vec3>::filled(mesh.vertices.size(), {0, 0, 0});
 
     for (auto tri_i = 0u; tri_i < mesh.indices.size() / 3; ++tri_i)
     {
