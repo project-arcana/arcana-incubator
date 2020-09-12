@@ -89,8 +89,8 @@ bool ImGui_ImplPHI_Init(phi::Backend* backend, int num_frames_in_flight, phi::fo
 
     dxcw::compiler comp;
     comp.initialize();
-    auto const vs = comp.compile_binary(imgui_code, "r", dxcw::target::vertex, output);
-    auto const ps = comp.compile_binary(imgui_code, "u", dxcw::target::pixel, output);
+    auto const vs = comp.compile_shader(imgui_code, "r", dxcw::target::vertex, output);
+    auto const ps = comp.compile_shader(imgui_code, "u", dxcw::target::pixel, output);
     comp.destroy();
 
     bool const res = ImGui_ImplPHI_InitWithShaders(backend, num_frames_in_flight, target_format, {ps.data, ps.size}, {vs.data, vs.size});
