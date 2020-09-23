@@ -52,13 +52,25 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
     forward = tg::vec3(cal * caz, sal, cal * saz);
 }
 
-void inc::da::smooth_fps_cam::interpolate_to_target(float dt)
+bool inc::da::smooth_fps_cam::interpolate_to_target(float dt)
 {
     auto const alpha_rotation = tg::min(1.f, exponential_decay_alpha(sensitivity_rotation, dt));
     auto const alpha_position = tg::min(1.f, exponential_decay_alpha(sensitivity_position, dt));
 
-    physical.forward = tg::normalize(tg::lerp(physical.forward, target.forward, alpha_rotation));
-    physical.position = tg::lerp(physical.position, target.position, alpha_position);
+    auto const forward_diff = target.forward - physical.forward;
+    auto const pos_diff = target.position - physical.position;
+
+    if (tg::length_sqr(forward_diff) + tg::length_sqr(pos_diff) < 0.00005f)
+    {
+        // no changes below threshold
+        return false;
+    }
+    else
+    {
+        physical.forward = tg::normalize(physical.forward + alpha_rotation * forward_diff);
+        physical.position = physical.position + alpha_position * pos_diff;
+        return true;
+    }
 }
 
 void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input)
@@ -88,7 +100,7 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
     input.bindMouseAxis(ge_input_camlook_y, 1, -.65f);
 }
 
-void inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, float dt)
+bool inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, float dt)
 {
     auto speed_mul = 10.f;
 
@@ -127,7 +139,7 @@ void inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::
     mouse_delta.y += input.get(ge_input_camlook_y_analog).getAnalog() * -2.f * dt;
     target.mouselook(mouse_delta.x, mouse_delta.y);
 
-    interpolate_to_target(dt);
+    return interpolate_to_target(dt);
 }
 
 tg::quat inc::da::forward_to_rotation(tg::vec3 forward, tg::vec3 up)
