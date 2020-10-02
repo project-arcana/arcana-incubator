@@ -37,7 +37,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
     // for (auto a = 0u; a < img_size.array_size; ++a)
     {
         command.dest_array_index = 0u; // a;
-        command.source_offset = accumulated_offset_bytes;
+        command.source_offset_bytes = accumulated_offset_bytes;
 
         writer.add_command(command);
 
@@ -51,7 +51,7 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
         auto const mip_offset_bytes = mip_row_stride_bytes * command.dest_height;
         accumulated_offset_bytes += mip_offset_bytes;
 
-        inc::assets::rowwise_copy(img_data, upload_buffer_map + command.source_offset, mip_row_stride_bytes, mip_row_size_bytes, command.dest_height);
+        inc::assets::rowwise_copy(img_data, upload_buffer_map + command.source_offset_bytes, mip_row_stride_bytes, mip_row_size_bytes, command.dest_height);
     }
 }
 
