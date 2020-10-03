@@ -25,10 +25,7 @@ struct pr_mesh
 
 /// loads a shader (binary) from disk and returns a pr::auto_shader_binary
 /// usage: auto [vs, b1] = load_shader(ctx, "post/bloom_ps", phi::shader_stage::vertex, "res/shaders/bin/");
-[[nodiscard]] cc::pair<pr::auto_shader_binary, phi::unique_buffer> load_shader(pr::Context& ctx,
-                                                                                       char const* path,
-                                                                                       phi::shader_stage stage,
-                                                                                       char const* path_prefix = "");
+[[nodiscard]] cc::pair<pr::auto_shader_binary, phi::unique_buffer> load_shader(pr::Context& ctx, char const* path, phi::shader_stage stage, char const* path_prefix = "");
 
 /// loads a .obj or binary mesh from disk to GPU
 [[nodiscard]] pr_mesh load_mesh(pr::Context& ctx, char const* path, bool binary = false);
