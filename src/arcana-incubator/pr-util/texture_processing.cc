@@ -3,8 +3,8 @@
 #include <clean-core/defer.hh>
 #include <clean-core/utility.hh>
 
-#include <phantasm-hardware-interface/detail/byte_util.hh>
-#include <phantasm-hardware-interface/detail/format_size.hh>
+#include <phantasm-hardware-interface/common/byte_util.hh>
+#include <phantasm-hardware-interface/common/format_size.hh>
 #include <phantasm-hardware-interface/util.hh>
 
 #include <phantasm-renderer/Context.hh>
@@ -14,16 +14,6 @@
 #include <arcana-incubator/asset-loading/image_loader.hh>
 
 #include "resource_loading.hh"
-
-namespace
-{
-constexpr unsigned ceil_to_2_5mb(unsigned bytes)
-{
-    constexpr unsigned multiple = 2'500'000;
-    return ((bytes + multiple - 1) / multiple) * multiple;
-}
-
-}
 
 void inc::pre::texture_processing::init(pr::Context& ctx, const char* path_prefix)
 {
@@ -65,8 +55,8 @@ pr::auto_texture inc::pre::texture_processing::load_texture_from_memory(pr::raii
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
-        unsigned const num_components = phi::detail::format_num_components(fmt);
-        bool const is_hdr = phi::detail::format_size_bytes(fmt) / num_components > 1;
+        unsigned const num_components = phi::util::get_format_num_components(fmt);
+        bool const is_hdr = phi::util::get_format_size_bytes(fmt) / num_components > 1;
         img_data = inc::assets::load_image(data, img_size, int(num_components), is_hdr);
         CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture from memory");
     }
@@ -80,8 +70,8 @@ pr::auto_texture inc::pre::texture_processing::load_texture_from_file(pr::raii::
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
-        unsigned const num_components = phi::detail::format_num_components(fmt);
-        bool const is_hdr = phi::detail::format_size_bytes(fmt) / num_components > 1;
+        unsigned const num_components = phi::util::get_format_num_components(fmt);
+        bool const is_hdr = phi::util::get_format_size_bytes(fmt) / num_components > 1;
         img_data = inc::assets::load_image(path, img_size, int(num_components), is_hdr);
         CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture from file");
     }
@@ -98,13 +88,12 @@ pr::auto_texture inc::pre::texture_processing::load_texture(
 
     auto res = frame.context().make_texture({int(size.width), int(size.height)}, fmt, mips ? size.num_mipmaps : 1, true);
 
-    // ceil size to 2.5MB to make cache hits more likely in the future
-    unsigned const ceiled_upload_size = ceil_to_2_5mb(frame.context().calculate_texture_upload_size(res, 1));
-
-    // get a cached upload buffer so we can just drop it
-    auto b_upload = frame.context().get_upload_buffer(ceiled_upload_size);
+    unsigned const upload_size = frame.context().calculate_texture_upload_size(res, 1);
+    auto b_upload = frame.context().make_upload_buffer(upload_size).unlock();
 
     frame.upload_texture_data(cc::span{static_cast<std::byte const*>(data.raw), data.raw_size_bytes}, b_upload, res);
+
+    frame.free_deferred_after_submit(b_upload);
 
     if (mips)
         generate_mips(frame, res, gamma);
@@ -116,7 +105,7 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
 {
     constexpr auto max_array_size = 16u;
     CC_ASSERT(texture.info.width == texture.info.height && "non-square textures unimplemented");
-    CC_ASSERT(phi::mem::is_power_of_two(texture.info.width) && "non-power of two textures unimplemented");
+    CC_ASSERT(cc::is_pow2(unsigned(texture.info.width)) && "non-power of two textures unimplemented");
 
     auto _label = frame.scoped_debug_label("texture_processing - generate mips");
 

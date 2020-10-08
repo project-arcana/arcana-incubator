@@ -31,13 +31,15 @@ struct smooth_fps_cam
     float sensitivity_rotation = 70.f;
     float sensitivity_position = 25.f;
 
-    void interpolate_to_target(float dt);
+    /// interpolates physical state towards target based on delta time and sensitivities
+    /// returns true if changes to physical were made
+    bool interpolate_to_target(float dt);
 
     //
     // default input all-in-one
 
     void setup_default_inputs(input_manager& input);
-    void update_default_inputs(SDLWindow& window, input_manager& input, double dt);
+    bool update_default_inputs(SDLWindow& window, input_manager& input, float dt);
 };
 
 /// Smoothed lerp alpha, framerate-correct

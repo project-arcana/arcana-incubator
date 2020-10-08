@@ -89,28 +89,6 @@ struct input_manager
     void bindMouseWheel(uint64_t id, float scale = 1.f, bool vertical = false);
 
     //
-    // binding - deprecated
-
-    [[deprecated("Use enum overload - inc::da::keycode::...")]] void bindKey(uint64_t id, SDL_Keycode keycode) { bindKeyRawKeycode(id, keycode); }
-    [[deprecated("Use enum overload - inc::da::scancode::...")]] void bindKey(uint64_t id, SDL_Scancode scancode)
-    {
-        bindKeyRawScancode(id, scancode);
-    }
-    [[deprecated("Use enum overload - inc::da::mouse_button::...")]] void bindMouseButton(uint64_t id, uint8_t sdl_mouse_button)
-    {
-        bindMouseButtonRaw(id, sdl_mouse_button);
-    }
-    [[deprecated("Use enum overload - inc::da::controller_button::...")]] void bindControllerButton(uint64_t id, uint8_t sdl_controller_button)
-    {
-        bindControllerButtonRaw(id, sdl_controller_button);
-    }
-    [[deprecated("Use enum overload - inc::da::controller_axis::...")]] void bindControllerAxis(
-        uint64_t id, uint8_t sdl_controller_axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f)
-    {
-        bindControllerAxisRaw(id, sdl_controller_axis, deadzone, threshold, scale, bias);
-    }
-
-    //
     // polling
 
     binding const& get(uint64_t id) { return _bindings[getOrCreateBinding(id)]; }

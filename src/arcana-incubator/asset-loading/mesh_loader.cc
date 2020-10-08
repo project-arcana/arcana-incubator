@@ -5,6 +5,7 @@
 
 #include <typed-geometry/tg-std.hh>
 
+#include <clean-core/algorithms.hh>
 #include <clean-core/array.hh>
 #include <clean-core/hash.hh>
 

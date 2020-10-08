@@ -13,15 +13,6 @@
 #include <phantasm-renderer/Frame.hh>
 
 #include <arcana-incubator/asset-loading/mesh_loader.hh>
-namespace
-{
-constexpr unsigned ceil_to_2_5mb(unsigned bytes)
-{
-    constexpr unsigned multiple = 2'500'000;
-    return ((bytes + multiple - 1) / multiple) * multiple;
-}
-
-}
 
 bool inc::pre::is_shader_present(const char* path, const char* path_prefix)
 {
@@ -29,12 +20,12 @@ bool inc::pre::is_shader_present(const char* path, const char* path_prefix)
     std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, "spv");
     return std::fstream(name_formatted).good();
 }
-cc::pair<pr::auto_shader_binary, phi::detail::unique_buffer> inc::pre::load_shader(pr::Context& ctx, const char* path, phi::shader_stage stage, char const* path_prefix)
+cc::pair<pr::auto_shader_binary, phi::unique_buffer> inc::pre::load_shader(pr::Context& ctx, const char* path, phi::shader_stage stage, char const* path_prefix)
 {
     char const* const ending = ctx.get_backend().getBackendType() == phi::backend_type::d3d12 ? "dxil" : "spv";
     char name_formatted[1024];
     std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, ending);
-    auto buffer = phi::detail::unique_buffer::create_from_binary_file(name_formatted);
+    auto buffer = phi::unique_buffer::create_from_binary_file(name_formatted);
     CC_RUNTIME_ASSERT(buffer.is_valid() && "failed to load shader");
     auto pr_shader = ctx.make_shader(buffer, stage);
     return {cc::move(pr_shader), cc::move(buffer)};
@@ -49,7 +40,7 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, const char* path, bool b
 
 inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t> indices, cc::span<const inc::assets::simple_vertex> vertices)
 {
-    auto b_upload = ctx.get_upload_buffer(ceil_to_2_5mb(vertices.size_bytes() + indices.size_bytes()));
+    auto b_upload = ctx.make_upload_buffer(unsigned(vertices.size_bytes() + indices.size_bytes())).unlock();
     auto* const b_upload_map = ctx.map_buffer(b_upload);
     std::memcpy(b_upload_map, vertices.data(), vertices.size_bytes());
     std::memcpy(b_upload_map + vertices.size_bytes(), indices.data(), indices.size_bytes());
@@ -57,8 +48,8 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t>
 
     // create proper buffers
     pr_mesh res;
-    res.vertex = ctx.make_buffer(vertices.size_bytes(), sizeof(inc::assets::simple_vertex));
-    res.index = ctx.make_buffer(indices.size_bytes(), sizeof(uint32_t));
+    res.vertex = ctx.make_buffer(unsigned(vertices.size_bytes()), sizeof(inc::assets::simple_vertex));
+    res.index = ctx.make_buffer(unsigned(indices.size_bytes()), sizeof(uint32_t));
 
     auto frame = ctx.make_frame();
 
@@ -69,6 +60,8 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t>
     // transition
     frame.transition(res.vertex, phi::resource_state::vertex_buffer);
     frame.transition(res.index, phi::resource_state::index_buffer);
+
+    frame.free_deferred_after_submit(b_upload);
 
     // submit
     ctx.submit(cc::move(frame));

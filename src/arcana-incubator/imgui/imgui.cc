@@ -1,5 +1,12 @@
 #include "imgui.hh"
 
+#include <phantasm-hardware-interface/Backend.hh>
+
+#include <phantasm-renderer/Frame.hh>
+
+#include <arcana-incubator/imgui/imgui_impl_phi.hh>
+#include <arcana-incubator/imgui/imgui_impl_sdl2.hh>
+
 void inc::load_imgui_theme(inc::imgui_theme theme)
 {
     switch (theme)
@@ -135,7 +142,7 @@ void inc::load_imgui_theme(inc::imgui_theme theme)
         style.WindowBorderSize = 1;
         style.ChildBorderSize = 1;
         style.PopupBorderSize = 1;
-        style.FrameBorderSize = is3D;
+        style.FrameBorderSize = is3D ? 1.f : 0.f;
 
         style.WindowRounding = 3;
         style.ChildRounding = 3;
@@ -144,8 +151,8 @@ void inc::load_imgui_theme(inc::imgui_theme theme)
         style.GrabRounding = 3;
 
 #ifdef IMGUI_HAS_DOCK
-        style.TabBorderSize = is3D;
-        style.TabRounding = 3;
+        style.TabBorderSize = is3D ? 1.f : 0.f;
+        style.TabRounding = 3.f;
 
         colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.38f, 0.38f, 0.38f, 1.00f);
         colors[ImGuiCol_Tab] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
@@ -304,5 +311,65 @@ void inc::load_imgui_theme(inc::imgui_theme theme)
         colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.70f, 0.70f, 0.70f, 0.70f);
     }
     break;
+    }
+}
+
+void inc::imgui_init(SDL_Window* sdl_window, phi::Backend* backend, int num_frames_in_flight, phi::format target_format, bool enable_docking, bool enable_multi_viewport)
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    if (enable_docking)
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    if (enable_multi_viewport)
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+    if (backend->getBackendType() == phi::backend_type::d3d12)
+        ImGui_ImplSDL2_InitForD3D(sdl_window);
+    else
+        ImGui_ImplSDL2_InitForVulkan(sdl_window);
+
+    ImGui_ImplPHI_Init(backend, num_frames_in_flight, target_format);
+}
+
+void inc::imgui_shutdown()
+{
+    ImGui_ImplPHI_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+}
+
+void inc::imgui_new_frame(SDL_Window* sdl_window)
+{
+    // imgui new frame
+    ImGui_ImplPHI_NewFrame();
+    ImGui_ImplSDL2_NewFrame(sdl_window);
+    ImGui::NewFrame();
+
+    // imguizmo new frame
+    ImGuiViewport const& viewport = *ImGui::GetMainViewport();
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetRect(viewport.Pos.x, viewport.Pos.y, viewport.Size.x, viewport.Size.y);
+}
+
+void inc::imgui_render(pr::raii::Frame& frame)
+{
+    auto _label = frame.scoped_debug_label("imgui");
+
+    ImGui::Render();
+    auto* const drawdata = ImGui::GetDrawData();
+    auto const framesize = ImGui_ImplPHI_GetDrawDataCommandSize(drawdata);
+    ImGui_ImplPHI_RenderDrawData(drawdata, {frame.write_raw_bytes(framesize), framesize});
+}
+
+void inc::imgui_viewport_update()
+{
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault(nullptr, nullptr);
     }
 }

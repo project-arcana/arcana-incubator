@@ -1,8 +1,8 @@
 #pragma once
 
-#include <phantasm-hardware-interface/detail/unique_buffer.hh>
+#include <phantasm-hardware-interface/common/container/unique_buffer.hh>
 
 namespace inc
 {
-phi::detail::unique_buffer get_shader_binary(const char* path, char const* name, char const* ending);
+phi::unique_buffer get_shader_binary(const char* path, char const* name, char const* ending);
 }

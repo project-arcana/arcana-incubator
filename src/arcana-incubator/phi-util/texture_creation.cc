@@ -2,14 +2,15 @@
 
 #include <iostream>
 
+#include <clean-core/bits.hh>
 #include <clean-core/capped_vector.hh>
 #include <clean-core/defer.hh>
 #include <clean-core/utility.hh>
 
 #include <phantasm-hardware-interface/arguments.hh>
 #include <phantasm-hardware-interface/commands.hh>
-#include <phantasm-hardware-interface/detail/byte_util.hh>
-#include <phantasm-hardware-interface/detail/format_size.hh>
+#include <phantasm-hardware-interface/common/byte_util.hh>
+#include <phantasm-hardware-interface/common/format_size.hh>
 #include <phantasm-hardware-interface/util.hh>
 
 #include <arcana-incubator/phi-util/shader_util.hh>
@@ -125,8 +126,8 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     inc::assets::image_size img_size;
     inc::assets::image_data img_data;
     {
-        auto const num_components = detail::format_num_components(format);
-        auto const is_hdr = detail::format_size_bytes(format) / num_components > 1;
+        auto const num_components = phi::util::get_format_num_components(format);
+        auto const is_hdr = phi::util::get_format_size_bytes(format) / num_components > 1;
         img_data = inc::assets::load_image(path, img_size, static_cast<int>(num_components), is_hdr);
     }
     CC_DEFER { inc::assets::free(img_data); };
@@ -255,7 +256,7 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
 
 
             const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
-            for (auto level = 1u, size = 512u; level < cube_num_mips; ++level, size /= 2)
+            for (auto level = 1u, size = 512u; int(level) < cube_num_mips; ++level, size /= 2)
             {
                 auto const num_groups = cc::max<unsigned>(1, size / 32);
                 float const spmapRoughness = level * deltaRoughness;
@@ -358,7 +359,7 @@ void inc::texture_creator::generate_mips(handle::resource resource, const inc::a
 {
     constexpr auto max_array_size = 16u;
     CC_ASSERT(size.width == size.height && "non-square textures unimplemented");
-    CC_ASSERT(phi::mem::is_power_of_two(size.width) && "non-power of two textures unimplemented");
+    CC_ASSERT(cc::is_pow2(size.width) && "non-power of two textures unimplemented");
 
     handle::pipeline_state matching_pso;
     if (size.array_size > 1)
