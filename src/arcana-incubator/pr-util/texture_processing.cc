@@ -88,12 +88,7 @@ pr::auto_texture inc::pre::texture_processing::load_texture(
 
     auto res = frame.context().make_texture({int(size.width), int(size.height)}, fmt, mips ? size.num_mipmaps : 1, true);
 
-    unsigned const upload_size = frame.context().calculate_texture_upload_size(res, 1);
-    auto b_upload = frame.context().make_upload_buffer(upload_size).unlock();
-
-    frame.upload_texture_data(cc::span{static_cast<std::byte const*>(data.raw), data.raw_size_bytes}, b_upload, res);
-
-    frame.free_deferred_after_submit(b_upload);
+    frame.auto_upload_texture_data(cc::span{static_cast<std::byte const*>(data.raw), data.raw_size_bytes}, res);
 
     if (mips)
         generate_mips(frame, res, gamma);
