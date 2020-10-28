@@ -9,7 +9,7 @@ void inc::pre::multi_buffered_buffer::initialize(pr::Context& ctx, unsigned num_
     this->info = info;
     for (auto& buf : buffers)
     {
-        buf = ctx.make_buffer(info).unlock().res;
+        buf = ctx.make_buffer(info).disown().res;
     }
 }
 
