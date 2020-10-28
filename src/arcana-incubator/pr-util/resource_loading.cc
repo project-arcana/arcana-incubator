@@ -40,7 +40,7 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, const char* path, bool b
 
 inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t> indices, cc::span<const inc::assets::simple_vertex> vertices)
 {
-    auto b_upload = ctx.make_upload_buffer(unsigned(vertices.size_bytes() + indices.size_bytes())).unlock();
+    auto b_upload = ctx.make_upload_buffer(unsigned(vertices.size_bytes() + indices.size_bytes())).disown();
     auto* const b_upload_map = ctx.map_buffer(b_upload);
     std::memcpy(b_upload_map, vertices.data(), vertices.size_bytes());
     std::memcpy(b_upload_map + vertices.size_bytes(), indices.data(), indices.size_bytes());
