@@ -9,7 +9,7 @@ struct SDL_Window;
 
 namespace inc::da
 {
-void initialize();
+void initialize(bool enable_controllers = false);
 
 void shutdown();
 

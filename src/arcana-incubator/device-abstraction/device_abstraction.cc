@@ -34,11 +34,27 @@ void verify_failure_handler(const char* expression, const char* filename, int li
 
 }
 
-void inc::da::initialize()
+void inc::da::initialize(bool enable_controllers)
 {
+    // NOTE: On Windows, some faulty drivers can cause SDL_Init with SDL_INIT_JOYSTICK to take extremely long (20s+)
+    // USB DACs seem to be the most frequent reason
+    // see: https://stackoverflow.com/questions/10967795/directinput8-enumdevices-sometimes-painfully-slow
+
+    unsigned init_flags = SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS;
+
+    if (enable_controllers)
+    {
+        // enable controllers and everything else
+        init_flags |= SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR;
+    }
+
     SDL_SetMainReady(); // we use SDL_MAIN_HANDLED (in CMakeLists.txt), see https://wiki.libsdl.org/SDL_SetMainReady
-    DA_SDL_VERIFY(SDL_Init(SDL_INIT_EVERYTHING));
+    DA_SDL_VERIFY(SDL_Init(init_flags));
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));
+
+    SDL_version version;
+    SDL_GetVersion(&version);
+    LOG_INFO("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
 }
 
 void inc::da::shutdown() { SDL_Quit(); }
