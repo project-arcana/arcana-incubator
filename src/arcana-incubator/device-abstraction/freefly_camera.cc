@@ -60,7 +60,7 @@ bool inc::da::smooth_fps_cam::interpolate_to_target(float dt)
     auto const forward_diff = target.forward - physical.forward;
     auto const pos_diff = target.position - physical.position;
 
-    if (tg::length_sqr(forward_diff) + tg::length_sqr(pos_diff) < 0.00005f)
+    if (tg::length_sqr(forward_diff) + tg::length_sqr(pos_diff) < tg::epsilon<float>)
     {
         // no changes below threshold
         return false;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 namespace inc::da
 {
 // NOTE: these translate exactly to SDL_Scancode and SDL_Keycode,

@@ -9,6 +9,8 @@
 #include <clean-core/array.hh>
 #include <clean-core/hash.hh>
 
+#include <phantasm-hardware-interface/common/byte_reader.hh>
+
 #include <arcana-incubator/asset-loading/lib/tiny_obj_loader.hh>
 
 using inc::assets::simple_vertex;
@@ -196,77 +198,29 @@ inc::assets::simple_mesh_data inc::assets::load_binary_mesh(const char* path)
     return res;
 }
 
-struct byte_reader
-{
-    byte_reader() = default;
-    byte_reader(cc::span<cc::byte const> buffer) : _buffer(buffer.data()), _head(buffer.data()), _buffer_end(buffer.data() + buffer.size()) {}
-
-    template <class T>
-    void read_t(T& out_t)
-    {
-        static_assert(std::is_trivially_copyable_v<T>, "T not memcpyable");
-        CC_ASSERT(_head + sizeof(T) <= _buffer_end && "read OOB");
-        std::memcpy(&out_t, _head, sizeof(T));
-        _head += sizeof(T);
-    }
-
-    void read(cc::span<cc::byte> out_data)
-    {
-        CC_ASSERT(_head + out_data.size() <= _buffer_end && "read OOB");
-        std::memcpy(out_data.data(), _head, out_data.size());
-        _head += out_data.size();
-    }
-
-    void skip(size_t size)
-    {
-        CC_ASSERT(_head + size <= _buffer_end && "skip OOB");
-        _head += size;
-    }
-
-    void reset() { _head = _buffer; }
-
-    size_t size() const { return _buffer == nullptr ? 0 : _buffer_end - _buffer; }
-    size_t size_left() const { return _buffer == nullptr ? 0 : _buffer_end - _head; }
-
-    std::byte const* head() const { return _head; }
-
-private:
-    std::byte const* _buffer = nullptr;
-    std::byte const* _head = nullptr;
-    std::byte const* _buffer_end = nullptr;
-};
-
 inc::assets::simple_mesh_data inc::assets::load_binary_mesh(cc::span<const std::byte> data)
 {
-    auto reader = byte_reader{data};
+    auto reader = phi::byte_reader{data};
     simple_mesh_data res;
 
-    size_t num_indices = 0;
-    reader.read_t(num_indices);
-    res.indices.resize(num_indices);
-    reader.read(cc::as_byte_span(res.indices));
+    auto const indices_span = reader.read_sized_array<uint32_t>();
+    res.indices.resize(indices_span.size());
+    indices_span.copy_to<uint32_t>(res.indices);
 
-    size_t num_vertices = 0;
-    reader.read_t(num_vertices);
-    res.vertices.resize(num_vertices);
-    reader.read(cc::as_byte_span(res.vertices));
+    auto const vertices_span = reader.read_sized_array<simple_vertex>();
+    res.vertices.resize(vertices_span.size());
+    vertices_span.copy_to<simple_vertex>(res.vertices);
+
     return res;
 }
 
 inc::assets::simple_mesh_data_nonowning inc::assets::parse_binary_mesh(cc::span<const std::byte> data)
 {
-    auto reader = byte_reader{data};
-
+    auto reader = phi::byte_reader{data};
     simple_mesh_data_nonowning res;
 
-    size_t num_indices = 0;
-    reader.read_t(num_indices);
-    res.indices = cc::span{reinterpret_cast<uint32_t const*>(reader.head()), num_indices};
-    reader.skip(res.indices.size_bytes());
-
-    size_t num_vertices = 0;
-    reader.read_t(num_vertices);
-    res.vertices = cc::span{reinterpret_cast<simple_vertex const*>(reader.head()), num_vertices};
+    res.indices = reader.read_sized_array<uint32_t>();
+    res.vertices = reader.read_sized_array<simple_vertex>();
 
     return res;
 }

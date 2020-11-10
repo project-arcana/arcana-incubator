@@ -29,7 +29,7 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     window.initialize("quick_app window");
 
     context.initialize(backend_type, config);
-    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize()).unlock();
+    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize()).disown();
 
     // input + camera
     input.initialize();
