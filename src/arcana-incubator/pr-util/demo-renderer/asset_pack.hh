@@ -1,6 +1,6 @@
 #pragma once
 
-#include <phantasm-hardware-interface/common/container/linked_pool.hh>
+#include <clean-core/atomic_linked_pool.hh>
 
 #include <phantasm-renderer/argument.hh>
 #include <phantasm-renderer/resource_types.hh>
@@ -74,8 +74,8 @@ private:
         pr::auto_prebuilt_argument sv;
     };
 
-    phi::linked_pool<material_node> _materials;
-    phi::linked_pool<inc::pre::pr_mesh> _meshes;
+    cc::atomic_linked_pool<material_node> _materials;
+    cc::atomic_linked_pool<inc::pre::pr_mesh> _meshes;
 };
 
 }
