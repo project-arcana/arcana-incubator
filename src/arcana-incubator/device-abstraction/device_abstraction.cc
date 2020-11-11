@@ -45,7 +45,7 @@ void inc::da::initialize(bool enable_controllers)
     if (enable_controllers)
     {
         // enable controllers and everything else
-        init_flags |= SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR;
+        init_flags |= SDL_INIT_EVERYTHING;
     }
 
     SDL_SetMainReady(); // we use SDL_MAIN_HANDLED (in CMakeLists.txt), see https://wiki.libsdl.org/SDL_SetMainReady
