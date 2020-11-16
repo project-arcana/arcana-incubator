@@ -163,10 +163,11 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     return res;
 }
 
-void inc::assets::write_binary_mesh(const inc::assets::simple_mesh_data& mesh, const char* out_path)
+bool inc::assets::write_binary_mesh(const inc::assets::simple_mesh_data& mesh, const char* out_path)
 {
     auto outfile = std::fstream(out_path, std::ios::out | std::ios::binary);
-    CC_RUNTIME_ASSERT(outfile.good() && "failed to write mesh");
+    if (!outfile.good())
+        return false;
 
     size_t const num_indices = mesh.indices.size();
     outfile.write((char const*)&num_indices, sizeof(num_indices));
@@ -176,6 +177,7 @@ void inc::assets::write_binary_mesh(const inc::assets::simple_mesh_data& mesh, c
     outfile.write((char const*)&num_vertices, sizeof(num_vertices));
     outfile.write((char const*)mesh.vertices.data(), sizeof(mesh.vertices[0]) * num_vertices);
     outfile.close();
+    return true;
 }
 
 inc::assets::simple_mesh_data inc::assets::load_binary_mesh(const char* path)
