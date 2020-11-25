@@ -45,6 +45,9 @@ struct simple_mesh_data_nonowning
 
 [[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true);
 
+// fills out tangents, requires other fields
+void calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<uint32_t const> indices);
+
 bool write_binary_mesh(simple_mesh_data const& mesh, char const* out_path);
 
 [[nodiscard]] simple_mesh_data load_binary_mesh(char const* path);

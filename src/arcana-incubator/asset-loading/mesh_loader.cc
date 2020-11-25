@@ -28,58 +28,6 @@ struct hash<simple_vertex>
 };
 }
 
-namespace
-{
-void calculate_tangents(inc::assets::simple_mesh_data& mesh)
-{
-    auto intermediate_tangents = cc::array<tg::vec3>::filled(mesh.vertices.size(), {0, 0, 0});
-    auto intermediate_bitangents = cc::array<tg::vec3>::filled(mesh.vertices.size(), {0, 0, 0});
-
-    for (auto tri_i = 0u; tri_i < mesh.indices.size() / 3; ++tri_i)
-    {
-        auto const i0 = static_cast<unsigned>(mesh.indices[tri_i * 3 + 0]);
-        auto const i1 = static_cast<unsigned>(mesh.indices[tri_i * 3 + 1]);
-        auto const i2 = static_cast<unsigned>(mesh.indices[tri_i * 3 + 2]);
-
-        auto const& v0 = mesh.vertices[i0];
-        auto const& v1 = mesh.vertices[i1];
-        auto const& v2 = mesh.vertices[i2];
-
-        auto const e1 = v1.position - v0.position;
-        auto const e2 = v2.position - v0.position;
-
-        auto const duv1 = v1.texcoord - v0.texcoord;
-        auto const duv2 = v2.texcoord - v0.texcoord;
-
-        float const r = 1.f / (duv1.x * duv2.y - duv2.x * duv1.y);
-
-        auto t = (e1 * duv2.y - e2 * duv1.y) * r;
-        auto b = (e2 * duv1.x - e1 * duv2.x) * r;
-
-        intermediate_tangents[i0] += t;
-        intermediate_tangents[i1] += t;
-        intermediate_tangents[i2] += t;
-
-        intermediate_bitangents[i0] += b;
-        intermediate_bitangents[i1] += b;
-        intermediate_bitangents[i2] += b;
-    }
-
-    auto const reject = [](tg::vec3 const& a, tg::vec3 const& b) -> tg::vec3 { return a - tg::dot(a, b) * b; };
-
-    for (auto i = 0u; i < mesh.vertices.size(); ++i)
-    {
-        auto& vert = mesh.vertices[i];
-        auto const& t = intermediate_tangents[i];
-        auto const& b = intermediate_bitangents[i];
-        auto const& n = vert.normal;
-
-        auto const xyz = tg::normalize_safe(reject(t, n));
-        vert.tangent = tg::vec4(xyz, tg::dot(tg::cross(t, b), n) > 0.f ? 1.f : -1.f);
-    }
-}
-}
-
 inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool flip_uvs, bool flip_xaxis)
 {
     tinyobj::attrib_t attrib;
@@ -106,7 +54,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     std::unordered_map<simple_vertex, uint32_t> unique_vertices;
     unique_vertices.reserve(attrib.vertices.size() / 3);
 
-    auto const transform_uv = [&](tg::vec2 uv) {
+    auto f_transform_uv = [&](tg::vec2 uv) {
         if (flip_uvs)
             uv.y = 1.f - uv.y;
 
@@ -126,7 +74,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
             if (index.texcoord_index != -1)
             {
                 auto const texc_i = static_cast<size_t>(index.texcoord_index);
-                vertex.texcoord = transform_uv(tg::vec2(attrib.texcoords[2 * texc_i + 0], attrib.texcoords[2 * texc_i + 1]));
+                vertex.texcoord = f_transform_uv(tg::vec2(attrib.texcoords[2 * texc_i + 0], attrib.texcoords[2 * texc_i + 1]));
             }
             else
             {
@@ -156,11 +104,60 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
         }
     }
 
-    calculate_tangents(res);
+    calculate_mesh_tangents(res.vertices, res.indices);
 
     // vertices was over-reserved
     res.vertices.shrink_to_fit();
     return res;
+}
+
+void inc::assets::calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<const uint32_t> indices)
+{
+    auto intermediate_tangents = cc::array<tg::vec3>::filled(inout_vertices.size(), {0, 0, 0});
+    auto intermediate_bitangents = cc::array<tg::vec3>::filled(inout_vertices.size(), {0, 0, 0});
+
+    for (auto tri_i = 0u; tri_i < indices.size() / 3; ++tri_i)
+    {
+        auto const i0 = static_cast<unsigned>(indices[tri_i * 3 + 0]);
+        auto const i1 = static_cast<unsigned>(indices[tri_i * 3 + 1]);
+        auto const i2 = static_cast<unsigned>(indices[tri_i * 3 + 2]);
+
+        auto const& v0 = inout_vertices[i0];
+        auto const& v1 = inout_vertices[i1];
+        auto const& v2 = inout_vertices[i2];
+
+        auto const e1 = v1.position - v0.position;
+        auto const e2 = v2.position - v0.position;
+
+        auto const duv1 = v1.texcoord - v0.texcoord;
+        auto const duv2 = v2.texcoord - v0.texcoord;
+
+        float const r = 1.f / (duv1.x * duv2.y - duv2.x * duv1.y);
+
+        auto t = (e1 * duv2.y - e2 * duv1.y) * r;
+        auto b = (e2 * duv1.x - e1 * duv2.x) * r;
+
+        intermediate_tangents[i0] += t;
+        intermediate_tangents[i1] += t;
+        intermediate_tangents[i2] += t;
+
+        intermediate_bitangents[i0] += b;
+        intermediate_bitangents[i1] += b;
+        intermediate_bitangents[i2] += b;
+    }
+
+    auto const reject = [](tg::vec3 const& a, tg::vec3 const& b) -> tg::vec3 { return a - tg::dot(a, b) * b; };
+
+    for (auto i = 0u; i < inout_vertices.size(); ++i)
+    {
+        auto& vert = inout_vertices[i];
+        auto const& t = intermediate_tangents[i];
+        auto const& b = intermediate_bitangents[i];
+        auto const& n = vert.normal;
+
+        auto const xyz = tg::normalize_safe(reject(t, n));
+        vert.tangent = tg::vec4(xyz, tg::dot(tg::cross(t, b), n) > 0.f ? 1.f : -1.f);
+    }
 }
 
 bool inc::assets::write_binary_mesh(const inc::assets::simple_mesh_data& mesh, const char* out_path)
