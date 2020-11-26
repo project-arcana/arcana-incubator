@@ -43,7 +43,7 @@ struct simple_mesh_data_nonowning
     cc::span<simple_vertex const> vertices;
 };
 
-[[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true);
+[[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true, float scale = 1.f);
 
 // fills out tangents, requires other fields
 void calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<uint32_t const> indices);

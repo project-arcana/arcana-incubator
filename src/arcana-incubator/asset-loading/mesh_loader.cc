@@ -28,7 +28,7 @@ struct hash<simple_vertex>
 };
 }
 
-inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool flip_uvs, bool flip_xaxis)
+inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool flip_uvs, bool flip_xaxis, float scale)
 {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -61,6 +61,9 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
         return uv;
     };
 
+    float const xaxis_multiplier = flip_xaxis ? -1.f : 1.f;
+    auto const pos_scale = tg::comp3(xaxis_multiplier * scale, scale, scale);
+
     for (auto const& shape : shapes)
     {
         CC_RUNTIME_ASSERT(shape.mesh.num_face_vertices[0] == 3 && "mesh not triangulated");
@@ -88,11 +91,8 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
                 vertex.normal = tg::vec3(attrib.normals[3 * norm_i + 0], attrib.normals[3 * norm_i + 1], attrib.normals[3 * norm_i + 2]);
             }
 
-            if (flip_xaxis)
-            {
-                vertex.position.x *= -1;
-                vertex.normal.x *= -1;
-            }
+            vertex.position *= pos_scale;
+            vertex.normal.x *= xaxis_multiplier;
 
             if (unique_vertices.count(vertex) == 0)
             {
