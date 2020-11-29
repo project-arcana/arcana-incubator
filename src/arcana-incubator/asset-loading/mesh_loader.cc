@@ -6,6 +6,7 @@
 #include <typed-geometry/tg-std.hh>
 
 #include <clean-core/algorithms.hh>
+#include <clean-core/alloc_array.hh>
 #include <clean-core/array.hh>
 #include <clean-core/hash.hh>
 
@@ -111,10 +112,10 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     return res;
 }
 
-void inc::assets::calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<const uint32_t> indices)
+void inc::assets::calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<const uint32_t> indices, cc::allocator* scratch_alloc)
 {
-    auto intermediate_tangents = cc::array<tg::vec3>::filled(inout_vertices.size(), {0, 0, 0});
-    auto intermediate_bitangents = cc::array<tg::vec3>::filled(inout_vertices.size(), {0, 0, 0});
+    auto intermediate_tangents = cc::alloc_array<tg::vec3>::filled(inout_vertices.size(), {0, 0, 0}, scratch_alloc);
+    auto intermediate_bitangents = cc::alloc_array<tg::vec3>::filled(inout_vertices.size(), {0, 0, 0}, scratch_alloc);
 
     for (auto tri_i = 0u; tri_i < indices.size() / 3; ++tri_i)
     {
