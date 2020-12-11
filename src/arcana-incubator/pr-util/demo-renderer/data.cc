@@ -49,9 +49,9 @@ bool inc::pre::dmr::camera_gpudata::project_mouse_to_plane(tg::vec2 mousepos_nor
     auto const plane = tg::plane3(plane_normal, plane_center);
     auto const res = tg::intersection(ray, plane);
 
-    if (!res.has_value())
+    if (!res.any())
         return false;
 
-    out_hit = res.value();
+    out_hit = res.first();
     return true;
 }
