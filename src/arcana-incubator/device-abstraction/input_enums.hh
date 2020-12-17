@@ -6,6 +6,7 @@ namespace inc::da
 // the only purpose of this is an enum class and typesafety
 // every single scancode and keycovde value is static_asserted in this file's TU, do not rename them
 
+/// scancodes correspond to physical keys - no locale/translation
 enum class scancode : int
 {
     sc_A = 4,
@@ -311,6 +312,7 @@ enum class scancode : int
 
 #define DA_SCANCODE_TO_KEYCODE(X) (int(scancode::X) | (1 << 30))
 
+/// keycodes correspond to the characters typed by pressing a key, based on locale
 enum class keycode : int
 {
     kc_RETURN = '\r',
@@ -610,5 +612,13 @@ enum class mouse_button : int
     mb_right,
     mb_4,
     mb_5
+};
+
+// non-SDL:
+
+enum class mouse_axis
+{
+    x,
+    y
 };
 }
