@@ -19,6 +19,7 @@ struct fps_cam_state
 
     void move_relative(tg::vec3 distance);
     void mouselook(float dx, float dy);
+    void set_focus(tg::pos3 focus, tg::vec3 global_offset);
 };
 
 /// exponential smoothing camera, assumes LHS world space

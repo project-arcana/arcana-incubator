@@ -52,6 +52,12 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
     forward = tg::vec3(cal * caz, sal, cal * saz);
 }
 
+void inc::da::fps_cam_state::set_focus(tg::pos3 focus, tg::vec3 global_offset)
+{
+    position = focus + global_offset;
+    forward = tg::normalize(focus - position);
+}
+
 bool inc::da::smooth_fps_cam::interpolate_to_target(float dt)
 {
     auto const alpha_rotation = tg::min(1.f, exponential_decay_alpha(sensitivity_rotation, dt));
