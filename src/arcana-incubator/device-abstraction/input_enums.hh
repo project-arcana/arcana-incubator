@@ -592,8 +592,8 @@ enum class controller_button : int
     cb_B,
     cb_X,
     cb_Y,
-    cb_back,
-    cb_guide,
+    cb_back,  // "select"
+    cb_guide, // Xbox button / PS button
     cb_start,
     cb_left_stick,
     cb_right_stick,
