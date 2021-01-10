@@ -27,6 +27,8 @@ public:
     SDLWindow& operator=(SDLWindow&&) noexcept = delete;
     ~SDLWindow() { destroy(); }
 
+    //
+    // events
 
     /// poll events by the WM/OS
     void pollEvents();
@@ -53,6 +55,9 @@ public:
         return res;
     }
 
+    //
+    // info and getters
+
     int getWidth() const { return mWidth; }
     int getHeight() const { return mHeight; }
     tg::isize2 getSize() const { return {mWidth, mHeight}; }
@@ -62,25 +67,43 @@ public:
 
     SDL_Window* getSdlWindow() const { return mWindow; }
 
+    //
     // fullscreen mode
 
     /// set the window to display in proper fullscreen
+    /// to change settings, use setDisplayMode/setDesktopDisplayMode BEFORE calling this function
     void setFullscreen();
 
     /// set the window to display in pseudo fullscreen without a display mode change
-    /// target_display_index == -1: current display of the window
-    void setBorderlessFullscreen(int target_display_index = -1);
+    /// target_monitor_index == -1: current monitor of the window
+    void setBorderlessFullscreen(int target_monitor_index = -1);
 
     /// set the window to display in windowed mode
     void setWindowed();
 
+    //
     // display mode
 
-    /// set the display mode, only works in fullscreen
-    void setDisplayMode(int width, int height, int refresh_rate);
-    /// set the display mode to the natively specified desktop display mode, only works in fullscreen
+    /// set the display mode, only affects fullscreen
+    /// returns true on success
+    bool setDisplayMode(tg::isize2 resolution, int refresh_rate);
+
+    /// set the display mode to the natively specified desktop display mode, only affects fullscreen
     void setDesktopDisplayMode();
 
+    /// return the amount of physical monitors
+    int getNumMonitors() const;
+
+    /// returns the amount of available display modes available on the given monitor
+    int getNumDisplayModes(int monitor_index) const;
+
+    /// gives information about a specified display mode
+    bool getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate) const;
+
+    /// gives the best matching display mode
+    bool getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate) const;
+
+    //
     // mouse capture
 
     /// enables relative mouse mode, returns false if already in captured mode
@@ -97,6 +120,8 @@ public:
     void setEventCallback(event_callback callback) { mEventCallback = callback; }
 
 private:
+    void queryAndTriggerResize();
+
     void onResizeEvent(int w, int h, bool minimized);
 
     void restoreFromBorderless();
