@@ -63,7 +63,6 @@ public:
     tg::isize2 getSize() const { return {mWidth, mHeight}; }
     tg::ivec2 getPosition() const;
     bool isMinimized() const { return mIsMinimized; }
-    float getScaleFactor() const { return mScaleFactor; }
 
     SDL_Window* getSdlWindow() const { return mWindow; }
 
@@ -132,7 +131,6 @@ private:
 
     int mWidth = 0;
     int mHeight = 0;
-    float mScaleFactor = 1.f;
     bool mIsMinimized = false;
     bool mPendingResize = false;
     bool mIsRequestingClose = false;
