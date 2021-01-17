@@ -21,7 +21,7 @@ struct filtered_specular_result
 
 struct texture_processing
 {
-    void init(pr::Context& ctx, char const* path_prefix);
+    void init(pr::Context& ctx, char const* path_prefix, char const* file_ending_override = nullptr);
     void free();
 
     //

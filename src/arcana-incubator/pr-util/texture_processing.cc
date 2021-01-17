@@ -15,22 +15,22 @@
 
 #include "resource_loading.hh"
 
-void inc::pre::texture_processing::init(pr::Context& ctx, const char* path_prefix)
+void inc::pre::texture_processing::init(pr::Context& ctx, const char* path_prefix, char const* file_ending_override)
 {
     {
-        auto [cs_mipgen, b1] = load_shader(ctx, "mipgen", phi::shader_stage::compute, path_prefix);
-        auto [cs_mipgen_gamma, b2] = load_shader(ctx, "mipgen_gamma", phi::shader_stage::compute, path_prefix);
-        auto [cs_mipgen_array, b3] = load_shader(ctx, "mipgen_array", phi::shader_stage::compute, path_prefix);
+        auto [cs_mipgen, b1] = load_shader(ctx, "mipgen", phi::shader_stage::compute, path_prefix, file_ending_override);
+        auto [cs_mipgen_gamma, b2] = load_shader(ctx, "mipgen_gamma", phi::shader_stage::compute, path_prefix, file_ending_override);
+        auto [cs_mipgen_array, b3] = load_shader(ctx, "mipgen_array", phi::shader_stage::compute, path_prefix, file_ending_override);
 
         pso_mipgen = ctx.make_pipeline_state(pr::compute_pass(cs_mipgen).arg(1, 1));
         pso_mipgen_gamma = ctx.make_pipeline_state(pr::compute_pass(cs_mipgen_gamma).arg(1, 1));
         pso_mipgen_array = ctx.make_pipeline_state(pr::compute_pass(cs_mipgen_array).arg(1, 1));
     }
     {
-        auto [cs_equirect_cube, b4] = load_shader(ctx, "equirect_to_cube", phi::shader_stage::compute, path_prefix);
-        auto [cs_spec_filter, b5] = load_shader(ctx, "specular_map_filter", phi::shader_stage::compute, path_prefix);
-        auto [cs_irr_filter, b6] = load_shader(ctx, "irradiance_map_filter", phi::shader_stage::compute, path_prefix);
-        auto [cs_lut_gen, b7] = load_shader(ctx, "brdf_lut_gen", phi::shader_stage::compute, path_prefix);
+        auto [cs_equirect_cube, b4] = load_shader(ctx, "equirect_to_cube", phi::shader_stage::compute, path_prefix, file_ending_override);
+        auto [cs_spec_filter, b5] = load_shader(ctx, "specular_map_filter", phi::shader_stage::compute, path_prefix, file_ending_override);
+        auto [cs_irr_filter, b6] = load_shader(ctx, "irradiance_map_filter", phi::shader_stage::compute, path_prefix, file_ending_override);
+        auto [cs_lut_gen, b7] = load_shader(ctx, "brdf_lut_gen", phi::shader_stage::compute, path_prefix, file_ending_override);
 
         pso_equirect_to_cube = ctx.make_pipeline_state(pr::compute_pass(cs_equirect_cube).arg(1, 1, 1));
         pso_specular_map_filter = ctx.make_pipeline_state(pr::compute_pass(cs_spec_filter).arg(1, 1, 1).enable_constants());
