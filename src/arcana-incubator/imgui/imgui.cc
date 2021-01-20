@@ -373,3 +373,5 @@ void inc::imgui_viewport_update()
         ImGui::RenderPlatformWindowsDefault(nullptr, nullptr);
     }
 }
+
+IMGUI_IMPL_API void inc::imgui_discard_frame() { ImGui::EndFrame(); }
