@@ -33,7 +33,7 @@ IMGUI_IMPL_API void imgui_new_frame(SDL_Window* sdl_window);
 IMGUI_IMPL_API void imgui_render(pr::raii::Frame& frame);
 
 /// updates and renders (non-main) multi-viewports
-IMGUI_IMPL_API void imgui_viewport_update();
+IMGUI_IMPL_API void imgui_viewport_update(bool render = true);
 
 /// call instead of imgui_render at the end of the frame to not render imgui
 IMGUI_IMPL_API void imgui_discard_frame();

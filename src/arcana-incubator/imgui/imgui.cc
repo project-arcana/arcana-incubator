@@ -365,12 +365,16 @@ void inc::imgui_render(pr::raii::Frame& frame)
     ImGui_ImplPHI_RenderDrawData(drawdata, {frame.write_raw_bytes(framesize), framesize});
 }
 
-void inc::imgui_viewport_update()
+void inc::imgui_viewport_update(bool render)
 {
     if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
     {
         ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault(nullptr, nullptr);
+
+        if (render)
+        {
+            ImGui::RenderPlatformWindowsDefault(nullptr, nullptr);
+        }
     }
 }
 
