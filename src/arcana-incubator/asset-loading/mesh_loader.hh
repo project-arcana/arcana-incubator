@@ -83,4 +83,5 @@ bool write_binary_mesh(simple_mesh_data const& mesh, char const* out_path);
 [[nodiscard]] simple_mesh_data_nonowning parse_binary_mesh(cc::span<std::byte const> data);
 
 tg::aabb3 calculate_mesh_aabb(cc::span<simple_vertex const> vertices);
+tg::aabb3 calculate_mesh_aabb(cc::span<skinned_vertex const> vertices);
 }

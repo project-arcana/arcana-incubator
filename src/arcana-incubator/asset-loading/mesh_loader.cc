@@ -240,3 +240,19 @@ tg::aabb3 inc::assets::calculate_mesh_aabb(cc::span<const inc::assets::simple_ve
 
     return res;
 }
+
+tg::aabb3 inc::assets::calculate_mesh_aabb(cc::span<const inc::assets::skinned_vertex> vertices)
+{
+    if (vertices.empty())
+        return tg::aabb3::unit_from_zero;
+
+    auto res = tg::aabb3(vertices[0].position, vertices[0].position);
+
+    for (auto i = 1u; i < vertices.size(); ++i)
+    {
+        res.max = tg::max(res.max, vertices[i].position);
+        res.min = tg::min(res.min, vertices[i].position);
+    }
+
+    return res;
+}
