@@ -139,8 +139,8 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
         }
 
         pr::argument arg;
-        arg.add(pr::resource_view_2d(texture, level - 1, 1).tex_array(0, texture.info.depth_or_array_size));
-        arg.add_mutable(pr::resource_view_2d(texture, level, 1).tex_array(0, texture.info.depth_or_array_size));
+        arg.add(pr::resource_view_2d(texture, level - 1).tex_array(0, texture.info.depth_or_array_size));
+        arg.add_mutable(pr::resource_view_2d(texture, level).tex_array(0, texture.info.depth_or_array_size));
 
         frame.transition_slices(pre_dispatch);
 
