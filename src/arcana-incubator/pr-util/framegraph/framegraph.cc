@@ -232,26 +232,76 @@ void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timi
 {
     if (ImGui::Begin("Framegraph Timings"))
     {
-        ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
-
-        ImGui::Separator();
-
+        ImGuiTableFlags const tableFlags
+            = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Hideable;
         unsigned num_culled = 0;
         unsigned num_root = 0;
-        for (pass_idx i = 0; i < mPasses.size(); ++i)
-        {
-            auto const& pass = mPasses[i];
-            if (pass.is_culled)
-                ++num_culled;
-            else if (pass.is_root_pass)
-                ++num_root;
+        float time_sum = 0.f;
 
-            ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_culled ? 'X' : (pass.is_root_pass ? '>' : ':'), pass.debug_name,
-                        int(pass.writes.size()), int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), timing->get_last_timing(i));
+        if (ImGui::BeginTable("Passes", 9, tableFlags))
+        {
+            ImGui::TableSetupColumn("Idx", 0, 25.f);
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Reads");
+            ImGui::TableSetupColumn("Writes");
+            ImGui::TableSetupColumn("Creates");
+            ImGui::TableSetupColumn("Imports");
+            ImGui::TableSetupColumn("Time", 0, 60.f);
+            ImGui::TableSetupColumn("Root", 0, 25.f);
+            ImGui::TableSetupColumn("Culled", 0, 45.f);
+            ImGui::TableHeadersRow();
+
+            for (pass_idx i = 0; i < mPasses.size(); ++i)
+            {
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+
+                auto const& pass = mPasses[i];
+                if (pass.is_culled)
+                    ++num_culled;
+                else if (pass.is_root_pass)
+                    ++num_root;
+
+
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("%u", i);
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(pass.debug_name);
+
+                ImGui::TableSetColumnIndex(2);
+                ImGui::Text("%2d", int(pass.reads.size()));
+
+                ImGui::TableSetColumnIndex(3);
+                ImGui::Text("%2d", int(pass.writes.size()));
+
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%2d", int(pass.creates.size()));
+
+                ImGui::TableSetColumnIndex(5);
+                ImGui::Text("%2d", int(pass.imports.size()));
+
+                ImGui::TableSetColumnIndex(6);
+                float const time = timing->get_last_timing(i);
+                time_sum += time;
+                ImGui::Text("% 2.3fms", time);
+
+                ImGui::TableSetColumnIndex(7);
+                bool isRoot = pass.is_root_pass;
+                ImGui::Checkbox("##isRoot", &isRoot);
+
+                ImGui::TableSetColumnIndex(8);
+                bool isCulled = pass.is_culled;
+                ImGui::Checkbox("##isCulled", &isCulled);
+
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndTable();
         }
 
-        ImGui::Separator();
-        ImGui::Text("%u culled (X), %u root (>)", num_culled, num_root);
+        ImGui::Text("%u passes culled, %u root passes, total time: % 2.3fms", num_culled, num_root, time_sum);
     }
     ImGui::End();
 }
