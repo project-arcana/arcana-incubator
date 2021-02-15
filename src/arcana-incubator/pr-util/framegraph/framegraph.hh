@@ -284,6 +284,18 @@ struct setup_context
         return create(guid, phi::arg::create_resource_info::render_target(fmt, size, num_samples, array_size, clear_val), mode);
     }
 
+    res_handle create_texture(res_guid_t guid,
+                              phi::format fmt,
+                              tg::isize2 size,
+                              unsigned num_mips = 1,
+                              phi::texture_dimension dim = phi::texture_dimension::t2d,
+                              unsigned depth_or_array_size = 1,
+                              bool allow_uav = false,
+                              access_mode mode = phi::resource_state::render_target)
+    {
+        return create(guid, phi::arg::create_resource_info::texture(fmt, size, num_mips, dim, depth_or_array_size, allow_uav), mode);
+    }
+
     res_handle create_buffer(res_guid_t guid,
                              unsigned size_bytes,
                              unsigned stride_bytes,
