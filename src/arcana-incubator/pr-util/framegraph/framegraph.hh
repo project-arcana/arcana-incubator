@@ -304,6 +304,11 @@ struct setup_context
         return _parent->registerImport(_pass, guid, rt.res, mode, pr::generic_resource_info::create(rt.info));
     }
 
+    res_handle import(res_guid_t guid, pr::texture const& texture, access_mode mode = {})
+    {
+        return _parent->registerImport(_pass, guid, texture.res, mode, pr::generic_resource_info::create(texture.info));
+    }
+
     res_handle read(res_guid_t guid, access_mode mode = {}) { return _parent->registerRead(_pass, guid, mode); }
     res_handle write(res_guid_t guid, access_mode mode = {}) { return _parent->registerWrite(_pass, guid, mode); }
     res_handle read_write(res_guid_t guid, access_mode mode = {}) { return _parent->registerReadWrite(_pass, guid, mode); }
