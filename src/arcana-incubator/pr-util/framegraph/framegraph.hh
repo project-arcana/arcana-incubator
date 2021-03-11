@@ -33,12 +33,6 @@ struct physical_resource
         return {raw_res, info.info_buffer};
     }
 
-    [[nodiscard]] pr::render_target as_target() const
-    {
-        CC_ASSERT(info.type == pr::generic_resource_info::e_resource_render_target && "created with different type, or imported without info");
-        return {raw_res, info.info_render_target};
-    }
-
     [[nodiscard]] pr::texture as_texture() const
     {
         CC_ASSERT(info.type == pr::generic_resource_info::e_resource_texture && "created with different type, or imported without info");
@@ -128,12 +122,12 @@ private:
         uint8_t state = 0;
 
         physical_res_idx associated_physical = gc_invalid_physical_res;
-        pr::hashable_storage<phi::arg::create_resource_info> resource_info;
+        pr::hashable_storage<phi::arg::resource_description> resource_info;
         pr::raw_resource imported_resource;
 
-        virtual_resource(res_guid_t guid, phi::arg::create_resource_info const& info) : initial_guid(guid) { _copy_info(info); }
+        virtual_resource(res_guid_t guid, phi::arg::resource_description const& info) : initial_guid(guid) { _copy_info(info); }
 
-        virtual_resource(res_guid_t guid, pr::raw_resource import_resource, phi::arg::create_resource_info const& info)
+        virtual_resource(res_guid_t guid, pr::raw_resource import_resource, phi::arg::resource_description const& info)
           : initial_guid(guid), state(sb_imported), imported_resource(import_resource)
         {
             _copy_info(info);
@@ -144,7 +138,7 @@ private:
         bool is_imported() const { return !!(state & sb_imported); }
 
     private:
-        void _copy_info(phi::arg::create_resource_info const& info);
+        void _copy_info(phi::arg::resource_description const& info);
     };
 
     struct internal_pass
@@ -202,7 +196,7 @@ private:
     // setup-time API
 private:
     friend struct setup_context;
-    res_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode);
+    res_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::resource_description const& info, access_mode mode);
 
     res_handle registerImport(pass_idx pass_idx, res_guid_t guid, pr::raw_resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
 
@@ -247,7 +241,7 @@ private:
     void calculateBarriers();
 
 private:
-    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::create_resource_info const& info);
+    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::resource_description const& info);
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource, pr::generic_resource_info const& info);
 
     guid_state& getGuidState(res_guid_t guid);
@@ -268,7 +262,7 @@ private:
 
 struct setup_context
 {
-    res_handle create(res_guid_t guid, phi::arg::create_resource_info const& info, access_mode mode = {})
+    res_handle create(res_guid_t guid, phi::arg::resource_description const& info, access_mode mode = {})
     {
         return _parent->registerCreate(_pass, guid, info, mode);
     }
@@ -281,7 +275,7 @@ struct setup_context
                              phi::rt_clear_value clear_val = {0.f, 0.f, 0.f, 1.f},
                              access_mode mode = phi::resource_state::render_target)
     {
-        return create(guid, phi::arg::create_resource_info::render_target(fmt, size, num_samples, array_size, clear_val), mode);
+        return create(guid, phi::arg::resource_description::render_target(fmt, size, num_samples, array_size, clear_val), mode);
     }
 
     res_handle create_texture(res_guid_t guid,
@@ -293,7 +287,7 @@ struct setup_context
                               bool allow_uav = false,
                               access_mode mode = phi::resource_state::render_target)
     {
-        return create(guid, phi::arg::create_resource_info::texture(fmt, size, num_mips, dim, depth_or_array_size, allow_uav), mode);
+        return create(guid, phi::arg::resource_description::texture(fmt, size, num_mips, dim, depth_or_array_size, allow_uav), mode);
     }
 
     res_handle create_buffer(res_guid_t guid,
@@ -303,17 +297,12 @@ struct setup_context
                              bool allow_uav = false,
                              access_mode mode = {})
     {
-        return create(guid, phi::arg::create_resource_info::buffer(size_bytes, stride_bytes, heap, allow_uav), mode);
+        return create(guid, phi::arg::resource_description::buffer(size_bytes, stride_bytes, heap, allow_uav), mode);
     }
 
     res_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
     {
         return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
-    }
-
-    res_handle import(res_guid_t guid, pr::render_target const& rt, access_mode mode = {})
-    {
-        return _parent->registerImport(_pass, guid, rt.res, mode, pr::generic_resource_info::create(rt.info));
     }
 
     res_handle import(res_guid_t guid, pr::texture const& texture, access_mode mode = {})
@@ -348,8 +337,6 @@ struct exec_context
     physical_resource const& get(res_handle handle) const { return _parent->getPhysical(handle); }
 
     pr::buffer get_buffer(res_handle handle) const { return get(handle).as_buffer(); }
-
-    pr::render_target get_target(res_handle handle) const { return get(handle).as_target(); }
 
     pr::texture get_texture(res_handle handle) const { return get(handle).as_texture(); }
 

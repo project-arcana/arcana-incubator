@@ -19,10 +19,10 @@
 
 inc::frag::res_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_idx pass_idx,
                                                               inc::frag::res_guid_t guid,
-                                                              const phi::arg::create_resource_info& info,
+                                                              const phi::arg::resource_description& info,
                                                               inc::frag::access_mode mode)
 {
-    CC_CONTRACT(info.type != phi::arg::create_resource_info::e_resource_undefined);
+    CC_CONTRACT(info.type != phi::arg::resource_description::e_resource_undefined);
     auto const new_idx = addResource(pass_idx, guid, info);
 
     auto& guidstate = getGuidState(guid);
@@ -437,7 +437,7 @@ void inc::frag::GraphBuilder::printState() const
     }
 }
 
-inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer, inc::frag::res_guid_t guid, const phi::arg::create_resource_info& info)
+inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer, inc::frag::res_guid_t guid, const phi::arg::resource_description& info)
 {
     (void)producer; // might be useful later
     mVirtualResources.emplace_back(guid, info);
@@ -465,23 +465,20 @@ inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::
     return mGuidStates.emplace_back(guid);
 }
 
-void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::create_resource_info& info)
+void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::resource_description& info)
 {
     // this little game is required to maintain the hashable_storage
     resource_info.get().type = info.type;
 
     switch (info.type)
     {
-    case phi::arg::create_resource_info::e_resource_render_target:
-        resource_info.get().info_render_target = info.info_render_target;
-        break;
-    case phi::arg::create_resource_info::e_resource_texture:
+    case phi::arg::resource_description::e_resource_texture:
         resource_info.get().info_texture = info.info_texture;
         break;
-    case phi::arg::create_resource_info::e_resource_buffer:
+    case phi::arg::resource_description::e_resource_buffer:
         resource_info.get().info_buffer = info.info_buffer;
         break;
-    case phi::arg::create_resource_info::e_resource_undefined:
+    case phi::arg::resource_description::e_resource_undefined:
         break;
     }
 }
