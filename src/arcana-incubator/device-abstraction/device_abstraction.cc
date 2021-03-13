@@ -15,6 +15,7 @@ void verify_failure_handler(const char* expression, const char* filename, int li
     fprintf(stderr, "[da] verify on `%s' failed.\n", expression);
     fprintf(stderr, "  error: %s\n", SDL_GetError());
     fprintf(stderr, "  file %s:%d\n", filename, line);
+    fprintf(stderr, "[da] breaking - resume possible\n");
     fflush(stderr);
 }
 
@@ -25,7 +26,7 @@ void verify_failure_handler(const char* expression, const char* filename, int li
         if (CC_UNLIKELY(op_res < 0))                             \
         {                                                        \
             verify_failure_handler(#_expr_, __FILE__, __LINE__); \
-            CC_BREAK_AND_ABORT();                                \
+            CC_BREAK();                                          \
         }                                                        \
     } while (0)
 

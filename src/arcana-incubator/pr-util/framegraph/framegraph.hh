@@ -370,7 +370,8 @@ pass_idx GraphBuilder::addPass(char const* debug_name, cc::function_ref<void(Pas
     setup_func(pass_data, setup_ctx);
 
     // capture pass_data per value, move user exec lambda into capture
-    new_pass.execute_func = [pass_data, user_func = cc::move(exec_func)](exec_context& exec_ctx) { user_func(pass_data, exec_ctx); };
+    new_pass.execute_func = cc::unique_function<void(exec_context&)>(
+        [pass_data, user_func = cc::move(exec_func)](exec_context& exec_ctx) { user_func(pass_data, exec_ctx); }, cc::system_allocator);
 
     return new_pass_idx;
 }
