@@ -342,11 +342,14 @@ void inc::imgui_shutdown()
     ImGui::DestroyContext();
 }
 
-void inc::imgui_new_frame(SDL_Window* sdl_window)
+void inc::imgui_new_frame(SDL_Window* sdl_window, bool empty_run)
 {
     // imgui new frame
-    ImGui_ImplPHI_NewFrame();
-    ImGui_ImplSDL2_NewFrame(sdl_window);
+    if (!empty_run)
+    {
+        ImGui_ImplPHI_NewFrame();
+        ImGui_ImplSDL2_NewFrame(sdl_window);
+    }
     ImGui::NewFrame();
 
     // imguizmo new frame

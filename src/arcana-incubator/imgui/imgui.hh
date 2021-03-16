@@ -26,7 +26,8 @@ IMGUI_IMPL_API void imgui_shutdown();
 
 /// begins a new frame in imgui, the SDL2 and PHI backends, and ImGuizmo
 /// NOTE: does not cover window events, use ImGui_ImplSDL2_ProcessEvent before calling this (ie. with a loop over inc::da::SDLWindow::pollSingleEvent)
-IMGUI_IMPL_API void imgui_new_frame(SDL_Window* sdl_window);
+/// empty_run: if you want to disable imgui and still survive all ImGui::XY() calls, set to true and use imgui_discard_frame() at the end of the frame
+IMGUI_IMPL_API void imgui_new_frame(SDL_Window* sdl_window, bool empty_run = false);
 
 /// renders the current frame in imgui, and writes resulting commands to a pr Frame
 /// NOTE: requires an active pr::raii::Framebuffer targetting a single rgba8un target (like the backbuffer)
