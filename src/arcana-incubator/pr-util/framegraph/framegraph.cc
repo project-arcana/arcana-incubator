@@ -228,9 +228,14 @@ void inc::frag::GraphBuilder::reset()
     mNumWritesTotal = 0;
 }
 
-void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timing) const
+void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timing, bool* isWindowOpen) const
 {
-    if (ImGui::Begin("Framegraph Timings"))
+    if (isWindowOpen && !*isWindowOpen)
+    {
+        return;
+    }
+
+    if (ImGui::Begin("Framegraph Timings", isWindowOpen))
     {
         ImGuiTableFlags const tableFlags
             = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Hideable;

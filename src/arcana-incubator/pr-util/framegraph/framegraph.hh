@@ -76,7 +76,7 @@ public:
     // after execute
     physical_resource const& getRootResource(res_handle handle) { return getPhysical(handle); }
 
-    void performInfoImgui(pre::timestamp_bundle const* timing) const;
+    void performInfoImgui(pre::timestamp_bundle const* timing, bool* isWindowOpen = nullptr) const;
 
 private:
     struct guid_state
