@@ -29,7 +29,7 @@ struct hash<simple_vertex>
 };
 }
 
-inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool flip_uvs, bool flip_xaxis, float scale)
+inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool flip_uvs, bool flip_xaxis, float scale, cc::allocator* alloc)
 {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -39,17 +39,28 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     auto const ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warnings, &errors, path);
     CC_RUNTIME_ASSERT(ret && "Failed to load mesh");
 
+    // warnings are mostly missing materials (which is irrelevant here)
+    /*if (!warnings.empty())
+    {
+        std::fprintf(stderr, "[mesh_loader] tinyobj reported warnings:\n  %s\n", warnings.c_str());
+    }*/
+    if (!errors.empty())
+    {
+        std::fprintf(stderr, "[mesh_loader] tinyobj reported errors:\n%s\n", errors.c_str());
+    }
+
     simple_mesh_data res;
 
     {
-        res.vertices.reserve(attrib.vertices.size() / 3);
+        res.vertices.reset_reserve(alloc, attrib.vertices.size() / 3);
 
         size_t num_indices = 0;
         for (auto const& shape : shapes)
         {
             num_indices += shape.mesh.indices.size();
         }
-        res.indices.reserve(num_indices);
+        res.indices.reset_reserve(alloc, num_indices);
+        res.num_indices_per_submesh.reset_reserve(alloc, shapes.size());
     }
 
     std::unordered_map<simple_vertex, uint32_t> unique_vertices;
@@ -65,9 +76,13 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     float const xaxis_multiplier = flip_xaxis ? -1.f : 1.f;
     auto const pos_scale = tg::comp3(xaxis_multiplier * scale, scale, scale);
 
+    uint32_t numMissingUVs = 0, numMissingNormals = 0;
+
     for (auto const& shape : shapes)
     {
         CC_RUNTIME_ASSERT(shape.mesh.num_face_vertices[0] == 3 && "mesh not triangulated");
+
+        res.num_indices_per_submesh.push_back(uint32_t(shape.mesh.indices.size()));
         for (auto const& index : shape.mesh.indices)
         {
             auto const vert_i = static_cast<size_t>(index.vertex_index);
@@ -82,6 +97,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
             }
             else
             {
+                ++numMissingUVs;
                 vertex.texcoord.x = tg::fract(vertex.position.x);
                 vertex.texcoord.y = tg::fract(vertex.position.y);
             }
@@ -90,6 +106,10 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
             {
                 auto const norm_i = static_cast<size_t>(index.normal_index);
                 vertex.normal = tg::vec3(attrib.normals[3 * norm_i + 0], attrib.normals[3 * norm_i + 1], attrib.normals[3 * norm_i + 2]);
+            }
+            else
+            {
+                ++numMissingNormals;
             }
 
             vertex.position *= pos_scale;
@@ -102,6 +122,50 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
             }
 
             res.indices.push_back(unique_vertices[vertex]);
+        }
+    }
+
+    if (numMissingUVs > 0)
+    {
+        std::fprintf(stderr, "[mesh_loader] [warning] mesh has %u missing UVs across %zu indices (%.1f%%)\n", numMissingUVs, res.indices.size(),
+                     (float(numMissingUVs) / float(res.indices.size())) * 100.f);
+    }
+    if (numMissingNormals > 0)
+    {
+        std::fprintf(stderr, "[mesh_loader] [warning] mesh has %u missing normals across %zu indices (%.1f%%)\n", numMissingNormals,
+                     res.indices.size(), (float(numMissingNormals) / float(res.indices.size())) * 100.f);
+        std::fprintf(stderr, "[mesh_loader] recomputing normals..\n");
+
+        auto numNormalsPerVertex = cc::alloc_vector<uint32_t>::filled(res.vertices.size(), 0u, cc::system_allocator);
+
+        uint32_t numTris = uint32_t(res.indices.size()) / 3u;
+        for (auto tri_i = 0u; tri_i < numTris; ++tri_i)
+        {
+            uint32_t i0 = res.indices[tri_i * 3 + 0];
+            uint32_t i1 = res.indices[tri_i * 3 + 1];
+            uint32_t i2 = res.indices[tri_i * 3 + 2];
+
+            simple_vertex& v0 = res.vertices[i0];
+            simple_vertex& v1 = res.vertices[i1];
+            simple_vertex& v2 = res.vertices[i2];
+
+            auto const e1 = v1.position - v0.position;
+            auto const e2 = v2.position - v0.position;
+
+            auto const normal = tg::normalize_safe(tg::cross(e1, e2)); // left-handed, clockwise winding
+
+            v0.normal += normal;
+            v1.normal += normal;
+            v2.normal += normal;
+
+            numNormalsPerVertex[i0] += 1;
+            numNormalsPerVertex[i1] += 1;
+            numNormalsPerVertex[i2] += 1;
+        }
+
+        for (auto i = 0u; i < res.vertices.size(); ++i)
+        {
+            res.vertices[i].normal /= float(cc::max(numNormalsPerVertex[i], 1u));
         }
     }
 
@@ -178,7 +242,7 @@ bool inc::assets::write_binary_mesh(const inc::assets::simple_mesh_data& mesh, c
     return true;
 }
 
-inc::assets::simple_mesh_data inc::assets::load_binary_mesh(const char* path)
+inc::assets::simple_mesh_data inc::assets::load_binary_mesh(const char* path, cc::allocator* alloc)
 {
     auto infile = std::fstream(path, std::ios::binary | std::ios::in);
     CC_RUNTIME_ASSERT(infile.good() && "failed to load mesh");
@@ -187,27 +251,31 @@ inc::assets::simple_mesh_data inc::assets::load_binary_mesh(const char* path)
 
     size_t num_indices = 0;
     infile.read((char*)&num_indices, sizeof(num_indices));
+    res.indices.reset_reserve(alloc, num_indices);
     res.indices.resize(num_indices);
     infile.read((char*)res.indices.data(), sizeof(res.indices[0]) * num_indices);
 
     size_t num_vertices = 0;
     infile.read((char*)&num_vertices, sizeof(num_vertices));
+    res.vertices.reset_reserve(alloc, num_vertices);
     res.vertices.resize(num_vertices);
     infile.read((char*)res.vertices.data(), sizeof(res.vertices[0]) * num_vertices);
     infile.close();
     return res;
 }
 
-inc::assets::simple_mesh_data inc::assets::load_binary_mesh(cc::span<const std::byte> data)
+inc::assets::simple_mesh_data inc::assets::load_binary_mesh(cc::span<const std::byte> data, cc::allocator* alloc)
 {
     auto reader = phi::byte_reader{data};
     simple_mesh_data res;
 
     auto const indices_span = reader.read_sized_array<uint32_t>();
+    res.indices.reset_reserve(alloc, indices_span.size());
     res.indices.resize(indices_span.size());
     indices_span.copy_to<uint32_t>(res.indices);
 
     auto const vertices_span = reader.read_sized_array<simple_vertex>();
+    res.vertices.reset_reserve(alloc, vertices_span.size());
     res.vertices.resize(vertices_span.size());
     vertices_span.copy_to<simple_vertex>(res.vertices);
 

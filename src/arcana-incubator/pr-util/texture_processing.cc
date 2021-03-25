@@ -201,7 +201,7 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
         const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
         for (auto level = 1, size = 512; level < cube_num_mips; ++level, size /= 2)
         {
-            auto const num_groups = cc::max<unsigned>(1, size / 32);
+            auto const num_groups = cc::max<unsigned>(1, cc::int_div_ceil(size, 32));
             float const spmapRoughness = level * deltaRoughness;
 
             pr::argument arg;

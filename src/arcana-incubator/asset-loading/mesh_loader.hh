@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
+#include <clean-core/alloc_vector.hh>
 #include <clean-core/span.hh>
-#include <clean-core/vector.hh>
 
 #include <typed-geometry/tg-lean.hh>
 
@@ -60,8 +60,9 @@ constexpr void introspect(I&& i, skinned_vertex& v)
 
 struct simple_mesh_data
 {
-    cc::vector<uint32_t> indices;
-    cc::vector<simple_vertex> vertices;
+    cc::alloc_vector<uint32_t> indices;
+    cc::alloc_vector<simple_vertex> vertices;
+    cc::alloc_vector<uint32_t> num_indices_per_submesh;
 };
 
 struct simple_mesh_data_nonowning
@@ -70,15 +71,15 @@ struct simple_mesh_data_nonowning
     cc::span<simple_vertex const> vertices;
 };
 
-[[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true, float scale = 1.f);
+[[nodiscard]] simple_mesh_data load_obj_mesh(char const* path, bool flip_uvs = true, bool flip_xaxis = true, float scale = 1.f, cc::allocator* alloc = cc::system_allocator);
 
 // fills out tangents, requires other fields
 void calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<uint32_t const> indices, cc::allocator* scratch_alloc = cc::system_allocator);
 
 bool write_binary_mesh(simple_mesh_data const& mesh, char const* out_path);
 
-[[nodiscard]] simple_mesh_data load_binary_mesh(char const* path);
-[[nodiscard]] simple_mesh_data load_binary_mesh(cc::span<std::byte const> data);
+[[nodiscard]] simple_mesh_data load_binary_mesh(char const* path, cc::allocator* alloc = cc::system_allocator);
+[[nodiscard]] simple_mesh_data load_binary_mesh(cc::span<std::byte const> data, cc::allocator* alloc = cc::system_allocator);
 
 [[nodiscard]] simple_mesh_data_nonowning parse_binary_mesh(cc::span<std::byte const> data);
 
