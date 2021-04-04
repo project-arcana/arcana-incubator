@@ -69,7 +69,7 @@ void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool ena
     if (enable_vulkan)
         flags |= SDL_WINDOW_VULKAN;
 
-    mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, size.width, size.height, flags);
+    mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, size.width, size.height, flags);
 
     if (mWindow == nullptr)
     {
@@ -198,11 +198,11 @@ void inc::da::SDLWindow::setDesktopDisplayMode()
     DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
 }
 
-int inc::da::SDLWindow::getNumMonitors() const { return SDL_GetNumVideoDisplays(); }
+int inc::da::SDLWindow::getNumMonitors() { return SDL_GetNumVideoDisplays(); }
 
-int inc::da::SDLWindow::getNumDisplayModes(int monitor_index) const { return SDL_GetNumDisplayModes(monitor_index); }
+int inc::da::SDLWindow::getNumDisplayModes(int monitor_index) { return SDL_GetNumDisplayModes(monitor_index); }
 
-bool inc::da::SDLWindow::getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate) const
+bool inc::da::SDLWindow::getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate)
 {
     SDL_DisplayMode mode;
     auto const res = SDL_GetDisplayMode(monitor_index, mode_index, &mode);
@@ -215,7 +215,21 @@ bool inc::da::SDLWindow::getDisplayMode(int monitor_index, int mode_index, tg::i
     return true;
 }
 
-bool inc::da::SDLWindow::getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate) const
+bool inc::da::SDLWindow::getDesktopDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate)
+{
+    SDL_DisplayMode mode;
+    auto const res = SDL_GetDesktopDisplayMode(monitor_index, &mode);
+    if (res != 0)
+    {
+        return false;
+    }
+
+    out_resolution = {mode.w, mode.h};
+    out_refreshrate = mode.refresh_rate;
+    return true;
+}
+
+bool inc::da::SDLWindow::getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate)
 {
     SDL_DisplayMode mode = {SDL_PIXELFORMAT_BGRA8888, resolution.width, resolution.height, refreshrate, nullptr};
     SDL_DisplayMode closest_match;

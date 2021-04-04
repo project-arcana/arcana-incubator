@@ -21,10 +21,12 @@ public:
 
     SDLWindow() = default;
     SDLWindow(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true) { initialize(title, size, enable_vulkan); }
+
     SDLWindow(SDLWindow const&) = delete;
     SDLWindow(SDLWindow&&) noexcept = delete;
     SDLWindow& operator=(SDLWindow const&) = delete;
     SDLWindow& operator=(SDLWindow&&) noexcept = delete;
+
     ~SDLWindow() { destroy(); }
 
     //
@@ -91,16 +93,18 @@ public:
     void setDesktopDisplayMode();
 
     /// return the amount of physical monitors
-    int getNumMonitors() const;
+    static int getNumMonitors();
 
     /// returns the amount of available display modes available on the given monitor
-    int getNumDisplayModes(int monitor_index) const;
+    static int getNumDisplayModes(int monitor_index);
 
     /// gives information about a specified display mode
-    bool getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate) const;
+    static bool getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate);
+
+    static bool getDesktopDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate);
 
     /// gives the best matching display mode
-    bool getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate) const;
+    static bool getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate);
 
     //
     // mouse capture
