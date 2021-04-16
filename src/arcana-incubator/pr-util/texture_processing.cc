@@ -1,5 +1,6 @@
 #include "texture_processing.hh"
 
+#include <clean-core/bits.hh>
 #include <clean-core/defer.hh>
 #include <clean-core/utility.hh>
 
@@ -150,28 +151,29 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
     }
 }
 
-inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map_from_memory(pr::raii::Frame& frame, cc::span<const std::byte> data)
+inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map_from_memory(pr::raii::Frame& frame,
+                                                                                                        cc::span<const std::byte> data,
+                                                                                                        int cube_width_height)
 {
     auto tex_specular_map = load_texture_from_memory(frame, data, phi::format::rgba32f, false);
-    return load_filtered_specular_map(frame, cc::move(tex_specular_map));
+    return load_filtered_specular_map(frame, cc::move(tex_specular_map), cube_width_height);
 }
 
-inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map_from_file(pr::raii::Frame& frame, const char* hdr_equirect_path)
+inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map_from_file(pr::raii::Frame& frame, const char* hdr_equirect_path, int cube_width_height)
 {
     auto tex_specular_map = load_texture_from_file(frame, hdr_equirect_path, phi::format::rgba32f, false);
-    return load_filtered_specular_map(frame, cc::move(tex_specular_map));
+    return load_filtered_specular_map(frame, cc::move(tex_specular_map), cube_width_height);
 }
 
-inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map(pr::raii::Frame& frame, pr::auto_texture&& specular_map)
+inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_specular_map(pr::raii::Frame& frame, pr::auto_texture&& specular_map, int cube_width_height)
 {
-    constexpr auto cube_width = 1024;
-    constexpr auto cube_height = 1024;
-    auto const cube_num_mips = phi::util::get_num_mips(cube_width, cube_height);
+    CC_ASSERT(cc::is_pow2(uint32_t(cube_width_height)) && cube_width_height >= 32 && "cube size invalid");
+    int const cube_num_mips = phi::util::get_num_mips(cube_width_height, cube_width_height);
 
     filtered_specular_result res;
     res.equirect_tex = cc::move(specular_map);
-    res.unfiltered_env = frame.context().make_texture_cube({cube_width, cube_height}, pr::format::rgba16f, cube_num_mips, true);
-    res.filtered_env = frame.context().make_texture_cube({cube_width, cube_height}, pr::format::rgba16f, cube_num_mips, true);
+    res.unfiltered_env = frame.context().make_texture_cube({cube_width_height, cube_width_height}, pr::format::rgba16f, cube_num_mips, true);
+    res.filtered_env = frame.context().make_texture_cube({cube_width_height, cube_width_height}, pr::format::rgba16f, cube_num_mips, true);
 
     // equirect to cubemap
     {
@@ -184,7 +186,7 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
         arg.add_mutable(res.unfiltered_env);
         arg.add_sampler(phi::sampler_filter::min_mag_mip_linear);
 
-        frame.make_pass(pso_equirect_to_cube).bind(arg).dispatch(cube_width / 32, cube_height / 32, 6);
+        frame.make_pass(pso_equirect_to_cube).bind(arg).dispatch(cube_width_height / 32, cube_width_height / 32, 6);
     }
 
     // mips
@@ -198,11 +200,9 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
         frame.transition(res.unfiltered_env, pr::state::shader_resource, phi::shader_stage::compute);
         frame.transition(res.filtered_env, pr::state::unordered_access, phi::shader_stage::compute);
 
-        const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
         for (auto level = 1, size = 512; level < cube_num_mips; ++level, size /= 2)
         {
             auto const num_groups = cc::max<unsigned>(1, cc::int_div_ceil(size, 32));
-            float const spmapRoughness = level * deltaRoughness;
 
             pr::argument arg;
             arg.add(res.unfiltered_env);
@@ -210,7 +210,14 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
             arg.add_sampler(phi::sampler_filter::min_mag_mip_linear);
 
             auto pass = frame.make_pass(pso_specular_map_filter).bind(arg);
-            pass.write_constants(spmapRoughness);
+
+            struct
+            {
+                uint32_t mip;
+                uint32_t num_mips;
+            } constants = {uint32_t(level), uint32_t(cube_num_mips)};
+
+            pass.write_constants(constants);
             pass.dispatch(num_groups, num_groups, 6);
         }
     }
@@ -218,37 +225,39 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
     return res;
 }
 
-pr::auto_texture inc::pre::texture_processing::create_diffuse_irradiance_map(pr::raii::Frame& frame, const pr::texture& filtered_specular)
+pr::auto_texture inc::pre::texture_processing::create_diffuse_irradiance_map(pr::raii::Frame& frame, const pr::texture& unfiltered_env_cube, int cube_width_height)
 {
-    constexpr auto cube_width = 32u;
-    constexpr auto cube_height = 32u;
+    CC_ASSERT(cube_width_height > 0 && cube_width_height % 32 == 0 && "invalid cubemap size");
 
     auto _label = frame.scoped_debug_label("texture_processing - create_diffuse_irradiance_map");
-    auto t_irradiance = frame.context().make_texture_cube({cube_width, cube_height}, pr::format::rgba16f, 1, true);
+    auto t_irradiance = frame.context().make_texture_cube({cube_width_height, cube_width_height}, pr::format::rgba16f, 1, true);
 
     frame.transition(t_irradiance, pr::state::unordered_access, phi::shader_stage::compute);
-    frame.transition(filtered_specular, pr::state::shader_resource, phi::shader_stage::compute);
+    frame.transition(unfiltered_env_cube, pr::state::shader_resource_nonpixel, phi::shader_stage::compute);
 
     pr::argument arg;
-    arg.add(filtered_specular);
+    arg.add(unfiltered_env_cube);
     arg.add_mutable(t_irradiance);
     arg.add_sampler(phi::sampler_filter::min_mag_mip_linear);
 
-    frame.make_pass(pso_irradiance_map_gen).bind(arg).dispatch(cube_width / 32, cube_height / 32, 6);
+    frame.make_pass(pso_irradiance_map_gen).bind(arg).dispatch(cube_width_height / 32, cube_width_height / 32, 6);
 
     return t_irradiance;
 }
 
-pr::auto_texture inc::pre::texture_processing::create_brdf_lut(pr::raii::Frame& frame, int width_height)
+pr::auto_texture inc::pre::texture_processing::create_brdf_lut(pr::raii::Frame& frame, int width, int height)
 {
-    auto t_lut = frame.context().make_texture({width_height, width_height}, pr::format::rg16f, 1, true);
+    CC_ASSERT(width % 32 == 0 && "BRDF LUT size must be divisible by 32");
+    CC_ASSERT(height % 32 == 0 && "BRDF LUT size must be divisible by 32");
+
+    auto t_lut = frame.context().make_texture({width, height}, pr::format::rgba16un, 1, true);
 
     frame.transition(t_lut, pr::state::unordered_access, phi::shader_stage::compute);
 
     pr::argument arg;
     arg.add_mutable(t_lut);
 
-    frame.make_pass(pso_brdf_lut_gen).bind(arg).dispatch(unsigned(width_height) / 32, unsigned(width_height) / 32, 1);
+    frame.make_pass(pso_brdf_lut_gen).bind(arg).dispatch(unsigned(width) / 32, unsigned(height) / 32, 1);
 
     return t_lut;
 }
