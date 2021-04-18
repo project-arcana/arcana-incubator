@@ -137,7 +137,10 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     auto const res_handle = backend->createTexture(format, {int(img_size.width), int(img_size.height)}, include_mipmaps ? img_size.num_mipmaps : 1,
                                                    texture_dimension::t2d, 1, true);
 
-    auto const upbuff_handle = backend->createUploadBuffer(inc::get_mipmap_upload_size(format, img_size, true));
+
+    uint32_t const upbuff_size
+        = phi::util::get_texture_size_bytes({int(img_size.width), int(img_size.height), int(img_size.array_size)}, format, 1, align_mip_rows);
+    auto const upbuff_handle = backend->createUploadBuffer(upbuff_size);
     resources_to_free.push_back(upbuff_handle);
 
     cmd_writer.add_command(cmd::begin_debug_label{"load_texture"});

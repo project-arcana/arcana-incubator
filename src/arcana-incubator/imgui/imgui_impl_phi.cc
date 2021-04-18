@@ -10,6 +10,7 @@
 #include <phantasm-hardware-interface/arguments.hh>
 #include <phantasm-hardware-interface/commands.hh>
 #include <phantasm-hardware-interface/types.hh>
+#include <phantasm-hardware-interface/util.hh>
 #include <phantasm-hardware-interface/window_handle.hh>
 
 #include <dxc-wrapper/compiler.hh>
@@ -123,7 +124,9 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
                                                    phi::vertex_attribute_info{"TEXCOORD", unsigned(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
                                                    phi::vertex_attribute_info{"COLOR", unsigned(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
 
-        phi::arg::vertex_format vert_format = {vert_attrs, sizeof(ImDrawVert)};
+        phi::arg::vertex_format vert_format;
+        vert_format.attributes = vert_attrs;
+        vert_format.vertex_sizes_bytes[0] = sizeof(ImDrawVert);
 
         phi::arg::framebuffer_config fb_format;
         fb_format.add_render_target(target_format);
@@ -169,9 +172,10 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
 
         g_font_texture_sv = backend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
 
-        phi::handle::resource temp_upload_buffer = backend->createBuffer(
-            inc::get_mipmap_upload_size(phi::format::rgba8un, inc::assets::image_size{unsigned(width), unsigned(height), 1, 1}, true), 0,
-            phi::resource_heap::upload, false);
+        bool const is_d3d12 = backend->getBackendType() == phi::backend_type::d3d12;
+
+        uint32_t const upbuff_size = phi::util::get_texture_size_bytes({width, height, 1}, phi::format::rgba8un, 1, is_d3d12);
+        phi::handle::resource temp_upload_buffer = backend->createBuffer(upbuff_size, 0, phi::resource_heap::upload, false);
 
 
         {
@@ -181,9 +185,8 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
             auto& tcmd = writer.emplace_command<phi::cmd::transition_resources>();
             tcmd.add(g_font_texture, phi::resource_state::copy_dest);
 
-            bool const d3d12_alignment = backend->getBackendType() == phi::backend_type::d3d12;
             inc::copy_data_to_texture(writer, temp_upload_buffer, backend->mapBuffer(temp_upload_buffer), g_font_texture, phi::format::rgba8un,
-                                      unsigned(width), unsigned(height), reinterpret_cast<std::byte const*>(pixels), d3d12_alignment);
+                                      unsigned(width), unsigned(height), reinterpret_cast<std::byte const*>(pixels), is_d3d12);
             backend->unmapBuffer(temp_upload_buffer);
 
             auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
