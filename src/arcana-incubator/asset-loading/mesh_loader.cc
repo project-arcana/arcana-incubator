@@ -36,8 +36,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     std::vector<tinyobj::material_t> materials;
     std::string warnings, errors;
 
-    auto const ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warnings, &errors, path);
-    CC_RUNTIME_ASSERT(ret && "Failed to load mesh");
+    bool const success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warnings, &errors, path);
 
     // warnings are mostly missing materials (which is irrelevant here)
     /*if (!warnings.empty())
@@ -47,6 +46,11 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
     if (!errors.empty())
     {
         std::fprintf(stderr, "[mesh_loader] tinyobj reported errors:\n%s\n", errors.c_str());
+    }
+
+    if (!success)
+    {
+        return {};
     }
 
     simple_mesh_data res;
@@ -130,6 +134,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
         std::fprintf(stderr, "[mesh_loader] [warning] mesh has %u missing UVs across %zu indices (%.1f%%)\n", numMissingUVs, res.indices.size(),
                      (float(numMissingUVs) / float(res.indices.size())) * 100.f);
     }
+
     if (numMissingNormals > 0)
     {
         std::fprintf(stderr, "[mesh_loader] [warning] mesh has %u missing normals across %zu indices (%.1f%%)\n", numMissingNormals,
@@ -183,9 +188,9 @@ void inc::assets::calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> i
 
     for (auto tri_i = 0u; tri_i < indices.size() / 3; ++tri_i)
     {
-        auto const i0 = static_cast<unsigned>(indices[tri_i * 3 + 0]);
-        auto const i1 = static_cast<unsigned>(indices[tri_i * 3 + 1]);
-        auto const i2 = static_cast<unsigned>(indices[tri_i * 3 + 2]);
+        auto const i0 = indices[tri_i * 3 + 0];
+        auto const i1 = indices[tri_i * 3 + 1];
+        auto const i2 = indices[tri_i * 3 + 2];
 
         auto const& v0 = inout_vertices[i0];
         auto const& v1 = inout_vertices[i1];
