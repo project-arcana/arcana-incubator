@@ -48,7 +48,7 @@ enum class imgui_theme
     corporate_grey,
     photoshop_dark,
     light_green, // default theme in glow::viewer
-    fontstudio, // default theme of ImGuiFontStudio
+    fontstudio,  // default theme of ImGuiFontStudio
     darcula,
 };
 

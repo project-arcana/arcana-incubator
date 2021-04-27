@@ -26,7 +26,7 @@ void verify_failure_handler(const char* expression, const char* filename, int li
         if (CC_UNLIKELY(op_res < 0))                             \
         {                                                        \
             verify_failure_handler(#_expr_, __FILE__, __LINE__); \
-            CC_BREAK();                                          \
+            CC_DEBUG_BREAK();                                    \
         }                                                        \
     } while (0)
 
