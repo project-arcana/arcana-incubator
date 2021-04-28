@@ -141,37 +141,7 @@ inc::assets::simple_mesh_data inc::assets::load_obj_mesh(const char* path, bool 
                      res.indices.size(), (float(numMissingNormals) / float(res.indices.size())) * 100.f);
         std::fprintf(stderr, "[mesh_loader] recomputing normals..\n");
 
-        auto numNormalsPerVertex = cc::alloc_vector<uint32_t>::filled(res.vertices.size(), 0u, cc::system_allocator);
-
-        uint32_t numTris = uint32_t(res.indices.size()) / 3u;
-        for (auto tri_i = 0u; tri_i < numTris; ++tri_i)
-        {
-            uint32_t i0 = res.indices[tri_i * 3 + 0];
-            uint32_t i1 = res.indices[tri_i * 3 + 1];
-            uint32_t i2 = res.indices[tri_i * 3 + 2];
-
-            simple_vertex& v0 = res.vertices[i0];
-            simple_vertex& v1 = res.vertices[i1];
-            simple_vertex& v2 = res.vertices[i2];
-
-            auto const e1 = v1.position - v0.position;
-            auto const e2 = v2.position - v0.position;
-
-            auto const normal = tg::normalize_safe(tg::cross(e1, e2)); // left-handed, clockwise winding
-
-            v0.normal += normal;
-            v1.normal += normal;
-            v2.normal += normal;
-
-            numNormalsPerVertex[i0] += 1;
-            numNormalsPerVertex[i1] += 1;
-            numNormalsPerVertex[i2] += 1;
-        }
-
-        for (auto i = 0u; i < res.vertices.size(); ++i)
-        {
-            res.vertices[i].normal /= float(cc::max(numNormalsPerVertex[i], 1u));
-        }
+        calculate_mesh_normals(res.vertices, res.indices);
     }
 
     calculate_mesh_tangents(res.vertices, res.indices);
@@ -227,6 +197,41 @@ void inc::assets::calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> i
 
         auto const xyz = tg::normalize_safe(reject(t, n));
         vert.tangent = tg::vec4(xyz, tg::dot(tg::cross(t, b), n) > 0.f ? 1.f : -1.f);
+    }
+}
+
+void inc::assets::calculate_mesh_normals(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<uint32_t const> indices, cc::allocator* scratch_alloc)
+{
+    auto numNormalsPerVertex = cc::alloc_vector<uint32_t>::filled(inout_vertices.size(), 0u, scratch_alloc);
+
+    uint32_t numTris = uint32_t(indices.size()) / 3u;
+    for (auto tri_i = 0u; tri_i < numTris; ++tri_i)
+    {
+        uint32_t i0 = indices[tri_i * 3 + 0];
+        uint32_t i1 = indices[tri_i * 3 + 1];
+        uint32_t i2 = indices[tri_i * 3 + 2];
+
+        simple_vertex& v0 = inout_vertices[i0];
+        simple_vertex& v1 = inout_vertices[i1];
+        simple_vertex& v2 = inout_vertices[i2];
+
+        auto const e1 = v1.position - v0.position;
+        auto const e2 = v2.position - v0.position;
+
+        auto const normal = tg::normalize_safe(tg::cross(e1, e2)); // left-handed, clockwise winding
+
+        v0.normal += normal;
+        v1.normal += normal;
+        v2.normal += normal;
+
+        numNormalsPerVertex[i0] += 1;
+        numNormalsPerVertex[i1] += 1;
+        numNormalsPerVertex[i2] += 1;
+    }
+
+    for (auto i = 0u; i < inout_vertices.size(); ++i)
+    {
+        inout_vertices[i].normal /= float(cc::max(numNormalsPerVertex[i], 1u));
     }
 }
 

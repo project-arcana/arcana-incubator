@@ -76,6 +76,9 @@ struct simple_mesh_data_nonowning
 // fills out tangents, requires other fields
 void calculate_mesh_tangents(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<uint32_t const> indices, cc::allocator* scratch_alloc = cc::system_allocator);
 
+// fills out normals, requires positions and texcoords
+void calculate_mesh_normals(cc::span<inc::assets::simple_vertex> inout_vertices, cc::span<uint32_t const> indices, cc::allocator* scratch_alloc = cc::system_allocator);
+
 bool write_binary_mesh(simple_mesh_data const& mesh, char const* out_path);
 
 [[nodiscard]] simple_mesh_data load_binary_mesh(char const* path, cc::allocator* alloc = cc::system_allocator);
