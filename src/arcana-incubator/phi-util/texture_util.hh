@@ -19,6 +19,4 @@ void copy_data_to_texture(phi::command_stream_writer& writer,
                           const std::byte* img_data,
                           bool use_d3d12_per_row_alingment);
 
-unsigned get_mipmap_upload_size(phi::format format, inc::assets::image_size const& img_size, bool no_mips = false);
-
 }

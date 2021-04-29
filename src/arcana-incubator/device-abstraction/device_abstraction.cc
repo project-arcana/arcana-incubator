@@ -15,11 +15,8 @@ void verify_failure_handler(const char* expression, const char* filename, int li
     fprintf(stderr, "[da] verify on `%s' failed.\n", expression);
     fprintf(stderr, "  error: %s\n", SDL_GetError());
     fprintf(stderr, "  file %s:%d\n", filename, line);
+    fprintf(stderr, "[da] breaking - resume possible\n");
     fflush(stderr);
-
-#ifndef NDEBUG
-    std::abort();
-#endif
 }
 
 #define DA_SDL_VERIFY(_expr_)                                    \
@@ -29,6 +26,7 @@ void verify_failure_handler(const char* expression, const char* filename, int li
         if (CC_UNLIKELY(op_res < 0))                             \
         {                                                        \
             verify_failure_handler(#_expr_, __FILE__, __LINE__); \
+            CC_DEBUG_BREAK();                                    \
         }                                                        \
     } while (0)
 
@@ -48,7 +46,11 @@ void inc::da::initialize(bool enable_controllers)
         init_flags |= SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR;
     }
 
-    SDL_SetMainReady(); // we use SDL_MAIN_HANDLED (in CMakeLists.txt), see https://wiki.libsdl.org/SDL_SetMainReady
+    // we use SDL_MAIN_HANDLED (in CMakeLists.txt),
+    // see https://wiki.libsdl.org/SDL_SetMainReady
+    SDL_SetMainReady();
+
+
     DA_SDL_VERIFY(SDL_Init(init_flags));
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));
 
@@ -67,7 +69,7 @@ void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool ena
     if (enable_vulkan)
         flags |= SDL_WINDOW_VULKAN;
 
-    mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, size.width, size.height, flags);
+    mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, size.width, size.height, flags);
 
     if (mWindow == nullptr)
     {
@@ -125,10 +127,7 @@ bool inc::da::SDLWindow::pollSingleEvent(SDL_Event& out_event)
                      out_event.window.event == SDL_WINDOWEVENT_MINIMIZED ||    //
                      out_event.window.event == SDL_WINDOWEVENT_MAXIMIZED)
             {
-                int new_w, new_h;
-                SDL_GetWindowSize(mWindow, &new_w, &new_h);
-                bool const is_minimized = SDL_GetWindowFlags(mWindow) & SDL_WINDOW_MINIMIZED;
-                onResizeEvent(new_w, new_h, is_minimized);
+                queryAndTriggerResize();
             }
         }
     }
@@ -183,17 +182,63 @@ void inc::da::SDLWindow::setWindowed()
     DA_SDL_VERIFY(SDL_SetWindowFullscreen(mWindow, 0));
 }
 
-void inc::da::SDLWindow::setDisplayMode(int width, int height, int refresh_rate)
+bool inc::da::SDLWindow::setDisplayMode(tg::isize2 resolution, int refresh_rate)
 {
-    SDL_DisplayMode mode = {SDL_PIXELFORMAT_BGRA8888, width, height, refresh_rate, nullptr};
-    DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
+    SDL_DisplayMode mode = {SDL_PIXELFORMAT_BGRA8888, resolution.width, resolution.height, refresh_rate, nullptr};
+
+    auto const res = SDL_SetWindowDisplayMode(mWindow, &mode);
+    return res == 0;
 }
 
 void inc::da::SDLWindow::setDesktopDisplayMode()
 {
     SDL_DisplayMode mode;
     DA_SDL_VERIFY(SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(mWindow), &mode));
+    // LOG_TRACE("Desktop Display Mode: {}x{}@{}Hz", mode.w, mode.h, mode.refresh_rate);
     DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
+}
+
+int inc::da::SDLWindow::getNumMonitors() { return SDL_GetNumVideoDisplays(); }
+
+int inc::da::SDLWindow::getNumDisplayModes(int monitor_index) { return SDL_GetNumDisplayModes(monitor_index); }
+
+bool inc::da::SDLWindow::getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate)
+{
+    SDL_DisplayMode mode;
+    auto const res = SDL_GetDisplayMode(monitor_index, mode_index, &mode);
+    if (res != 0)
+        return false;
+
+    out_resolution = {mode.w, mode.h};
+    out_refreshrate = mode.refresh_rate;
+
+    return true;
+}
+
+bool inc::da::SDLWindow::getDesktopDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate)
+{
+    SDL_DisplayMode mode;
+    auto const res = SDL_GetDesktopDisplayMode(monitor_index, &mode);
+    if (res != 0)
+    {
+        return false;
+    }
+
+    out_resolution = {mode.w, mode.h};
+    out_refreshrate = mode.refresh_rate;
+    return true;
+}
+
+bool inc::da::SDLWindow::getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate)
+{
+    SDL_DisplayMode mode = {SDL_PIXELFORMAT_BGRA8888, resolution.width, resolution.height, refreshrate, nullptr};
+    SDL_DisplayMode closest_match;
+    auto const res = SDL_GetClosestDisplayMode(monitor_index, &mode, &closest_match);
+
+    out_resolution = {closest_match.w, closest_match.h};
+    out_refreshrate = closest_match.refresh_rate;
+
+    return res != nullptr;
 }
 
 bool inc::da::SDLWindow::captureMouse()
@@ -218,8 +263,22 @@ bool inc::da::SDLWindow::uncaptureMouse()
     return true;
 }
 
+void inc::da::SDLWindow::queryAndTriggerResize()
+{
+    auto const window_flags = SDL_GetWindowFlags(mWindow);
+
+    // bool const is_fullscreen = window_flags & SDL_WINDOW_FULLSCREEN;
+    bool const is_minimized = window_flags & SDL_WINDOW_MINIMIZED;
+
+    int new_w, new_h;
+    SDL_GetWindowSize(mWindow, &new_w, &new_h);
+
+    onResizeEvent(new_w, new_h, is_minimized);
+}
+
 void inc::da::SDLWindow::onResizeEvent(int w, int h, bool minimized)
 {
+    // LOG_TRACE("{} {}x{} ({})", __FUNCTION__, w, h, minimized);
     if (mWidth == w && mHeight == h && mIsMinimized == minimized)
         return;
 

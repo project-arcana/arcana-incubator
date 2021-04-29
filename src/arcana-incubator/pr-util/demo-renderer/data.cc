@@ -8,8 +8,9 @@ void inc::pre::dmr::camera_gpudata::fill_data(tg::isize2 res, tg::pos3 campos, t
 {
     auto const clean_proj = tg::perspective_reverse_z_directx(fov, res.width / float(res.height), nearplane);
 
-    auto const jitter_x = (inc::da::halton_sequence(halton_index, 2) - 0.5f) / float(res.width);
-    auto const jitter_y = (inc::da::halton_sequence(halton_index, 3) - 0.5f) / float(res.height);
+    // halton is [0,1], rescale to [-1,1], divide by resolution
+    auto const jitter_x = (2.f * inc::da::halton_sequence(halton_index, 2) - 1.f) / float(res.width);
+    auto const jitter_y = (2.f * inc::da::halton_sequence(halton_index, 3) - 1.f) / float(res.height);
 
     proj = clean_proj;
     proj[2][0] = jitter_x;
@@ -49,9 +50,9 @@ bool inc::pre::dmr::camera_gpudata::project_mouse_to_plane(tg::vec2 mousepos_nor
     auto const plane = tg::plane3(plane_normal, plane_center);
     auto const res = tg::intersection(ray, plane);
 
-    if (!res.has_value())
+    if (!res.any())
         return false;
 
-    out_hit = res.value();
+    out_hit = res.first();
     return true;
 }

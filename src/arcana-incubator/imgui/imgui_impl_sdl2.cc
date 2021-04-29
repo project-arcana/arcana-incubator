@@ -486,6 +486,44 @@ void ImGui_ImplSDL2_NewFrame(SDL_Window* window)
     ImGui_ImplSDL2_UpdateGamepads();
 }
 
+IMGUI_IMPL_API void ImGui_ImplSDL2_NewFrameWithoutInput(SDL_Window* window)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    IM_ASSERT(io.Fonts->IsBuilt()
+              && "Font atlas not built! It is generally built by the renderer back-end. Missing call to renderer _NewFrame() function? e.g. "
+                 "ImGui_ImplOpenGL3_NewFrame().");
+
+
+    // Setup display size (every frame to accommodate for window resizing)
+    int w, h;
+    int display_w, display_h;
+    SDL_GetWindowSize(window, &w, &h);
+    if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)
+        w = h = 0;
+    SDL_GL_GetDrawableSize(window, &display_w, &display_h);
+    io.DisplaySize = ImVec2((float)w, (float)h);
+    if (w > 0 && h > 0)
+        io.DisplayFramebufferScale = ImVec2((float)display_w / w, (float)display_h / h);
+
+
+    // dummy delta time
+    io.DeltaTime = 1.f / 60.f;
+
+    // empty mouse state
+    io.MouseHoveredViewport = 0;
+    io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+    io.MouseDown[0] = false;
+    io.MouseDown[1] = false;
+    io.MouseDown[2] = false;
+
+    // restore cursor
+    if (!(io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange))
+    {
+        SDL_SetCursor(g_MouseCursors[ImGuiMouseCursor_Arrow]);
+        SDL_ShowCursor(SDL_TRUE);
+    }
+}
+
 //--------------------------------------------------------------------------------------------------------
 // MULTI-VIEWPORT / PLATFORM INTERFACE SUPPORT
 // This is an _advanced_ and _optional_ feature, allowing the back-end to create and handle multiple viewports simultaneously.

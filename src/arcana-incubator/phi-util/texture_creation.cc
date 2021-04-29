@@ -137,7 +137,10 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     auto const res_handle = backend->createTexture(format, {int(img_size.width), int(img_size.height)}, include_mipmaps ? img_size.num_mipmaps : 1,
                                                    texture_dimension::t2d, 1, true);
 
-    auto const upbuff_handle = backend->createUploadBuffer(inc::get_mipmap_upload_size(format, img_size, true));
+
+    uint32_t const upbuff_size
+        = phi::util::get_texture_size_bytes({int(img_size.width), int(img_size.height), int(img_size.array_size)}, format, 1, align_mip_rows);
+    auto const upbuff_handle = backend->createUploadBuffer(upbuff_size);
     resources_to_free.push_back(upbuff_handle);
 
     cmd_writer.add_command(cmd::begin_debug_label{"load_texture"});
@@ -258,7 +261,7 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
             const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
             for (auto level = 1u, size = 512u; int(level) < cube_num_mips; ++level, size /= 2)
             {
-                auto const num_groups = cc::max<unsigned>(1, size / 32);
+                auto const num_groups = cc::max<unsigned>(1, cc::int_div_ceil(size, 32u));
                 float const spmapRoughness = level * deltaRoughness;
 
                 sve_uav.texture_info.mip_start = level;
