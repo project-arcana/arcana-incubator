@@ -77,16 +77,27 @@ struct input_manager
     //
     // binding
 
+    // digital
+
     void bindKey(uint64_t id, scancode sc) { bindKeyRawScancode(id, SDL_Scancode(sc)); }
     void bindKey(uint64_t id, keycode kc) { bindKeyRawKeycode(id, SDL_Keycode(kc)); }
     void bindMouseButton(uint64_t id, mouse_button btn) { bindMouseButtonRaw(id, uint8_t(btn)); }
     void bindControllerButton(uint64_t id, controller_button btn) { bindControllerButtonRaw(id, uint8_t(btn)); }
+
+    // analog
+
     void bindControllerAxis(uint64_t id, controller_axis axis, float deadzone = 0.2395f, float threshold = 0.5f, float scale = 1.f, float bias = 0.f)
     {
         bindControllerAxisRaw(id, uint8_t(axis), deadzone, threshold, scale, bias);
     }
-    void bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier = 1.f);
+
     void bindMouseWheel(uint64_t id, float scale = 1.f, bool vertical = false);
+
+    // mouse (delta only)
+
+    void bindMouseAxis(uint64_t id, mouse_axis axis, float delta_multiplier = 1.f);
+    [[deprecated("use enum overload")]] void bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier = 1.f);
+
 
     //
     // polling

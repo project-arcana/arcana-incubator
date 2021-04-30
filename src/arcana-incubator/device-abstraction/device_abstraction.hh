@@ -21,12 +21,16 @@ public:
 
     SDLWindow() = default;
     SDLWindow(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true) { initialize(title, size, enable_vulkan); }
+
     SDLWindow(SDLWindow const&) = delete;
     SDLWindow(SDLWindow&&) noexcept = delete;
     SDLWindow& operator=(SDLWindow const&) = delete;
     SDLWindow& operator=(SDLWindow&&) noexcept = delete;
+
     ~SDLWindow() { destroy(); }
 
+    //
+    // events
 
     /// poll events by the WM/OS
     void pollEvents();
@@ -53,34 +57,56 @@ public:
         return res;
     }
 
+    //
+    // info and getters
+
     int getWidth() const { return mWidth; }
     int getHeight() const { return mHeight; }
     tg::isize2 getSize() const { return {mWidth, mHeight}; }
     tg::ivec2 getPosition() const;
     bool isMinimized() const { return mIsMinimized; }
-    float getScaleFactor() const { return mScaleFactor; }
 
     SDL_Window* getSdlWindow() const { return mWindow; }
 
+    //
     // fullscreen mode
 
     /// set the window to display in proper fullscreen
+    /// to change settings, use setDisplayMode/setDesktopDisplayMode BEFORE calling this function
     void setFullscreen();
 
     /// set the window to display in pseudo fullscreen without a display mode change
-    /// target_display_index == -1: current display of the window
-    void setBorderlessFullscreen(int target_display_index = -1);
+    /// target_monitor_index == -1: current monitor of the window
+    void setBorderlessFullscreen(int target_monitor_index = -1);
 
     /// set the window to display in windowed mode
     void setWindowed();
 
+    //
     // display mode
 
-    /// set the display mode, only works in fullscreen
-    void setDisplayMode(int width, int height, int refresh_rate);
-    /// set the display mode to the natively specified desktop display mode, only works in fullscreen
+    /// set the display mode, only affects fullscreen
+    /// returns true on success
+    bool setDisplayMode(tg::isize2 resolution, int refresh_rate);
+
+    /// set the display mode to the natively specified desktop display mode, only affects fullscreen
     void setDesktopDisplayMode();
 
+    /// return the amount of physical monitors
+    static int getNumMonitors();
+
+    /// returns the amount of available display modes available on the given monitor
+    static int getNumDisplayModes(int monitor_index);
+
+    /// gives information about a specified display mode
+    static bool getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate);
+
+    static bool getDesktopDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate);
+
+    /// gives the best matching display mode
+    static bool getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate);
+
+    //
     // mouse capture
 
     /// enables relative mouse mode, returns false if already in captured mode
@@ -97,6 +123,8 @@ public:
     void setEventCallback(event_callback callback) { mEventCallback = callback; }
 
 private:
+    void queryAndTriggerResize();
+
     void onResizeEvent(int w, int h, bool minimized);
 
     void restoreFromBorderless();
@@ -107,7 +135,6 @@ private:
 
     int mWidth = 0;
     int mHeight = 0;
-    float mScaleFactor = 1.f;
     bool mIsMinimized = false;
     bool mPendingResize = false;
     bool mIsRequestingClose = false;

@@ -163,9 +163,15 @@ void inc::da::input_manager::bindControllerAxisRaw(uint64_t id, uint8_t sdl_cont
     _joyaxis_assocs.push_back({sdl_controller_axis, getOrCreateBinding(id), deadzone, threshold, scale, bias});
 }
 
-void inc::da::input_manager::bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier) // only emits delta, no activation nor analog
+void inc::da::input_manager::bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier)
 {
     cc::vector<mouseaxis_assoc>& dest = index == 0 ? _mouseaxis_assocs_x : _mouseaxis_assocs_y;
+    dest.push_back({getOrCreateBinding(id), delta_multiplier});
+}
+
+void inc::da::input_manager::bindMouseAxis(uint64_t id, inc::da::mouse_axis axis, float delta_multiplier)
+{
+    cc::vector<mouseaxis_assoc>& dest = axis == mouse_axis::x ? _mouseaxis_assocs_x : _mouseaxis_assocs_y;
     dest.push_back({getOrCreateBinding(id), delta_multiplier});
 }
 

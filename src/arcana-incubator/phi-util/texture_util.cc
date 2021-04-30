@@ -54,26 +54,3 @@ void inc::copy_data_to_texture(phi::command_stream_writer& writer,
         inc::assets::rowwise_copy(img_data, upload_buffer_map + command.source_offset_bytes, mip_row_stride_bytes, mip_row_size_bytes, command.dest_height);
     }
 }
-
-unsigned inc::get_mipmap_upload_size(phi::format format, const inc::assets::image_size& img_size, bool no_mips)
-{
-    using namespace phi;
-    auto const bytes_per_pixel = phi::util::get_format_size_bytes(format);
-    auto res_bytes = 0u;
-
-    for (auto a = 0u; a < img_size.array_size; ++a)
-    {
-        auto const num_mips = no_mips ? 1 : img_size.num_mipmaps;
-        for (auto mip = 0u; mip < num_mips; ++mip)
-        {
-            auto const mip_width = phi::util::get_mip_size(img_size.width, mip);
-            auto const mip_height = phi::util::get_mip_size(img_size.height, mip);
-
-            auto const row_pitch = phi::util::align_up(bytes_per_pixel * mip_width, 256);
-            auto const custom_offset = row_pitch * mip_height;
-            res_bytes += custom_offset;
-        }
-    }
-
-    return res_bytes;
-}

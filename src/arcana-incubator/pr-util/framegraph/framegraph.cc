@@ -19,10 +19,10 @@
 
 inc::frag::res_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_idx pass_idx,
                                                               inc::frag::res_guid_t guid,
-                                                              const phi::arg::create_resource_info& info,
+                                                              const phi::arg::resource_description& info,
                                                               inc::frag::access_mode mode)
 {
-    CC_CONTRACT(info.type != phi::arg::create_resource_info::e_resource_undefined);
+    CC_CONTRACT(info.type != phi::arg::resource_description::e_resource_undefined);
     auto const new_idx = addResource(pass_idx, guid, info);
 
     auto& guidstate = getGuidState(guid);
@@ -228,30 +228,85 @@ void inc::frag::GraphBuilder::reset()
     mNumWritesTotal = 0;
 }
 
-void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timing) const
+void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timing, bool* isWindowOpen) const
 {
-    if (ImGui::Begin("Framegraph Timings"))
+    if (isWindowOpen && !*isWindowOpen)
     {
-        ImGui::Text(": <pass name>, <#reads/writes/creates/imports> ... <time>");
+        return;
+    }
 
-        ImGui::Separator();
-
+    if (ImGui::Begin("Framegraph Timings", isWindowOpen))
+    {
+        ImGuiTableFlags const tableFlags
+            = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Hideable;
         unsigned num_culled = 0;
         unsigned num_root = 0;
-        for (pass_idx i = 0; i < mPasses.size(); ++i)
-        {
-            auto const& pass = mPasses[i];
-            if (pass.is_culled)
-                ++num_culled;
-            else if (pass.is_root_pass)
-                ++num_root;
+        float time_sum = 0.f;
 
-            ImGui::Text("%c %-20s r%2d w%2d c%2d i%2d     ...     %.3fms", pass.is_culled ? 'X' : (pass.is_root_pass ? '>' : ':'), pass.debug_name,
-                        int(pass.writes.size()), int(pass.reads.size()), int(pass.creates.size()), int(pass.imports.size()), timing->get_last_timing(i));
+        if (ImGui::BeginTable("Passes", 9, tableFlags))
+        {
+            ImGui::TableSetupColumn("Idx", 0, 25.f);
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableSetupColumn("Reads");
+            ImGui::TableSetupColumn("Writes");
+            ImGui::TableSetupColumn("Creates");
+            ImGui::TableSetupColumn("Imports");
+            ImGui::TableSetupColumn("Time", 0, 60.f);
+            ImGui::TableSetupColumn("Root", 0, 25.f);
+            ImGui::TableSetupColumn("Culled", 0, 45.f);
+            ImGui::TableHeadersRow();
+
+            for (pass_idx i = 0; i < mPasses.size(); ++i)
+            {
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+
+                auto const& pass = mPasses[i];
+                if (pass.is_culled)
+                    ++num_culled;
+                else if (pass.is_root_pass)
+                    ++num_root;
+
+
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("%u", i);
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(pass.debug_name);
+
+                ImGui::TableSetColumnIndex(2);
+                ImGui::Text("%2d", int(pass.reads.size()));
+
+                ImGui::TableSetColumnIndex(3);
+                ImGui::Text("%2d", int(pass.writes.size()));
+
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%2d", int(pass.creates.size()));
+
+                ImGui::TableSetColumnIndex(5);
+                ImGui::Text("%2d", int(pass.imports.size()));
+
+                ImGui::TableSetColumnIndex(6);
+                float const time = timing->get_last_timing(i);
+                time_sum += time;
+                ImGui::Text("% 2.3fms", time);
+
+                ImGui::TableSetColumnIndex(7);
+                bool isRoot = pass.is_root_pass;
+                ImGui::Checkbox("##isRoot", &isRoot);
+
+                ImGui::TableSetColumnIndex(8);
+                bool isCulled = pass.is_culled;
+                ImGui::Checkbox("##isCulled", &isCulled);
+
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndTable();
         }
 
-        ImGui::Separator();
-        ImGui::Text("%u culled (X), %u root (>)", num_culled, num_root);
+        ImGui::Text("%u passes culled, %u root passes, total time: % 2.3fms", num_culled, num_root, time_sum);
     }
     ImGui::End();
 }
@@ -387,7 +442,7 @@ void inc::frag::GraphBuilder::printState() const
     }
 }
 
-inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer, inc::frag::res_guid_t guid, const phi::arg::create_resource_info& info)
+inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer, inc::frag::res_guid_t guid, const phi::arg::resource_description& info)
 {
     (void)producer; // might be useful later
     mVirtualResources.emplace_back(guid, info);
@@ -415,23 +470,20 @@ inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::
     return mGuidStates.emplace_back(guid);
 }
 
-void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::create_resource_info& info)
+void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::resource_description& info)
 {
     // this little game is required to maintain the hashable_storage
     resource_info.get().type = info.type;
 
     switch (info.type)
     {
-    case phi::arg::create_resource_info::e_resource_render_target:
-        resource_info.get().info_render_target = info.info_render_target;
-        break;
-    case phi::arg::create_resource_info::e_resource_texture:
+    case phi::arg::resource_description::e_resource_texture:
         resource_info.get().info_texture = info.info_texture;
         break;
-    case phi::arg::create_resource_info::e_resource_buffer:
+    case phi::arg::resource_description::e_resource_buffer:
         resource_info.get().info_buffer = info.info_buffer;
         break;
-    case phi::arg::create_resource_info::e_resource_undefined:
+    case phi::arg::resource_description::e_resource_undefined:
         break;
     }
 }

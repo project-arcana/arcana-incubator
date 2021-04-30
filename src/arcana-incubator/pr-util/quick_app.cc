@@ -7,6 +7,7 @@
 #include <arcana-incubator/imgui/imguizmo/imguizmo.hh>
 
 #include <phantasm-hardware-interface/config.hh>
+#include <phantasm-hardware-interface/window_handle.hh>
 
 void inc::pre::quick_app::perform_default_imgui(double dt) const
 {
@@ -29,7 +30,7 @@ void inc::pre::quick_app::initialize(pr::backend backend_type, const phi::backen
     window.initialize("quick_app window");
 
     context.initialize(backend_type, config);
-    main_swapchain = context.make_swapchain({window.getSdlWindow()}, window.getSize()).disown();
+    main_swapchain = context.make_swapchain(phi::window_handle{window.getSdlWindow()}, window.getSize()).disown();
 
     // input + camera
     input.initialize();

@@ -52,6 +52,12 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
     forward = tg::vec3(cal * caz, sal, cal * saz);
 }
 
+void inc::da::fps_cam_state::set_focus(tg::pos3 focus, tg::vec3 global_offset)
+{
+    position = focus + global_offset;
+    forward = tg::normalize(focus - position);
+}
+
 bool inc::da::smooth_fps_cam::interpolate_to_target(float dt)
 {
     auto const alpha_rotation = tg::min(1.f, exponential_decay_alpha(sensitivity_rotation, dt));
@@ -96,28 +102,28 @@ void inc::da::smooth_fps_cam::setup_default_inputs(inc::da::input_manager& input
     input.bindControllerButton(ge_input_camlook_active, inc::da::controller_button::cb_B);
 
     input.bindMouseButton(ge_input_camlook_active, inc::da::mouse_button::mb_right);
-    input.bindMouseAxis(ge_input_camlook_x, 0, -.65f);
-    input.bindMouseAxis(ge_input_camlook_y, 1, -.65f);
+    input.bindMouseAxis(ge_input_camlook_x, inc::da::mouse_axis::x, -.65f);
+    input.bindMouseAxis(ge_input_camlook_y, inc::da::mouse_axis::y, -.65f);
 }
 
-bool inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, float dt)
+bool inc::da::smooth_fps_cam::update_default_inputs(SDLWindow& window, inc::da::input_manager& input, float dt, float base_speed)
 {
-    auto speed_mul = 10.f;
-
     if (input.get(ge_input_speedup).isActive())
-        speed_mul *= 4.f;
+        base_speed *= 4.f;
 
     if (input.get(ge_input_slowdown).isActive())
-        speed_mul *= .25f;
+        base_speed *= .25f;
 
-    auto const delta_move = tg::vec3{input.get(ge_input_right).getAnalog() - input.get(ge_input_left).getAnalog(),
-                                     input.get(ge_input_up).getAnalog() - input.get(ge_input_down).getAnalog(),
-                                     input.get(e_input::ge_input_forward).getAnalog() - input.get(ge_input_back).getAnalog()
+    auto const delta_move = tg::vec3{input.get(ge_input_right).getAnalog() - input.get(ge_input_left).getAnalog(), 0.f,
+                                     input.get(ge_input_forward).getAnalog() - input.get(ge_input_back).getAnalog()
 
                             }
-                            * dt * speed_mul;
+                            * dt * base_speed;
+
+    float const delta_move_vertical = (input.get(ge_input_up).getAnalog() - input.get(ge_input_down).getAnalog()) * dt * base_speed;
 
     target.move_relative(delta_move);
+    target.position.y += delta_move_vertical;
 
     tg::vec2 mouse_delta = {0, 0};
 

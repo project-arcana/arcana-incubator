@@ -19,6 +19,7 @@ struct fps_cam_state
 
     void move_relative(tg::vec3 distance);
     void mouselook(float dx, float dy);
+    void set_focus(tg::pos3 focus, tg::vec3 global_offset);
 };
 
 /// exponential smoothing camera, assumes LHS world space
@@ -39,7 +40,7 @@ struct smooth_fps_cam
     // default input all-in-one
 
     void setup_default_inputs(input_manager& input);
-    bool update_default_inputs(SDLWindow& window, input_manager& input, float dt);
+    bool update_default_inputs(SDLWindow& window, input_manager& input, float dt, float base_speed = 10.f);
 };
 
 /// Smoothed lerp alpha, framerate-correct
@@ -51,6 +52,7 @@ inline float halftime_lerp_alpha(float halftime, float dt) { return 1 - std::pow
 
 tg::quat forward_to_rotation(tg::vec3 fwd, tg::vec3 up = {0, 1, 0});
 
+/// calculates the halton sequence for temporal jittering, in [0,1]
 constexpr float halton_sequence(int index, int base)
 {
     float f = 1.f;
