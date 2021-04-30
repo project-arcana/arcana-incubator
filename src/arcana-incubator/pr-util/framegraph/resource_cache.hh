@@ -1,6 +1,5 @@
 #pragma once
 
-#include <clean-core/typedefs.hh>
 #include <clean-core/vector.hh>
 
 #include <phantasm-renderer/common/hashable_storage.hh>
@@ -18,7 +17,7 @@ public:
         _values.reserve(num_elems);
     }
 
-    [[nodiscard]] pr::raw_resource acquire(cc::hash_t key)
+    [[nodiscard]] pr::raw_resource acquire(uint64_t key)
     {
         for (auto i = 0u; i < _hashes.size(); ++i)
         {
@@ -31,7 +30,7 @@ public:
 
         return {phi::handle::null_resource, 0};
     }
-    void add_elem(cc::hash_t key, pr::raw_resource val)
+    void add_elem(uint64_t key, pr::raw_resource val)
     {
         _hashes.push_back({key, _current_frame});
         _values.push_back(val);
@@ -47,7 +46,7 @@ public:
 public:
     struct map_element
     {
-        cc::hash_t hash;
+        uint64_t hash;
         uint64_t used_frame;
     };
 

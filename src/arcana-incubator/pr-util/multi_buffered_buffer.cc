@@ -1,5 +1,7 @@
 #include "multi_buffered_buffer.hh"
 
+#include <cstdio>
+
 #include <phantasm-renderer/Context.hh>
 
 void inc::pre::multi_buffered_buffer::initialize(pr::Context& ctx, phi::resource_heap heap, uint32_t size_bytes, uint32_t stride_bytes, char const* debug_name, uint32_t num_backbuffers)
