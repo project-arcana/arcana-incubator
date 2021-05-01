@@ -50,8 +50,13 @@ void inc::da::initialize(bool enable_controllers)
     // see https://wiki.libsdl.org/SDL_SetMainReady
     SDL_SetMainReady();
 
+    int const initResult = SDL_Init(init_flags);
+    if (initResult < 0)
+    {
+        LOG_WARN(R"(SDL_Init returned an error: "{}")", SDL_GetError());
+        LOG_WARN("Execution can likely continue");
+    }
 
-    DA_SDL_VERIFY(SDL_Init(init_flags));
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));
 
     SDL_version version;

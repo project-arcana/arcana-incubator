@@ -25,7 +25,6 @@ struct image_data
 
 [[nodiscard]] constexpr inline bool is_valid(image_data const& data) { return data.raw != nullptr; }
 
-
 [[nodiscard]] image_data load_image(cc::span<std::byte const> data, image_size& out_size, int desired_channels = 4, bool use_hdr_float = false);
 
 [[nodiscard]] image_data load_image(char const* filename, image_size& out_size, int desired_channels = 4, bool use_hdr_float = false);
