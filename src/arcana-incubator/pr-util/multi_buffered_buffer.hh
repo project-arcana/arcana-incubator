@@ -1,6 +1,6 @@
 #pragma once
 
-#include <clean-core/capped_array.hh>
+#include <clean-core/capped_vector.hh>
 
 #include <phantasm-renderer/resource_types.hh>
 
@@ -31,9 +31,8 @@ struct multi_buffered_buffer
     multi_buffered_buffer(multi_buffered_buffer&& rhs) noexcept = default;
     multi_buffered_buffer& operator=(multi_buffered_buffer&& rhs) noexcept = default;
 
-    pr::buffer get(unsigned i) const { return {buffers[i], info}; }
+    pr::buffer get(unsigned i) const { return {buffers[i]}; }
 
-    cc::capped_array<pr::raw_resource, 5> buffers;
-    pr::buffer_info info;
+    cc::capped_vector<pr::buffer, 5> buffers;
 };
 }

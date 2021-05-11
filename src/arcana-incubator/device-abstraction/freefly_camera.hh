@@ -44,9 +44,12 @@ struct smooth_fps_cam
 };
 
 /// Smoothed lerp alpha, framerate-correct
+/// lower smoothing -> higher alphas
 inline float smooth_lerp_alpha(float smoothing, float dt) { return 1 - std::pow(smoothing, dt); }
+
 /// Exponential decay alpha, framerate-correct damp / lerp
 inline float exponential_decay_alpha(float lambda, float dt) { return 1 - std::exp(-lambda * dt); }
+
 /// alpha based on the halftime between current and target state
 inline float halftime_lerp_alpha(float halftime, float dt) { return 1 - std::pow(.5f, dt / halftime); }
 

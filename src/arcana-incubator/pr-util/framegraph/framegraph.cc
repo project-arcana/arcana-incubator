@@ -38,7 +38,7 @@ inc::frag::res_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_id
 
 inc::frag::res_handle inc::frag::GraphBuilder::registerImport(inc::frag::pass_idx pass_idx,
                                                               inc::frag::res_guid_t guid,
-                                                              pr::raw_resource raw_resource,
+                                                              pr::resource raw_resource,
                                                               inc::frag::access_mode mode,
                                                               const pr::generic_resource_info& optional_info)
 {
@@ -129,7 +129,7 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
         }
 
         // passthrough imported resources or call the realize_func
-        pr::raw_resource physical;
+        pr::resource physical;
         if (virt.is_imported())
         {
             physical = virt.imported_resource;
@@ -451,7 +451,7 @@ inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_
 
 inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer,
                                                                 inc::frag::res_guid_t guid,
-                                                                pr::raw_resource import_resource,
+                                                                pr::resource import_resource,
                                                                 pr::generic_resource_info const& info)
 {
     (void)producer; // might be useful later

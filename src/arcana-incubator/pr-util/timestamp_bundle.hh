@@ -1,7 +1,7 @@
 #pragma once
 
 #include <clean-core/alloc_array.hh>
-#include <clean-core/capped_array.hh>
+#include <clean-core/capped_vector.hh>
 #include <clean-core/defer.hh>
 
 #include <phantasm-renderer/resource_types.hh>
@@ -50,7 +50,7 @@ struct timestamp_bundle
     unsigned num_timings = 0;
     unsigned active_timing = 0;
     pr::auto_query_range query_range;
-    cc::capped_array<pr::auto_buffer, 5> readback_buffers;
+    cc::capped_vector<pr::auto_buffer, 5> readback_buffers;
 
     cc::alloc_array<bool> timing_usage_flags;
     cc::alloc_array<double> last_timings;

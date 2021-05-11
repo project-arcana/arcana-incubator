@@ -24,20 +24,12 @@ namespace inc::frag
 {
 struct physical_resource
 {
-    pr::raw_resource raw_res;
+    pr::resource raw_res;
     pr::generic_resource_info info;
 
-    [[nodiscard]] pr::buffer as_buffer() const
-    {
-        CC_ASSERT(info.type == pr::generic_resource_info::e_resource_buffer && "created with different type, or imported without info");
-        return {raw_res, info.info_buffer};
-    }
+    [[nodiscard]] pr::buffer as_buffer() const { return {raw_res}; }
 
-    [[nodiscard]] pr::texture as_texture() const
-    {
-        CC_ASSERT(info.type == pr::generic_resource_info::e_resource_texture && "created with different type, or imported without info");
-        return {raw_res, info.info_texture};
-    }
+    [[nodiscard]] pr::texture as_texture() const { return {raw_res}; }
 };
 
 class GraphBuilder
@@ -123,11 +115,11 @@ private:
 
         physical_res_idx associated_physical = gc_invalid_physical_res;
         pr::hashable_storage<phi::arg::resource_description> resource_info;
-        pr::raw_resource imported_resource;
+        pr::resource imported_resource;
 
         virtual_resource(res_guid_t guid, phi::arg::resource_description const& info) : initial_guid(guid) { _copy_info(info); }
 
-        virtual_resource(res_guid_t guid, pr::raw_resource import_resource, phi::arg::resource_description const& info)
+        virtual_resource(res_guid_t guid, pr::resource import_resource, phi::arg::resource_description const& info)
           : initial_guid(guid), state(sb_imported), imported_resource(import_resource)
         {
             _copy_info(info);
@@ -198,7 +190,7 @@ private:
     friend struct setup_context;
     res_handle registerCreate(pass_idx pass_idx, res_guid_t guid, phi::arg::resource_description const& info, access_mode mode);
 
-    res_handle registerImport(pass_idx pass_idx, res_guid_t guid, pr::raw_resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
+    res_handle registerImport(pass_idx pass_idx, res_guid_t guid, pr::resource raw_resource, access_mode mode, pr::generic_resource_info const& optional_info = {});
 
     res_handle registerWrite(pass_idx pass_idx, res_guid_t guid, access_mode mode);
 
@@ -242,7 +234,7 @@ private:
 
 private:
     virtual_res_idx addResource(pass_idx producer, res_guid_t guid, phi::arg::resource_description const& info);
-    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::raw_resource import_resource, pr::generic_resource_info const& info);
+    virtual_res_idx addResource(pass_idx producer, res_guid_t guid, pr::resource import_resource, pr::generic_resource_info const& info);
 
     guid_state& getGuidState(res_guid_t guid);
 
@@ -300,14 +292,14 @@ struct setup_context
         return create(guid, phi::arg::resource_description::buffer(size_bytes, stride_bytes, heap, allow_uav), mode);
     }
 
-    res_handle import(res_guid_t guid, pr::raw_resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
+    res_handle import(res_guid_t guid, pr::resource raw_resource, access_mode mode = {}, pr::generic_resource_info const& optional_info = {})
     {
         return _parent->registerImport(_pass, guid, raw_resource, mode, optional_info);
     }
 
     res_handle import(res_guid_t guid, pr::texture const& texture, access_mode mode = {})
     {
-        return _parent->registerImport(_pass, guid, texture.res, mode, pr::generic_resource_info::create(texture.info));
+        return _parent->registerImport(_pass, guid, texture, mode, {});
     }
 
     res_handle read(res_guid_t guid, access_mode mode = {}) { return _parent->registerRead(_pass, guid, mode); }

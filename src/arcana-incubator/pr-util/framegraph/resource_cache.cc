@@ -2,7 +2,7 @@
 
 #include <phantasm-renderer/Context.hh>
 
-pr::raw_resource inc::frag::GraphCache::get(const pr::hashable_storage<pr::generic_resource_info>& info, const char* debug_name)
+pr::resource inc::frag::GraphCache::get(const pr::hashable_storage<pr::generic_resource_info>& info, const char* debug_name)
 {
     auto const hash = info.get_xxhash();
     auto const lookup = _cache.acquire(hash);
