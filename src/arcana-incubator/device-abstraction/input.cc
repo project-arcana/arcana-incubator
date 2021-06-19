@@ -2,7 +2,38 @@
 
 #include <cmath>
 
+#include <clean-core/utility.hh>
+
 #include <rich-log/log.hh>
+
+namespace
+{
+// proper analog stick deadzones, ref: http://blog.hypersect.com/interpreting-analog-sticks/
+void applyRadialDeadzone(float x,            // raw stick value X in [-1,1]
+                         float y,            // raw stick value Y in [-1,1]
+                         float deadzoneLow,  // distance from center to ignore
+                         float deadzoneHigh, // distance from unit circle to ignore
+                         float& outX,
+                         float& outY)
+{
+    float magnitude = sqrtf(x * x + y * y);
+
+    if (magnitude <= deadzoneLow)
+    {
+        // inner dead zone
+        outX = 0.f;
+        outY = 0.f;
+        return;
+    }
+
+    // scale in order to output a magnitude in [0,1]
+    float legalRange = 1.f - deadzoneHigh - deadzoneLow;
+    float normalizedMagnitude = cc::min(1.f, (magnitude - deadzoneLow) / legalRange);
+    float scale = normalizedMagnitude / magnitude;
+    outX = x * scale;
+    outY = y * scale;
+}
+} // namespace
 
 void inc::da::binding::prePoll()
 {
@@ -30,11 +61,11 @@ void inc::da::binding::addControllerAxisEvent(Sint16 value, float threshold, flo
 {
     // always overrides activation
 
-    // NOTE: this deadzone handling is pretty poor
-    // see: http://blog.hypersect.com/interpreting-analog-sticks/
-    // to fix it someday
-    float const abs_scaled_value = std::abs(float(value) / 32767);
-    if (abs_scaled_value <= deadzone)
+    // this deadzone handling is poor because it can only consider a single axis by design
+    // use the standalone polling
+
+    float const absScaledValue = std::abs(float(value) / 32767.f);
+    if (absScaledValue <= deadzone)
     {
         // snap to zero
         activation = 0.f;
@@ -42,13 +73,29 @@ void inc::da::binding::addControllerAxisEvent(Sint16 value, float threshold, flo
     else
     {
         // rescale to be in [-1, 0] / [0,1] outside of deadzone
-        float const remapped_value = ((abs_scaled_value - deadzone) / (1.f - deadzone)) * (value < 0 ? -1 : 1);
+        float const remappedValue = ((absScaledValue - deadzone) / (1.f - deadzone)) * (value < 0 ? -1 : 1);
 
         // apply custom scale and bias
-        activation = remapped_value * scale + bias;
+        activation = remappedValue * scale + bias;
     }
 
     if (std::abs(activation) >= threshold)
+    {
+        is_active = true;
+    }
+    else
+    {
+        // only deactivate if no digitals are active
+        is_active = num_active_digital == 0;
+    }
+}
+
+void inc::da::binding::addControllerStickEvent(float value, float threshold)
+{
+    // no postprocessing, this already happened when iterating stick associations
+    activation = value;
+
+    if (std::abs(value) >= threshold)
     {
         is_active = true;
     }
@@ -63,8 +110,8 @@ void inc::da::binding::addDelta(float delta) { this->delta += delta; }
 
 void inc::da::binding::postPoll()
 {
-    bool const is_steady = is_active == prev_active;
-    num_ticks_steady = is_steady ? num_ticks_steady + 1 : 0;
+    bool const isSteady = is_active == prev_active;
+    num_ticks_steady = isSteady ? num_ticks_steady + 1 : 0;
 }
 
 void inc::da::input_manager::updatePrePoll()
@@ -75,36 +122,38 @@ void inc::da::input_manager::updatePrePoll()
 
 bool inc::da::input_manager::processEvent(const SDL_Event& e)
 {
-    bool was_input_event = true;
+    bool wasInputEvent = true;
+
     if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
     {
         if (e.key.repeat != 0) // skip repeat events
             return true;
 
-        bool is_press = e.type == SDL_KEYDOWN;
+        bool isPress = e.type == SDL_KEYDOWN;
 
         for (auto const& assoc : _keycode_assocs)
             if (assoc.keycode == e.key.keysym.sym)
-                _bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(isPress);
 
         for (auto const& assoc : _scancode_assocs)
             if (assoc.scancode == e.key.keysym.scancode)
-                _bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(isPress);
     }
     else if (e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEBUTTONDOWN)
     {
-        bool is_press = e.type == SDL_MOUSEBUTTONDOWN;
+        bool isPress = e.type == SDL_MOUSEBUTTONDOWN;
 
         for (auto const& assoc : _mousebutton_assocs)
             if (assoc.mouse_button == e.button.button)
-                _bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(isPress);
     }
     else if (e.type == SDL_CONTROLLERBUTTONDOWN || e.type == SDL_CONTROLLERBUTTONUP)
     {
-        bool is_press = e.type == SDL_CONTROLLERBUTTONDOWN;
+        bool isPress = e.type == SDL_CONTROLLERBUTTONDOWN;
+
         for (auto const& assoc : _joybutton_assocs)
             if (assoc.controller_button == e.cbutton.button)
-                _bindings[assoc.binding_idx].addKeyEvent(is_press);
+                _bindings[assoc.binding_idx].addKeyEvent(isPress);
     }
     else if (e.type == SDL_MOUSEMOTION)
     {
@@ -124,17 +173,63 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
         for (auto const& assoc : _joyaxis_assocs)
             if (assoc.controller_axis == e.caxis.axis)
                 _bindings[assoc.binding_idx].addControllerAxisEvent(e.caxis.value, assoc.threshold, assoc.deadzone, assoc.scale, assoc.bias);
+
+        controller_analog_stick stick = controller_analog_stick::INVALID;
+        bool isX = false;
+
+        if (e.caxis.axis == uint8_t(controller_axis::ca_left_x) || e.caxis.axis == uint8_t(controller_axis::ca_left_y))
+        {
+            stick = controller_analog_stick::left;
+            isX = e.caxis.axis == uint8_t(controller_axis::ca_left_x);
+        }
+        else if (e.caxis.axis == uint8_t(controller_axis::ca_right_x) || e.caxis.axis == uint8_t(controller_axis::ca_right_y))
+        {
+            stick = controller_analog_stick::right;
+            isX = e.caxis.axis == uint8_t(controller_axis::ca_right_x);
+        }
+
+        if (stick != controller_analog_stick::INVALID)
+        {
+            float valf = float(e.caxis.value) / 32767.f;
+
+            // search in stick associations
+            for (auto& assoc : _stick_assocs)
+            {
+                if (assoc.controller_stick == stick)
+                {
+                    if (isX)
+                    {
+                        assoc.cachedValX = valf;
+                    }
+                    else
+                    {
+                        assoc.cachedValY = valf;
+                    }
+                }
+            }
+        }
     }
     else
     {
-        was_input_event = false;
+        wasInputEvent = false;
     }
 
-    return was_input_event;
+    return wasInputEvent;
 }
 
 void inc::da::input_manager::updatePostPoll()
 {
+    // postprocess controller analog stick assocations and update their bindings
+    for (auto& assoc : _stick_assocs)
+    {
+        float finalValX, finalValY;
+        applyRadialDeadzone(assoc.cachedValX, assoc.cachedValY, assoc.deadzoneLow, assoc.deadzoneHigh, finalValX, finalValY);
+
+        _bindings[assoc.binding_idx_x].addControllerStickEvent(finalValX, assoc.perAxisDigitalThreshold);
+        _bindings[assoc.binding_idx_y].addControllerStickEvent(finalValY, assoc.perAxisDigitalThreshold);
+    }
+
+    // update "num ticks steady" info per binding
     for (auto& binding : _bindings)
         binding.postPoll();
 }
@@ -163,16 +258,26 @@ void inc::da::input_manager::bindControllerAxisRaw(uint64_t id, uint8_t sdl_cont
     _joyaxis_assocs.push_back({sdl_controller_axis, getOrCreateBinding(id), deadzone, threshold, scale, bias});
 }
 
-void inc::da::input_manager::bindMouseAxis(uint64_t id, unsigned index, float delta_multiplier)
+void inc::da::input_manager::bindMouseAxis(uint64_t id, inc::da::mouse_axis axis, float delta_multiplier)
 {
-    cc::vector<mouseaxis_assoc>& dest = index == 0 ? _mouseaxis_assocs_x : _mouseaxis_assocs_y;
+    cc::alloc_vector<mouseaxis_assoc>& dest = axis == mouse_axis::x ? _mouseaxis_assocs_x : _mouseaxis_assocs_y;
     dest.push_back({getOrCreateBinding(id), delta_multiplier});
 }
 
-void inc::da::input_manager::bindMouseAxis(uint64_t id, inc::da::mouse_axis axis, float delta_multiplier)
+void inc::da::input_manager::bindControllerAxis(uint64_t id, controller_axis axis, float deadzone, float threshold, float scale, float bias)
 {
-    cc::vector<mouseaxis_assoc>& dest = axis == mouse_axis::x ? _mouseaxis_assocs_x : _mouseaxis_assocs_y;
-    dest.push_back({getOrCreateBinding(id), delta_multiplier});
+    bindControllerAxisRaw(id, uint8_t(axis), deadzone, threshold, scale, bias);
+}
+
+void inc::da::input_manager::bindControllerStick(uint64_t idX, uint64_t idY, controller_analog_stick stick, float deadzoneLow, float deadzoneHigh, float perAxisDigitalThreshold)
+{
+    CC_ASSERT(deadzoneLow < 1.f && deadzoneLow >= 0.f && "invalid low deadzone");
+    CC_ASSERT(deadzoneHigh < 1.f && deadzoneHigh >= 0.f && "invalid high deadzone");
+    CC_ASSERT(deadzoneLow + deadzoneHigh < 1.f && "high/low deadzones overlap");
+
+    auto const bindingX = getOrCreateBinding(idX);
+    auto const bindingY = getOrCreateBinding(idY);
+    _stick_assocs.push_back(stick_assoc{stick, bindingX, bindingY, deadzoneLow, deadzoneHigh, perAxisDigitalThreshold, 0.f, 0.f});
 }
 
 void inc::da::input_manager::bindMouseWheel(uint64_t id, float scale, bool vertical)
@@ -185,6 +290,23 @@ tg::ivec2 inc::da::input_manager::getMousePositionRelative() const
     tg::ivec2 res;
     SDL_GetMouseState(&res.x, &res.y);
     return res;
+}
+
+void inc::da::input_manager::initialize(uint32_t max_num_bindings, cc::allocator* allocator)
+{
+    _bindings.reset_reserve(allocator, max_num_bindings);
+
+    _keycode_assocs.reset_reserve(allocator, 128);
+    _scancode_assocs.reset_reserve(allocator, 128);
+    _mousebutton_assocs.reset_reserve(allocator, 16);
+    _joybutton_assocs.reset_reserve(allocator, 64);
+    _joyaxis_assocs.reset_reserve(allocator, 16);
+    _stick_assocs.reset_reserve(allocator, 4);
+    _mouseaxis_assocs_x.reset_reserve(allocator, 4);
+    _mouseaxis_assocs_y.reset_reserve(allocator, 4);
+    _mousewheel_assocs.reset_reserve(allocator, 4);
+
+    detectController();
 }
 
 bool inc::da::input_manager::detectController()
@@ -208,7 +330,7 @@ bool inc::da::input_manager::detectController()
     return _game_controller != nullptr;
 }
 
-unsigned inc::da::input_manager::getOrCreateBinding(uint64_t id)
+uint32_t inc::da::input_manager::getOrCreateBinding(uint64_t id)
 {
     for (auto i = 0u; i < _bindings.size(); ++i)
     {
@@ -216,7 +338,8 @@ unsigned inc::da::input_manager::getOrCreateBinding(uint64_t id)
             return i;
     }
 
-    CC_ASSERT(_bindings.size() != _bindings.capacity() && "bindings full");
-    _bindings.push_back(binding(id));
-    return unsigned(_bindings.size() - 1);
+    CC_ASSERT(!_bindings.at_capacity() && "bindings full");
+
+    _bindings.emplace_back_stable(binding(id));
+    return uint32_t(_bindings.size() - 1);
 }
