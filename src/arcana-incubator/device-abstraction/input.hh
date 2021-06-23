@@ -178,9 +178,10 @@ private:
         // (after all deadzone/sensitivity transforms)
         float perAxisDigitalThreshold;
 
-        // raw values per axis as compu
-        float cachedValX;
-        float cachedValY;
+        // raw values per axis
+        float cachedValX = 0.f;
+        float cachedValY = 0.f;
+        bool cachedValsNew = false;
     };
 
     cc::alloc_vector<binding> _bindings; // never resizes

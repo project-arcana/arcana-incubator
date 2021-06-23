@@ -166,13 +166,19 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
     else if (e.type == SDL_MOUSEWHEEL)
     {
         for (auto const& assoc : _mousewheel_assocs)
+        {
             _bindings[assoc.binding_idx].addDelta(float(e.wheel.x * int(assoc.is_vertical) + e.wheel.y * int(!assoc.is_vertical)) * assoc.scale);
+        }
     }
     else if (e.type == SDL_CONTROLLERAXISMOTION)
     {
         for (auto const& assoc : _joyaxis_assocs)
+        {
             if (assoc.controller_axis == e.caxis.axis)
+            {
                 _bindings[assoc.binding_idx].addControllerAxisEvent(e.caxis.value, assoc.threshold, assoc.deadzone, assoc.scale, assoc.bias);
+            }
+        }
 
         controller_analog_stick stick = controller_analog_stick::INVALID;
         bool isX = false;
@@ -205,6 +211,8 @@ bool inc::da::input_manager::processEvent(const SDL_Event& e)
                     {
                         assoc.cachedValY = valf;
                     }
+
+                    assoc.cachedValsNew = true;
                 }
             }
         }
@@ -222,11 +230,15 @@ void inc::da::input_manager::updatePostPoll()
     // postprocess controller analog stick assocations and update their bindings
     for (auto& assoc : _stick_assocs)
     {
+        if (!assoc.cachedValsNew)
+            continue;
+
         float finalValX, finalValY;
         applyRadialDeadzone(assoc.cachedValX, assoc.cachedValY, assoc.deadzoneLow, assoc.deadzoneHigh, finalValX, finalValY);
 
         _bindings[assoc.binding_idx_x].addControllerStickEvent(finalValX, assoc.perAxisDigitalThreshold);
         _bindings[assoc.binding_idx_y].addControllerStickEvent(finalValY, assoc.perAxisDigitalThreshold);
+        assoc.cachedValsNew = false;
     }
 
     // update "num ticks steady" info per binding
