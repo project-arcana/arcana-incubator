@@ -22,6 +22,7 @@ IMGUI_IMPL_API void imgui_init(SDL_Window* sdl_window,
                                bool enable_docking = true,
                                bool enable_multi_viewport = false);
 
+// shuts down SDL2, PHI backends and imgui itself
 IMGUI_IMPL_API void imgui_shutdown();
 
 /// begins a new frame in imgui, the SDL2 and PHI backends, and ImGuizmo
@@ -54,4 +55,4 @@ enum class imgui_theme
 
 IMGUI_IMPL_API void load_imgui_theme(imgui_theme theme);
 
-}
+} // namespace inc

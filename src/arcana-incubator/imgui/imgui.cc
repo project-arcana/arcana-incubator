@@ -481,26 +481,23 @@ void inc::imgui_init(SDL_Window* sdl_window, phi::Backend* backend, int num_fram
     if (enable_multi_viewport)
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
+    ImGui_ImplPHI_Init(backend, num_frames_in_flight, target_format);
+
     if (backend->getBackendType() == phi::backend_type::d3d12)
         ImGui_ImplSDL2_InitForD3D(sdl_window);
     else
         ImGui_ImplSDL2_InitForVulkan(sdl_window);
-
-    ImGui_ImplPHI_Init(backend, num_frames_in_flight, target_format);
 }
 
 void inc::imgui_shutdown()
 {
-    ImGui_ImplPHI_Shutdown();
     ImGui_ImplSDL2_Shutdown();
+    ImGui_ImplPHI_Shutdown();
     ImGui::DestroyContext();
 }
 
 void inc::imgui_new_frame(SDL_Window* sdl_window, bool empty_run)
 {
-    // imgui new frame
-    ImGui_ImplPHI_NewFrame();
-
     if (empty_run)
     {
         ImGui_ImplSDL2_NewFrameWithoutInput(sdl_window);
@@ -509,6 +506,8 @@ void inc::imgui_new_frame(SDL_Window* sdl_window, bool empty_run)
     {
         ImGui_ImplSDL2_NewFrame(sdl_window);
     }
+
+    ImGui_ImplPHI_NewFrame();
 
     ImGui::NewFrame();
 
@@ -541,4 +540,4 @@ void inc::imgui_viewport_update(bool render)
     }
 }
 
-IMGUI_IMPL_API void inc::imgui_discard_frame() { ImGui::EndFrame(); }
+void inc::imgui_discard_frame() { ImGui::EndFrame(); }
