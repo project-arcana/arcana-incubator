@@ -52,8 +52,8 @@ inc::pre::pr_mesh inc::pre::load_mesh(pr::Context& ctx, cc::span<const uint32_t>
 
     // create proper buffers
     pr_mesh res;
-    res.vertex = ctx.make_buffer(unsigned(vertices.size_bytes()), sizeof(inc::assets::simple_vertex));
-    res.index = ctx.make_buffer(unsigned(indices.size_bytes()), sizeof(uint32_t));
+    res.vertex = ctx.make_buffer(uint32_t(vertices.size_bytes()), sizeof(inc::assets::simple_vertex));
+    res.index = ctx.make_buffer(uint32_t(indices.size_bytes()), sizeof(uint32_t));
 
     auto frame = ctx.make_frame();
 
