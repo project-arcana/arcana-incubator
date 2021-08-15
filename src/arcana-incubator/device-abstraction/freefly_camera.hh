@@ -58,14 +58,15 @@ tg::quat forward_to_rotation(tg::vec3 fwd, tg::vec3 up = {0, 1, 0});
 /// calculates the halton sequence for temporal jittering, in [0,1]
 constexpr float halton_sequence(int index, int base)
 {
-    float f = 1.f;
-    float r = 0.f;
+    float res = 0.f;
+    float base_inv = 1.f / base;
+    float f = base_inv;
     while (index > 0)
     {
-        f = f / float(base);
-        r = r + f * float(index % base);
-        index = index / base;
+        res += (index % base) * f;
+        index /= base;
+        f *= base_inv;
     }
-    return r;
+    return res;
 }
-}
+} // namespace inc::da
