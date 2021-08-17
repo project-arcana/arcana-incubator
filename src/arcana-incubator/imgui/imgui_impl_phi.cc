@@ -75,7 +75,7 @@ struct ImGuiViewportDataPHI
 
     ImGuiViewportDataPHI() { frame_render_buffers = frame_render_buffers.defaulted(g_num_frames_in_flight); }
 };
-}
+} // namespace
 
 // Forward Declarations
 static void ImGui_ImplPHI_InitPlatformInterface();
@@ -336,6 +336,8 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
 
     auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
 
+    writer.add_command(PHI_CMD_CODE_LOCATION());
+
     for (auto n = 0; n < draw_data->CmdListsCount; ++n)
     {
         ImDrawList* const cmd_list = draw_data->CmdLists[n];
@@ -386,7 +388,8 @@ unsigned ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
         num_cmdbuffers += draw_data->CmdLists[n]->CmdBuffer.Size;
     }
 
-    return sizeof(phi::cmd::draw) * num_cmdbuffers; // amount of ImGui "command buffers"
+    // one draw per ImGui "command buffer", plus one code location marker
+    return sizeof(phi::cmd::draw) * num_cmdbuffers + sizeof(phi::cmd::code_location_marker);
 }
 
 //--------------------------------------------------------------------------------------------------------
