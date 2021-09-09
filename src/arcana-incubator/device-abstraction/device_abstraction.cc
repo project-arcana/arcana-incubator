@@ -30,7 +30,7 @@ void verify_failure_handler(const char* expression, const char* filename, int li
         }                                                        \
     } while (0)
 
-}
+} // namespace
 
 void inc::da::initialize(bool enable_controllers)
 {
@@ -53,8 +53,8 @@ void inc::da::initialize(bool enable_controllers)
     int const initResult = SDL_Init(init_flags);
     if (initResult < 0)
     {
-        LOG_WARN(R"(SDL_Init returned an error: "{}")", SDL_GetError());
-        LOG_WARN("Execution can likely continue");
+        LOG_INFO(R"(SDL_Init returned an error: "{}")", SDL_GetError());
+        LOG_INFO("Execution can likely continue");
     }
 
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));

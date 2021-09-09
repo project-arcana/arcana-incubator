@@ -120,9 +120,9 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
 
     // PSO
     {
-        phi::vertex_attribute_info vert_attrs[] = {phi::vertex_attribute_info{"POSITION", unsigned(IM_OFFSETOF(ImDrawVert, pos)), phi::format::rg32f},
-                                                   phi::vertex_attribute_info{"TEXCOORD", unsigned(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
-                                                   phi::vertex_attribute_info{"COLOR", unsigned(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
+        phi::vertex_attribute_info vert_attrs[] = {phi::vertex_attribute_info{"POSITION", uint32_t(IM_OFFSETOF(ImDrawVert, pos)), phi::format::rg32f},
+                                                   phi::vertex_attribute_info{"TEXCOORD", uint32_t(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
+                                                   phi::vertex_attribute_info{"COLOR", uint32_t(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
 
         phi::arg::vertex_format vert_format;
         vert_format.attributes = vert_attrs;
