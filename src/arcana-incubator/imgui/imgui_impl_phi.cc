@@ -103,7 +103,12 @@ bool ImGui_ImplPHI_Init(phi::Backend* backend, int num_frames_in_flight, phi::fo
 }
 
 
-bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flight, phi::format target_format, cc::span<const std::byte> ps_data, cc::span<const std::byte> vs_data)
+bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
+                                   int num_frames_in_flight,
+                                   phi::format target_format,
+                                   cc::span<const std::byte> ps_data,
+                                   cc::span<const std::byte> vs_data,
+                                   phi::handle::resource* out_upload_buffer)
 {
     CC_ASSERT(g_backend == nullptr && "double init");
     CC_ASSERT(backend != nullptr);
@@ -175,7 +180,8 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
         bool const is_d3d12 = backend->getBackendType() == phi::backend_type::d3d12;
 
         uint32_t const upbuff_size = phi::util::get_texture_size_bytes({width, height, 1}, phi::format::rgba8un, 1, is_d3d12);
-        phi::handle::resource temp_upload_buffer = backend->createBuffer(upbuff_size, 0, phi::resource_heap::upload, false);
+        phi::handle::resource temp_upload_buffer
+            = backend->createBuffer(upbuff_size, 0, phi::resource_heap::upload, false, "ImGui_ImplPHI_InitWithShaders Upload Buffer");
 
 
         {
@@ -198,8 +204,16 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
 
         io.Fonts->TexID = sv_to_imgui(g_font_texture_sv);
 
-        backend->flushGPU();
-        backend->free(temp_upload_buffer);
+        if (out_upload_buffer != nullptr)
+        {
+            // write out upload buffer instead of flushing and freeing
+            *out_upload_buffer = temp_upload_buffer;
+        }
+        else
+        {
+            backend->flushGPU();
+            backend->free(temp_upload_buffer);
+        }
     }
 
     // Create a dummy ImGuiViewportDataPHI holder for the main viewport,
@@ -213,7 +227,9 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flig
     // Setup back-end capabilities flags
     io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional)
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
         ImGui_ImplPHI_InitPlatformInterface();
+    }
 
     return true;
 }

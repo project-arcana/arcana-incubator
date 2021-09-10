@@ -17,5 +17,10 @@ IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawData(ImDrawData const* draw_data, cc
 IMGUI_IMPL_API unsigned ImGui_ImplPHI_GetDrawDataCommandSize(ImDrawData const* draw_data);
 
 /// Initializes with provided shader binaries, without compiling embedded ones
-IMGUI_IMPL_API bool ImGui_ImplPHI_InitWithShaders(
-    phi::Backend* backend, int num_frames_in_flight, phi::format target_format, cc::span<std::byte const> ps_data, cc::span<std::byte const> vs_data);
+/// out_upload_buffer: if non-null, the internally created upload buffer is written to this address instead of flushing and destroying it
+IMGUI_IMPL_API bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
+                                                  int num_frames_in_flight,
+                                                  phi::format target_format,
+                                                  cc::span<std::byte const> ps_data,
+                                                  cc::span<std::byte const> vs_data,
+                                                  phi::handle::resource* out_upload_buffer = nullptr);
