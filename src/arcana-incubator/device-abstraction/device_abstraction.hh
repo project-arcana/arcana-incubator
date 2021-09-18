@@ -42,13 +42,16 @@ public:
     [[nodiscard]] bool isRequestingClose()
     {
 #ifdef CC_ENABLE_ASSERTIONS
-        CC_ASSERT(mSafetyState.polled_since_last_close_test && "forgot to poll window events in while loop body?");
-        mSafetyState.polled_since_last_close_test = false;
+        CC_ASSERT(mSafetyState.num_close_tests_since_poll < 10 && "Forgot to poll window events in main loop?");
+        mSafetyState.num_close_tests_since_poll++;
 #endif
+
         return mIsRequestingClose;
     }
 
-    /// whether a resize occured since the last ::clearPendingResize()
+    void clearRequestToClose() { mIsRequestingClose = false; }
+
+    /// whether a resize occured since the last clearPendingResize()
     /// clears pending resizes
     [[nodiscard]] bool clearPendingResize()
     {
@@ -157,8 +160,9 @@ private:
 #ifdef CC_ENABLE_ASSERTIONS
     struct
     {
-        bool polled_since_last_close_test = true;
+        // assert if isRequestingClose() is called many times without polls in between
+        int num_close_tests_since_poll = 0;
     } mSafetyState;
 #endif
 };
-}
+} // namespace inc::da
