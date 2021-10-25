@@ -352,7 +352,8 @@ vec_t BuildPlan(const vec_t& p_point1, const vec_t& p_normal)
 struct matrix_t
 {
 public:
-    union {
+    union
+    {
         float m[4][4];
         float m16[16];
         struct
@@ -694,6 +695,8 @@ struct Context
 
     bool mbUsing;
     bool mbEnable;
+    // whether mbUsing was true last frame
+    bool mbUsingLastFrame;
 
     // translation
     vec_t mTranslationPlan;
@@ -933,6 +936,8 @@ void BeginFrame()
     ImGui::End();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(2);
+
+    gContext.mbUsingLastFrame = gContext.mbUsing;
 }
 
 bool IsUsing() { return gContext.mbUsing || gContext.mbUsingBounds; }
@@ -1115,7 +1120,7 @@ static void ComputeSnap(float* value, float snap)
         *value = *value - modulo + snap * ((*value < 0.f) ? -1.f : 1.f);
     }
 }
-static void ComputeSnap(vec_t& value, float* snap)
+static void ComputeSnap(vec_t& value, float const* __restrict snap)
 {
     for (int i = 0; i < 3; i++)
     {
@@ -1385,7 +1390,8 @@ static bool CanActivate()
     return false;
 }
 
-static void HandleAndDrawLocalBounds(float* bounds, matrix_t* matrix, float* snapValues, OPERATION operation)
+// returns true if writes to matrix occured
+static bool HandleAndDrawLocalBounds(float const* __restrict bounds, matrix_t* __restrict matrix, float const* __restrict snapValues, OPERATION operation)
 {
     ImGuiIO& io = ImGui::GetIO();
     ImDrawList* drawList = gContext.mDrawList;
@@ -1449,6 +1455,8 @@ static void HandleAndDrawLocalBounds(float* bounds, matrix_t* matrix, float* sna
         axesWorldDirections[0] = axesWorldDirections[bestIndex];
         axesWorldDirections[bestIndex] = tempDirection;
     }
+
+    bool didWriteMatrix = false;
 
     for (unsigned int axisIndex = 0; axisIndex < numAxes; ++axisIndex)
     {
@@ -1622,6 +1630,7 @@ static void HandleAndDrawLocalBounds(float* bounds, matrix_t* matrix, float* sna
             postScale.Translation(gContext.mBoundsLocalPivot);
             matrix_t res = preScale * scale * postScale * gContext.mBoundsMatrix;
             *matrix = res;
+            didWriteMatrix = true;
 
             // info text
             char tmps[512];
@@ -1644,6 +1653,8 @@ static void HandleAndDrawLocalBounds(float* bounds, matrix_t* matrix, float* sna
             break;
         }
     }
+
+    return didWriteMatrix;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1782,7 +1793,7 @@ static int GetMoveType(vec_t* gizmoHitProportion)
     return type;
 }
 
-static void HandleTranslation(float* matrix, float* deltaMatrix, int& type, float* snap)
+static bool HandleTranslation(float* __restrict matrix, float* __restrict deltaMatrix, int& type, float const* __restrict snap)
 {
     ImGuiIO& io = ImGui::GetIO();
     bool applyRotationLocaly = gContext.mMode == LOCAL || type == MOVE_SCREEN;
@@ -1837,7 +1848,7 @@ static void HandleTranslation(float* matrix, float* deltaMatrix, int& type, floa
         }
 
         matrix_t res = gContext.mModelSource * deltaMatrixTranslation;
-        *(matrix_t*)matrix = res;
+        *reinterpret_cast<matrix_t*>(matrix) = res;
 
         if (!io.MouseDown[0])
         {
@@ -1845,6 +1856,7 @@ static void HandleTranslation(float* matrix, float* deltaMatrix, int& type, floa
         }
 
         type = gContext.mCurrentOperation;
+        return true;
     }
     else
     {
@@ -1878,10 +1890,12 @@ static void HandleTranslation(float* matrix, float* deltaMatrix, int& type, floa
 
             gContext.mRelativeOrigin = (gContext.mTranslationPlanOrigin - gContext.mModel.v.position) * (1.f / gContext.mScreenFactor);
         }
+
+        return false;
     }
 }
 
-static void HandleScale(float* matrix, float* deltaMatrix, int& type, float* snap)
+static bool HandleScale(float* __restrict matrix, float* __restrict deltaMatrix, int& type, float const* __restrict snap)
 {
     ImGuiIO& io = ImGui::GetIO();
 
@@ -1957,7 +1971,7 @@ static void HandleScale(float* matrix, float* deltaMatrix, int& type, float* sna
         deltaMatrixScale.Scale(gContext.mScale * gContext.mScaleValueOrigin);
 
         matrix_t res = deltaMatrixScale * gContext.mModel;
-        *(matrix_t*)matrix = res;
+        *reinterpret_cast<matrix_t*>(matrix) = res;
 
         if (deltaMatrix)
         {
@@ -1969,10 +1983,16 @@ static void HandleScale(float* matrix, float* deltaMatrix, int& type, float* sna
             gContext.mbUsing = false;
 
         type = gContext.mCurrentOperation;
+        return true;
+    }
+    else
+    {
+        return false;
     }
 }
 
-static void HandleRotation(float* matrix, float* deltaMatrix, int& type, float* snap)
+// handles and applies rotation to matrix and deltaMatrix, returns true if changes were made
+static bool HandleRotation(float* matrix, float* deltaMatrix, int& type, float const* snap)
 {
     ImGuiIO& io = ImGui::GetIO();
     bool applyRotationLocaly = gContext.mMode == LOCAL;
@@ -2039,20 +2059,20 @@ static void HandleRotation(float* matrix, float* deltaMatrix, int& type, float* 
 
         if (applyRotationLocaly)
         {
-            *(matrix_t*)matrix = scaleOrigin * deltaRotation * gContext.mModel;
+            *reinterpret_cast<matrix_t*>(matrix) = scaleOrigin * deltaRotation * gContext.mModel;
         }
         else
         {
             matrix_t res = gContext.mModelSource;
             res.v.position.Set(0.f);
 
-            *(matrix_t*)matrix = res * deltaRotation;
-            ((matrix_t*)matrix)->v.position = gContext.mModelSource.v.position;
+            *reinterpret_cast<matrix_t*>(matrix) = res * deltaRotation;
+            reinterpret_cast<matrix_t*>(matrix)->v.position = gContext.mModelSource.v.position;
         }
 
         if (deltaMatrix)
         {
-            *(matrix_t*)deltaMatrix = gContext.mModelInverse * deltaRotation * gContext.mModel;
+            *reinterpret_cast<matrix_t*>(deltaMatrix) = gContext.mModelInverse * deltaRotation * gContext.mModel;
         }
 
         if (!io.MouseDown[0])
@@ -2061,6 +2081,12 @@ static void HandleRotation(float* matrix, float* deltaMatrix, int& type, float* 
             gContext.mEditingID = -1;
         }
         type = gContext.mCurrentOperation;
+
+        return true;
+    }
+    else
+    {
+        return false;
     }
 }
 
@@ -2115,14 +2141,22 @@ void RecomposeMatrixFromComponents(const float* translation, const float* rotati
 
 void SetID(int id) { gContext.mActualID = id; }
 
-void Manipulate(const float* view, const float* projection, OPERATION operation, MODE mode, float* matrix, float* deltaMatrix, float* snap, float* localBounds, float* boundsSnap)
+bool Manipulate(const float* __restrict view,
+                const float* __restrict projection,
+                OPERATION operation,
+                MODE mode,
+                float* __restrict matrix,
+                float* __restrict deltaMatrix,
+                float* __restrict snap,
+                float* __restrict localBounds,
+                float* __restrict boundsSnap)
 {
     ComputeContext(view, projection, matrix, mode);
 
     // set delta to identity
     if (deltaMatrix)
     {
-        ((matrix_t*)deltaMatrix)->SetToIdentity();
+        reinterpret_cast<matrix_t*>(deltaMatrix)->SetToIdentity();
     }
 
     // behind camera
@@ -2130,11 +2164,12 @@ void Manipulate(const float* view, const float* projection, OPERATION operation,
     camSpacePosition.TransformPoint(makeVect(0.f, 0.f, 0.f), gContext.mMVP);
     if (!gContext.mIsOrthographic && camSpacePosition.z < 0.001f)
     {
-        return;
+        return false;
     }
 
     // --
     int type = NONE;
+    bool didApplyChanges = false;
     if (gContext.mbEnable)
     {
         if (!gContext.mbUsingBounds)
@@ -2142,13 +2177,13 @@ void Manipulate(const float* view, const float* projection, OPERATION operation,
             switch (operation)
             {
             case ROTATE:
-                HandleRotation(matrix, deltaMatrix, type, snap);
+                didApplyChanges = HandleRotation(matrix, deltaMatrix, type, snap);
                 break;
             case TRANSLATE:
-                HandleTranslation(matrix, deltaMatrix, type, snap);
+                didApplyChanges = HandleTranslation(matrix, deltaMatrix, type, snap);
                 break;
             case SCALE:
-                HandleScale(matrix, deltaMatrix, type, snap);
+                didApplyChanges = HandleScale(matrix, deltaMatrix, type, snap);
                 break;
             case BOUNDS:
                 break;
@@ -2158,7 +2193,7 @@ void Manipulate(const float* view, const float* projection, OPERATION operation,
 
     if (localBounds && !gContext.mbUsing)
     {
-        HandleAndDrawLocalBounds(localBounds, (matrix_t*)matrix, boundsSnap, operation);
+        didApplyChanges |= HandleAndDrawLocalBounds(localBounds, (matrix_t*)matrix, boundsSnap, operation);
     }
 
     if (!gContext.mbUsingBounds)
@@ -2178,7 +2213,23 @@ void Manipulate(const float* view, const float* projection, OPERATION operation,
             break;
         }
     }
+
+    return didApplyChanges;
 }
+
+bool IsGizmoActivated() { return gContext.mbUsing && !gContext.mbUsingLastFrame; }
+
+bool IsGizmoDeactivatedAfterDrag() { return !gContext.mbUsing && gContext.mbUsingLastFrame; }
+
+void GetContextInfo(bool* pbUsing, bool* pbEnable, int* pCurrentOp, int* pActualID, int* pEditingID)
+{
+    *pbUsing = gContext.mbUsing;
+    *pbEnable = gContext.mbEnable;
+    *pCurrentOp = gContext.mCurrentOperation;
+    *pActualID = gContext.mActualID;
+    *pEditingID = gContext.mEditingID;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void ComputeFrustumPlanes(vec_t* frustum, const float* clip)
@@ -2315,15 +2366,17 @@ void DrawCubes(const float* view, const float* projection, const float* matrices
             cubeFaceCount++;
         }
     }
-    qsort(faces, cubeFaceCount, sizeof(CubeFace), [](void const* _a, void const* _b) {
-        CubeFace* a = (CubeFace*)_a;
-        CubeFace* b = (CubeFace*)_b;
-        if (a->z < b->z)
-        {
-            return 1;
-        }
-        return -1;
-    });
+    qsort(faces, cubeFaceCount, sizeof(CubeFace),
+          [](void const* _a, void const* _b)
+          {
+              CubeFace* a = (CubeFace*)_a;
+              CubeFace* b = (CubeFace*)_b;
+              if (a->z < b->z)
+              {
+                  return 1;
+              }
+              return -1;
+          });
     // draw face with lighter color
     for (int iFace = 0; iFace < cubeFaceCount; iFace++)
     {
@@ -2599,4 +2652,4 @@ void ViewManipulate(float* view, float length, ImVec2 position, ImVec2 size, ImU
         LookAt(&newEye.x, &camTarget.x, &referenceUp.x, view);
     }
 }
-};
+}; // namespace ImGuizmo
