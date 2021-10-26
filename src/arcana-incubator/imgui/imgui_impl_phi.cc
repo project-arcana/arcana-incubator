@@ -113,6 +113,10 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
     CC_ASSERT(g_backend == nullptr && "double init");
     CC_ASSERT(backend != nullptr);
 
+#ifndef IMGUI_HAS_VIEWPORT
+#error "Backend requires docking/multi-viewport branch"
+#endif
+
     // Setup back-end capabilities flags
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "imgui_impl_phi";
