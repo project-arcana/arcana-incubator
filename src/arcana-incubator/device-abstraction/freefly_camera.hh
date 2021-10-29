@@ -18,7 +18,11 @@ struct fps_cam_state
     tg::vec3 forward = tg::vec3(0, 0, 1);
 
     void move_relative(tg::vec3 distance);
+
     void mouselook(float dx, float dy);
+    
+    void mousestrafe(float dx, float dy, float speed = 75.f);
+    
     void set_focus(tg::pos3 focus, tg::vec3 global_offset);
 };
 

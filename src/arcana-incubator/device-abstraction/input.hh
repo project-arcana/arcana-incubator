@@ -15,12 +15,27 @@ struct input_manager;
 struct binding
 {
     bool isActive() const { return is_active; }
+    bool isActiveSinceTicks(uint32_t numTicks) const { return getHeldTicks() >= numTicks; }
 
+    // pressed this frame
     bool wasPressed() const { return is_active && num_ticks_steady == 0; }
+    // released this frame
     bool wasReleased() const { return !is_active && num_ticks_steady == 0; }
 
+    // pressed this frame and was only up for max. #ticks before
+    bool wasPressedAfterMaximumTicks(uint32_t maxTicks) const { return wasPressed() && getPreviouslyReleasedTicks() <= maxTicks; }
+    // released this frame and was only down for max. #ticks before
+    bool wasReleasedAfterMaximumTicks(uint32_t maxTicks) const { return wasReleased() && getPreviouslyHeldTicks() <= maxTicks; }
+
+    // amount of frames down in a row
     uint32_t getHeldTicks() const { return is_active ? num_ticks_steady + 1 : 0; }
+    // amount of frames up in a row
     uint32_t getReleasedTicks() const { return !is_active ? num_ticks_steady + 1 : 0; }
+
+    // amount of frames the signal was active previously
+    uint32_t getPreviouslyHeldTicks() const { return !is_active ? prev_num_ticks_steady : 0; }
+    // amount of ticks the signal was inactive previously
+    uint32_t getPreviouslyReleasedTicks() const { return is_active ? prev_num_ticks_steady : 0; }
 
     float getAnalog() const { return activation; }
     float getDelta() const { return delta; }
@@ -44,7 +59,10 @@ private:
     float prev_delta = 0.f;
     bool prev_active = false;
 
-    uint32_t num_ticks_steady = 0; ///< amount of ticks that the active state did not flip
+    // amount of ticks that the active state did not flip
+    uint32_t num_ticks_steady = 0;
+    // amount of steady ticks before the last flip
+    uint32_t prev_num_ticks_steady = 0;
 
     void prePoll();
 

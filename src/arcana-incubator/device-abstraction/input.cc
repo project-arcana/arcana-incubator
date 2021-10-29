@@ -111,7 +111,15 @@ void inc::da::binding::addDelta(float delta) { this->delta += delta; }
 void inc::da::binding::postPoll()
 {
     bool const isSteady = is_active == prev_active;
-    num_ticks_steady = isSteady ? num_ticks_steady + 1 : 0;
+    if (isSteady)
+    {
+        num_ticks_steady++;
+    }
+    else
+    {
+        prev_num_ticks_steady = num_ticks_steady + 1;
+        num_ticks_steady = 0;
+    }
 }
 
 void inc::da::input_manager::updatePrePoll()
