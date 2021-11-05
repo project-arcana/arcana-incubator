@@ -11,6 +11,8 @@ namespace inc::da
 {
 void initialize(bool enable_controllers = false);
 
+bool setProcessHighDPIAware();
+
 void shutdown();
 
 class SDLWindow
@@ -96,7 +98,7 @@ public:
     void setDesktopDisplayMode();
 
     /// return the amount of physical monitors
-    static int getNumMonitors();
+    static int getNumDisplays();
 
     /// returns the amount of available display modes available on the given monitor
     static int getNumDisplayModes(int monitor_index);
@@ -105,6 +107,8 @@ public:
     static bool getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate);
 
     static bool getDesktopDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate);
+
+    static bool getCurrentDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate);
 
     /// gives the best matching display mode
     static bool getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate);
