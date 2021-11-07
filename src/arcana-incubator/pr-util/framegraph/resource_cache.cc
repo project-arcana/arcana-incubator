@@ -14,12 +14,14 @@ pr::resource inc::frag::GraphCache::get(const pr::hashable_storage<pr::generic_r
     return res;
 }
 
-void inc::frag::GraphCache::freeAll()
+uint32_t inc::frag::GraphCache::freeAll()
 {
+    auto const res = (uint32_t)_cache._values.size();
     for (auto const& val : _cache._values)
     {
-        _backend->free_untyped(val);
+        _backend->free_deferred(val);
     }
 
     _cache.reset();
+    return res;
 }

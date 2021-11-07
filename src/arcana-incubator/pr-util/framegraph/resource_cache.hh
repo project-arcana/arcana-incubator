@@ -85,10 +85,10 @@ public:
 
     pr::resource get(pr::hashable_storage<pr::generic_resource_info> const& info, char const* debug_name);
 
-    void freeAll();
+    uint32_t freeAll();
 
 private:
     pr::Context* _backend = nullptr;
     resource_cache _cache;
 };
-}
+} // namespace inc::frag
