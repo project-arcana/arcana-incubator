@@ -15,6 +15,7 @@
 
 #include <dxc-wrapper/compiler.hh>
 
+#include <arcana-incubator/imgui/lib/imgui.h>
 #include <arcana-incubator/phi-util/texture_util.hh>
 
 namespace
@@ -70,7 +71,7 @@ struct ImGuiViewportDataPHI
     phi::handle::swapchain swapchain = phi::handle::null_swapchain;
 
     // Render buffers
-    unsigned frame_index = 0;
+    uint32_t frame_index = 0;
     cc::array<ImGui_ImplPHI_RenderBuffers> frame_render_buffers;
 
     ImGuiViewportDataPHI() { frame_render_buffers = frame_render_buffers.defaulted(g_num_frames_in_flight); }
@@ -110,6 +111,226 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
                                    cc::span<const std::byte> vs_data,
                                    phi::handle::resource* out_upload_buffer)
 {
+    if (!ImGui_ImplPHI_InitWithoutPSO(backend, num_frames_in_flight, target_format, out_upload_buffer))
+    {
+        return false;
+    }
+
+    // create PSO
+    phi::vertex_attribute_info vert_attrs[3];
+    uint32_t vert_size;
+    phi::arg::framebuffer_config fb_config;
+    phi::pipeline_config raster_config;
+    ImGui_ImplPHI_GetDefaultPSOConfig(target_format, vert_attrs, &vert_size, &fb_config, &raster_config);
+
+    phi::arg::vertex_format vert_format;
+    vert_format.attributes = vert_attrs;
+    vert_format.vertex_sizes_bytes[0] = vert_size;
+
+    phi::arg::shader_arg_shape shader_shape;
+    shader_shape.has_cbv = true;
+    shader_shape.num_srvs = 1;
+    shader_shape.num_samplers = 1;
+
+    phi::arg::graphics_shader shader_stages[] = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
+                                                 phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
+
+    phi::pipeline_config config;
+    config.depth = phi::depth_function::none;
+    config.cull = phi::cull_mode::none;
+
+    g_pipeline_state = backend->createPipelineState(vert_format, fb_config, cc::span{shader_shape}, false, shader_stages, config);
+
+    return true;
+}
+
+
+void ImGui_ImplPHI_Shutdown()
+{
+    if (g_backend == nullptr)
+    {
+        return;
+    }
+
+    // Manually delete main viewport render resources in-case we haven't initialized for viewports
+    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+    if (ImGuiViewportDataPHI* data = (ImGuiViewportDataPHI*)main_viewport->RendererUserData)
+    {
+        for (auto i = 0; i < g_num_frames_in_flight; i++)
+        {
+            data->frame_render_buffers[i].destroy();
+        }
+        IM_DELETE(data);
+        main_viewport->RendererUserData = nullptr;
+    }
+
+    // Clean up windows and device objects
+    ImGui_ImplPHI_ShutdownPlatformInterface();
+
+    if (g_pipeline_state.is_valid())
+    {
+        g_backend->free(g_pipeline_state);
+    }
+
+    g_backend->free(g_font_texture);
+    g_backend->free(g_font_texture_sv);
+    g_backend = nullptr;
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->TexID = nullptr;
+}
+
+void ImGui_ImplPHI_NewFrame()
+{ // nothing has to be done here
+}
+
+void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byte> out_cmdbuffer)
+{
+    CC_ASSERT(g_pipeline_state.is_valid() && "If initializing without a PSO, use ImGui_ImplPHI_RenderDrawDataWithPSO instead");
+    ImGui_ImplPHI_RenderDrawDataWithPSO(draw_data, g_pipeline_state, out_cmdbuffer);
+}
+
+void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, phi::handle::pipeline_state pso, cc::span<std::byte> out_cmdbuffer)
+{
+    CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
+    CC_ASSERT(pso.is_valid() && "PSO must be valid");
+    // Avoid rendering when minimized
+    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+    {
+        return;
+    }
+
+    ImGuiViewportDataPHI* const render_data = (ImGuiViewportDataPHI*)draw_data->OwnerViewport->RendererUserData;
+    render_data->frame_index = cc::wrapped_increment(render_data->frame_index, unsigned(g_num_frames_in_flight));
+    ImGui_ImplPHI_RenderBuffers& frame_res = render_data->frame_render_buffers[render_data->frame_index];
+
+    if (!frame_res.index_buf.is_valid() || frame_res.index_buf_size < draw_data->TotalIdxCount)
+    {
+        if (frame_res.index_buf.is_valid())
+            g_backend->free(frame_res.index_buf);
+
+        frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
+        frame_res.index_buf = g_backend->createUploadBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
+    }
+
+    if (!frame_res.vertex_buf.is_valid() || frame_res.vertex_buf_size < draw_data->TotalVtxCount)
+    {
+        if (frame_res.vertex_buf.is_valid())
+            g_backend->free(frame_res.vertex_buf);
+
+        frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
+        frame_res.vertex_buf = g_backend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
+    }
+
+    if (!frame_res.mvp_buffer.is_valid())
+    {
+        frame_res.mvp_buffer = g_backend->createUploadBuffer(sizeof(float[4][4]));
+    }
+
+    // upload vertices and indices
+    {
+        auto* const vertex_map = g_backend->mapBuffer(frame_res.vertex_buf);
+        auto* const index_map = g_backend->mapBuffer(frame_res.index_buf);
+
+        ImDrawVert* vtx_dst = (ImDrawVert*)vertex_map;
+        ImDrawIdx* idx_dst = (ImDrawIdx*)index_map;
+
+        for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+        {
+            ImDrawList const* const cmd_list = draw_data->CmdLists[n];
+            std::memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            std::memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+
+        g_backend->unmapBuffer(frame_res.vertex_buf);
+        g_backend->unmapBuffer(frame_res.index_buf);
+    }
+
+    // upload VP matrix
+    {
+        float L = draw_data->DisplayPos.x;
+        float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+        float T = draw_data->DisplayPos.y;
+        float B = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
+        float mvp[4][4] = {
+            {2.0f / (R - L), 0.0f, 0.0f, 0.0f},
+            {0.0f, 2.0f / (T - B), 0.0f, 0.0f},
+            {0.0f, 0.0f, 0.5f, 0.0f},
+            {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
+        };
+
+        auto* const const_buffer_map = g_backend->mapBuffer(frame_res.mvp_buffer);
+        std::memcpy(const_buffer_map, mvp, sizeof(mvp));
+        g_backend->unmapBuffer(frame_res.mvp_buffer);
+    }
+
+    uint32_t global_vtx_offset = 0;
+    uint32_t global_idx_offset = 0;
+    ImVec2 const clip_offset = draw_data->DisplayPos;
+
+    auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
+
+    writer.add_command(PHI_CMD_CODE_LOCATION());
+
+    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+    {
+        ImDrawList* const cmd_list = draw_data->CmdLists[n];
+        for (auto cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
+        {
+            ImDrawCmd& pcmd = cmd_list->CmdBuffer[cmd_i];
+            if (pcmd.UserCallback != nullptr)
+            {
+                if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
+                {
+                    LOG_WARN("Imgui reset render state callback not implemented");
+                }
+                else
+                {
+                    pcmd.UserCallback(cmd_list, &pcmd);
+                }
+            }
+            else
+            {
+                phi::cmd::draw dcmd;
+                dcmd.init(pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset, pcmd.VtxOffset + global_vtx_offset);
+
+                auto const shader_view = imgui_to_sv(pcmd.TextureId);
+                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
+
+                dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
+                                 int(pcmd.ClipRect.w - clip_offset.y));
+
+                writer.add_command(dcmd);
+            }
+        }
+
+        global_idx_offset += cmd_list->IdxBuffer.Size;
+        global_vtx_offset += cmd_list->VtxBuffer.Size;
+    }
+}
+
+uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
+{
+    // Avoid rendering when minimized
+    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+        return 0;
+
+    unsigned num_cmdbuffers = 0;
+    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+    {
+        num_cmdbuffers += draw_data->CmdLists[n]->CmdBuffer.Size;
+    }
+
+    // one draw per ImGui "command buffer", plus one code location marker
+    return sizeof(phi::cmd::draw) * num_cmdbuffers + sizeof(phi::cmd::code_location_marker);
+}
+
+
+bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend, int num_frames_in_flight, phi::format target_format, phi::handle::resource* out_upload_buffer)
+{
     CC_ASSERT(g_backend == nullptr && "double init");
     CC_ASSERT(backend != nullptr);
 
@@ -127,43 +348,8 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
     g_num_frames_in_flight = num_frames_in_flight;
     g_backbuf_format = target_format;
 
-    // PSO
-    {
-        phi::vertex_attribute_info vert_attrs[] = {phi::vertex_attribute_info{"POSITION", uint32_t(IM_OFFSETOF(ImDrawVert, pos)), phi::format::rg32f},
-                                                   phi::vertex_attribute_info{"TEXCOORD", uint32_t(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
-                                                   phi::vertex_attribute_info{"COLOR", uint32_t(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
-
-        phi::arg::vertex_format vert_format;
-        vert_format.attributes = vert_attrs;
-        vert_format.vertex_sizes_bytes[0] = sizeof(ImDrawVert);
-
-        phi::arg::framebuffer_config fb_format;
-        fb_format.add_render_target(target_format);
-        {
-            auto& rt = fb_format.render_targets.back();
-            rt.blend_enable = true;
-            rt.state.blend_color_src = phi::blend_factor::src_alpha;
-            rt.state.blend_color_dest = phi::blend_factor::inv_src_alpha;
-            rt.state.blend_op_color = phi::blend_op::op_add;
-            rt.state.blend_alpha_src = phi::blend_factor::inv_src_alpha;
-            rt.state.blend_alpha_dest = phi::blend_factor::zero;
-            rt.state.blend_op_alpha = phi::blend_op::op_add;
-        }
-
-        phi::arg::shader_arg_shape shader_shape;
-        shader_shape.has_cbv = true;
-        shader_shape.num_srvs = 1;
-        shader_shape.num_samplers = 1;
-
-        phi::arg::graphics_shader shader_stages[] = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
-                                                     phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
-
-        phi::pipeline_config config;
-        config.depth = phi::depth_function::none;
-        config.cull = phi::cull_mode::none;
-
-        g_pipeline_state = backend->createPipelineState(vert_format, fb_format, cc::span{shader_shape}, false, shader_stages, config);
-    }
+    // no PSO
+    g_pipeline_state = phi::handle::null_pipeline_state;
 
     // Font tex
     {
@@ -238,178 +424,52 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
     return true;
 }
 
-
-void ImGui_ImplPHI_Shutdown()
+void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
+                                       phi::vertex_attribute_info out_vert_attrs[3],
+                                       uint32_t* out_vert_size,
+                                       phi::arg::framebuffer_config* out_framebuf_conf,
+                                       phi::pipeline_config* out_raster_conf)
 {
-    if (g_backend == nullptr)
+    if (out_vert_attrs)
     {
-        return;
+        phi::vertex_attribute_info const vert_attrs[]
+            = {phi::vertex_attribute_info{"POSITION", uint32_t(IM_OFFSETOF(ImDrawVert, pos)), phi::format::rg32f},
+               phi::vertex_attribute_info{"TEXCOORD", uint32_t(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
+               phi::vertex_attribute_info{"COLOR", uint32_t(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
+
+        memcpy(out_vert_attrs, vert_attrs, sizeof(vert_attrs));
     }
 
-    // Manually delete main viewport render resources in-case we haven't initialized for viewports
-    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-    if (ImGuiViewportDataPHI* data = (ImGuiViewportDataPHI*)main_viewport->RendererUserData)
+    if (out_vert_size)
     {
-        for (auto i = 0; i < g_num_frames_in_flight; i++)
-        {
-            data->frame_render_buffers[i].destroy();
-        }
-        IM_DELETE(data);
-        main_viewport->RendererUserData = nullptr;
+        *out_vert_size = sizeof(ImDrawVert);
     }
 
-    // Clean up windows and device objects
-    ImGui_ImplPHI_ShutdownPlatformInterface();
-
-    g_backend->free(g_pipeline_state);
-    g_backend->free(g_font_texture);
-    g_backend->free(g_font_texture_sv);
-    g_backend = nullptr;
-
-    ImGuiIO& io = ImGui::GetIO();
-    io.Fonts->TexID = nullptr;
-}
-
-void ImGui_ImplPHI_NewFrame()
-{ // nothing has to be done here
-}
-
-void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byte> out_cmdbuffer)
-{
-    CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
-    // Avoid rendering when minimized
-    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+    if (out_framebuf_conf)
     {
-        return;
+        phi::arg::framebuffer_config fb_format;
+        fb_format.add_render_target(target_format);
+
+        auto& rt = fb_format.render_targets.back();
+        rt.blend_enable = true;
+        rt.state.blend_color_src = phi::blend_factor::src_alpha;
+        rt.state.blend_color_dest = phi::blend_factor::inv_src_alpha;
+        rt.state.blend_op_color = phi::blend_op::op_add;
+        rt.state.blend_alpha_src = phi::blend_factor::inv_src_alpha;
+        rt.state.blend_alpha_dest = phi::blend_factor::zero;
+        rt.state.blend_op_alpha = phi::blend_op::op_add;
+
+        *out_framebuf_conf = fb_format;
     }
 
-    ImGuiViewportDataPHI* const render_data = (ImGuiViewportDataPHI*)draw_data->OwnerViewport->RendererUserData;
-    render_data->frame_index = cc::wrapped_increment(render_data->frame_index, unsigned(g_num_frames_in_flight));
-    ImGui_ImplPHI_RenderBuffers& frame_res = render_data->frame_render_buffers[render_data->frame_index];
 
-    if (!frame_res.index_buf.is_valid() || frame_res.index_buf_size < draw_data->TotalIdxCount)
+    if (out_raster_conf)
     {
-        if (frame_res.index_buf.is_valid())
-            g_backend->free(frame_res.index_buf);
-
-        frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
-        frame_res.index_buf = g_backend->createUploadBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
+        phi::pipeline_config config;
+        config.depth = phi::depth_function::none;
+        config.cull = phi::cull_mode::none;
+        *out_raster_conf = config;
     }
-
-    if (!frame_res.vertex_buf.is_valid() || frame_res.vertex_buf_size < draw_data->TotalVtxCount)
-    {
-        if (frame_res.vertex_buf.is_valid())
-            g_backend->free(frame_res.vertex_buf);
-
-        frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
-        frame_res.vertex_buf = g_backend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
-    }
-
-    if (!frame_res.mvp_buffer.is_valid())
-    {
-        frame_res.mvp_buffer = g_backend->createUploadBuffer(sizeof(float[4][4]));
-    }
-
-    // upload vertices and indices
-    {
-        auto* const vertex_map = g_backend->mapBuffer(frame_res.vertex_buf);
-        auto* const index_map = g_backend->mapBuffer(frame_res.index_buf);
-
-        ImDrawVert* vtx_dst = (ImDrawVert*)vertex_map;
-        ImDrawIdx* idx_dst = (ImDrawIdx*)index_map;
-
-        for (auto n = 0; n < draw_data->CmdListsCount; ++n)
-        {
-            ImDrawList const* const cmd_list = draw_data->CmdLists[n];
-            std::memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-            std::memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-
-            vtx_dst += cmd_list->VtxBuffer.Size;
-            idx_dst += cmd_list->IdxBuffer.Size;
-        }
-
-        g_backend->unmapBuffer(frame_res.vertex_buf);
-        g_backend->unmapBuffer(frame_res.index_buf);
-    }
-
-    // upload VP matrix
-    {
-        float L = draw_data->DisplayPos.x;
-        float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
-        float T = draw_data->DisplayPos.y;
-        float B = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
-        float mvp[4][4] = {
-            {2.0f / (R - L), 0.0f, 0.0f, 0.0f},
-            {0.0f, 2.0f / (T - B), 0.0f, 0.0f},
-            {0.0f, 0.0f, 0.5f, 0.0f},
-            {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
-        };
-
-        auto* const const_buffer_map = g_backend->mapBuffer(frame_res.mvp_buffer);
-        std::memcpy(const_buffer_map, mvp, sizeof(mvp));
-        g_backend->unmapBuffer(frame_res.mvp_buffer);
-    }
-
-    auto global_vtx_offset = 0;
-    auto global_idx_offset = 0;
-    ImVec2 const clip_offset = draw_data->DisplayPos;
-
-    auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
-
-    writer.add_command(PHI_CMD_CODE_LOCATION());
-
-    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
-    {
-        ImDrawList* const cmd_list = draw_data->CmdLists[n];
-        for (auto cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
-        {
-            ImDrawCmd& pcmd = cmd_list->CmdBuffer[cmd_i];
-            if (pcmd.UserCallback != nullptr)
-            {
-                if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
-                {
-                    LOG_WARN("Imgui reset render state callback not implemented");
-                }
-                else
-                {
-                    pcmd.UserCallback(cmd_list, &pcmd);
-                }
-            }
-            else
-            {
-                phi::cmd::draw dcmd;
-                dcmd.init(g_pipeline_state, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
-                          pcmd.VtxOffset + global_vtx_offset);
-
-                auto const shader_view = imgui_to_sv(pcmd.TextureId);
-                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
-
-                dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
-                                 int(pcmd.ClipRect.w - clip_offset.y));
-
-                writer.add_command(dcmd);
-            }
-        }
-
-        global_idx_offset += cmd_list->IdxBuffer.Size;
-        global_vtx_offset += cmd_list->VtxBuffer.Size;
-    }
-}
-
-unsigned ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
-{
-    // Avoid rendering when minimized
-    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
-        return 0;
-
-    unsigned num_cmdbuffers = 0;
-    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
-    {
-        num_cmdbuffers += draw_data->CmdLists[n]->CmdBuffer.Size;
-    }
-
-    // one draw per ImGui "command buffer", plus one code location marker
-    return sizeof(phi::cmd::draw) * num_cmdbuffers + sizeof(phi::cmd::code_location_marker);
 }
 
 //--------------------------------------------------------------------------------------------------------
