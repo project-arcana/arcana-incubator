@@ -45,4 +45,4 @@ IMGUI_IMPL_API void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
                                                       phi::vertex_attribute_info out_vert_attrs[3],
                                                       uint32_t* out_vert_size,
                                                       phi::arg::framebuffer_config* out_framebuf_conf,
-                                                      phi::pipeline_config* out_raster_conf);
+                                                      phi::arg::pipeline_config* out_raster_conf);

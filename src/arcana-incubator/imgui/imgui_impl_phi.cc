@@ -117,29 +117,17 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
     }
 
     // create PSO
+    phi::arg::graphics_pipeline_state_description psoDesc = {};
+
     phi::vertex_attribute_info vert_attrs[3];
-    uint32_t vert_size;
-    phi::arg::framebuffer_config fb_config;
-    phi::pipeline_config raster_config;
-    ImGui_ImplPHI_GetDefaultPSOConfig(target_format, vert_attrs, &vert_size, &fb_config, &raster_config);
+    ImGui_ImplPHI_GetDefaultPSOConfig(target_format, vert_attrs, &psoDesc.vertices.vertex_sizes_bytes[0], &psoDesc.framebuffer, &psoDesc.config);
 
-    phi::arg::vertex_format vert_format;
-    vert_format.attributes = vert_attrs;
-    vert_format.vertex_sizes_bytes[0] = vert_size;
+    psoDesc.vertices.attributes = vert_attrs;
+    psoDesc.root_signature.shader_arg_shapes.push_back({1, 0, 1, true});
+    psoDesc.shader_binaries = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
+                               phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
 
-    phi::arg::shader_arg_shape shader_shape;
-    shader_shape.has_cbv = true;
-    shader_shape.num_srvs = 1;
-    shader_shape.num_samplers = 1;
-
-    phi::arg::graphics_shader shader_stages[] = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
-                                                 phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
-
-    phi::pipeline_config config;
-    config.depth = phi::depth_function::none;
-    config.cull = phi::cull_mode::none;
-
-    g_pipeline_state = backend->createPipelineState(vert_format, fb_config, cc::span{shader_shape}, false, shader_stages, config);
+    g_pipeline_state = backend->createPipelineState(psoDesc, "ImGui_ImplPHI PSO");
 
     return true;
 }
@@ -428,7 +416,7 @@ void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
                                        phi::vertex_attribute_info out_vert_attrs[3],
                                        uint32_t* out_vert_size,
                                        phi::arg::framebuffer_config* out_framebuf_conf,
-                                       phi::pipeline_config* out_raster_conf)
+                                       phi::arg::pipeline_config* out_raster_conf)
 {
     if (out_vert_attrs)
     {
@@ -465,7 +453,7 @@ void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
 
     if (out_raster_conf)
     {
-        phi::pipeline_config config;
+        phi::arg::pipeline_config config;
         config.depth = phi::depth_function::none;
         config.cull = phi::cull_mode::none;
         *out_raster_conf = config;

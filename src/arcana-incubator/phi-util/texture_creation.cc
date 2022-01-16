@@ -43,25 +43,29 @@ void inc::texture_creator::initialize(phi::Backend& backend, char const* shader_
 
     // load mip generation shaders
     {
-        cc::capped_vector<arg::shader_arg_shape, 1> shader_payload;
+        phi::arg::compute_pipeline_state_description psoDesc = {};
         {
             arg::shader_arg_shape shape;
             shape.has_cbv = false;
             shape.num_srvs = 1;
             shape.num_uavs = 1;
             shape.num_samplers = 0;
-            shader_payload.push_back(shape);
+            psoDesc.root_signature.shader_arg_shapes.push_back(shape);
         }
 
         auto const sb_mipgen = get_shader_binary(shader_path, "mipgen", shader_ending);
-        auto const sb_mipgen_gamma = get_shader_binary(shader_path, "mipgen_gamma", shader_ending);
         auto const sb_mipgen_array = get_shader_binary(shader_path, "mipgen_array", shader_ending);
-
+        auto const sb_mipgen_gamma = get_shader_binary(shader_path, "mipgen_gamma", shader_ending);
         CC_RUNTIME_ASSERT(sb_mipgen.is_valid() && sb_mipgen_gamma.is_valid() && sb_mipgen_array.is_valid() && "failed to load shaders");
 
-        pso_mipgen = backend.createComputePipelineState(shader_payload, {sb_mipgen.get(), sb_mipgen.size()});
-        pso_mipgen_gamma = backend.createComputePipelineState(shader_payload, {sb_mipgen_gamma.get(), sb_mipgen_gamma.size()});
-        pso_mipgen_array = backend.createComputePipelineState(shader_payload, {sb_mipgen_array.get(), sb_mipgen_array.size()});
+        psoDesc.shader = {sb_mipgen.get(), sb_mipgen.size()};
+        pso_mipgen = backend.createComputePipelineState(psoDesc);
+
+        psoDesc.shader = {sb_mipgen_gamma.get(), sb_mipgen_gamma.size()};
+        pso_mipgen_gamma = backend.createComputePipelineState(psoDesc);
+
+        psoDesc.shader = {sb_mipgen_array.get(), sb_mipgen_array.size()};
+        pso_mipgen_array = backend.createComputePipelineState(psoDesc);
     }
 
     // load IBL preparation shaders
@@ -375,7 +379,8 @@ void inc::texture_creator::generate_mips(handle::resource resource, const inc::a
         matching_pso = apply_gamma ? pso_mipgen_gamma : pso_mipgen;
     }
 
-    auto const record_barriers = [this](cc::span<cmd::transition_image_slices::slice_transition_info const> slice_barriers) {
+    auto const record_barriers = [this](cc::span<cmd::transition_image_slices::slice_transition_info const> slice_barriers)
+    {
         cmd::transition_image_slices tcmd;
 
         for (auto const& ti : slice_barriers)
