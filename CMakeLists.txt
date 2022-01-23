@@ -6,6 +6,7 @@ if (NOT TARGET clean-core)
 endif()
 
 option(INC_ENABLE_IMGUI_FREETYPE "Use FreeType instead of stb_truetype for ImGui fonts" OFF)
+option(INC_ENABLE_IMGUI_PHI_BINDLESS "Use bindless textures in the ImGui PHI Backend" OFF)
 
 # =========================================
 # define library
@@ -40,4 +41,8 @@ if (INC_ENABLE_IMGUI_FREETYPE)
 		target_link_libraries(arcana-incubator PUBLIC libfreetype)
 		target_compile_definitions(arcana-incubator PUBLIC IMGUI_ENABLE_FREETYPE)
 	endif()
+endif()
+
+if (INC_ENABLE_IMGUI_PHI_BINDLESS)
+	target_compile_definitions(arcana-incubator PUBLIC INC_ENABLE_IMGUI_PHI_BINDLESS=1)
 endif()

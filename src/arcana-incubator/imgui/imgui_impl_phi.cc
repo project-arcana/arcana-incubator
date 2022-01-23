@@ -18,8 +18,27 @@
 #include <arcana-incubator/imgui/lib/imgui.h>
 #include <arcana-incubator/phi-util/texture_util.hh>
 
+#ifndef INC_ENABLE_IMGUI_PHI_BINDLESS
+#define INC_ENABLE_IMGUI_PHI_BINDLESS 0
+#endif
+
 namespace
 {
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+[[nodiscard]] uint32_t imgui_to_bindless(ImTextureID itd)
+{
+    uint32_t res;
+    std::memcpy(&res, &itd, sizeof(res));
+    return res;
+}
+
+[[nodiscard]] ImTextureID bindless_to_imgui(uint32_t srv)
+{
+    ImTextureID res;
+    std::memcpy(&res, &srv, sizeof(srv));
+    return res;
+}
+#else
 [[nodiscard]] phi::handle::shader_view imgui_to_sv(ImTextureID itd)
 {
     phi::handle::shader_view res;
@@ -33,6 +52,7 @@ namespace
     std::memcpy(&res, &sv, sizeof(sv));
     return res;
 }
+#endif
 
 phi::Backend* g_backend = nullptr;
 int g_num_frames_in_flight = 0;
@@ -109,7 +129,8 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
                                    phi::format target_format,
                                    cc::span<const std::byte> ps_data,
                                    cc::span<const std::byte> vs_data,
-                                   phi::handle::resource* out_upload_buffer)
+                                   phi::handle::resource* out_upload_buffer,
+                                   phi::arg::root_signature_description const* opt_root_sig)
 {
     if (!ImGui_ImplPHI_InitWithoutPSO(backend, num_frames_in_flight, target_format, out_upload_buffer))
     {
@@ -123,7 +144,20 @@ bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
     ImGui_ImplPHI_GetDefaultPSOConfig(target_format, vert_attrs, &psoDesc.vertices.vertex_sizes_bytes[0], &psoDesc.framebuffer, &psoDesc.config);
 
     psoDesc.vertices.attributes = vert_attrs;
-    psoDesc.root_signature.shader_arg_shapes.push_back({1, 0, 1, true});
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    CC_ASSERT(opt_root_sig != nullptr && "PHI ImGui Bindless backend is enabled, a custom root signature is required");
+#endif
+
+    if (opt_root_sig != nullptr)
+    {
+        psoDesc.root_signature = *opt_root_sig;
+    }
+    else
+    {
+        psoDesc.root_signature.shader_arg_shapes.push_back({1, 0, 1, true});
+    }
+
     psoDesc.shader_binaries = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
                                phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
 
@@ -161,7 +195,13 @@ void ImGui_ImplPHI_Shutdown()
     }
 
     g_backend->free(g_font_texture);
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+
+#else
     g_backend->free(g_font_texture_sv);
+#endif
+
     g_backend = nullptr;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -174,11 +214,20 @@ void ImGui_ImplPHI_NewFrame()
 
 void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byte> out_cmdbuffer)
 {
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    CC_ASSERT(false && "Must use custom PSO with PHI ImGui bindless Backend (see ImGui_ImplPHI_InitWithoutPSO and ImGui_ImplPHI_RenderDrawDataWithPSO)");
+#else
     CC_ASSERT(g_pipeline_state.is_valid() && "If initializing without a PSO, use ImGui_ImplPHI_RenderDrawDataWithPSO instead");
     ImGui_ImplPHI_RenderDrawDataWithPSO(draw_data, g_pipeline_state, out_cmdbuffer);
+#endif
 }
 
-void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, phi::handle::pipeline_state pso, cc::span<std::byte> out_cmdbuffer)
+void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
+                                         phi::handle::pipeline_state pso,
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+                                         phi::handle::shader_view sv,
+#endif
+                                         cc::span<std::byte> out_cmdbuffer)
 {
     CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
     CC_ASSERT(pso.is_valid() && "PSO must be valid");
@@ -285,8 +334,14 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, phi::handl
                 phi::cmd::draw dcmd;
                 dcmd.init(pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset, pcmd.VtxOffset + global_vtx_offset);
 
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, sv);
+
+                dcmd.write_root_constants(imgui_to_bindless(pcmd.TextureId));
+#else
                 auto const shader_view = imgui_to_sv(pcmd.TextureId);
                 dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
+#endif
 
                 dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
                                  int(pcmd.ClipRect.w - clip_offset.y));
@@ -317,7 +372,14 @@ uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
 }
 
 
-bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend, int num_frames_in_flight, phi::format target_format, phi::handle::resource* out_upload_buffer)
+bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend,
+                                  int num_frames_in_flight,
+                                  phi::format target_format,
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+                                  phi::handle::resource* out_font_texture,
+#endif
+                                  phi::handle::resource* out_upload_buffer)
 {
     CC_ASSERT(g_backend == nullptr && "double init");
     CC_ASSERT(backend != nullptr);
@@ -347,13 +409,6 @@ bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend, int num_frames_in_fligh
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         g_font_texture = backend->createTexture(phi::format::rgba8un, {width, height}, 1);
 
-        phi::resource_view tex_sve;
-        tex_sve.init_as_tex2d(g_font_texture, phi::format::rgba8un);
-
-        phi::sampler_config sampler;
-        sampler.init_default(phi::sampler_filter::min_mag_mip_linear);
-
-        g_font_texture_sv = backend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
 
         bool const is_d3d12 = backend->getBackendType() == phi::backend_type::d3d12;
 
@@ -380,7 +435,22 @@ bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend, int num_frames_in_fligh
             backend->submit(cc::span{cmdl});
         }
 
-        io.Fonts->TexID = sv_to_imgui(g_font_texture_sv);
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+        CC_ASSERT(out_font_texture != nullptr);
+        *out_font_texture = g_font_texture;
+#else
+        // create shader view
+        {
+            phi::resource_view tex_sve;
+            tex_sve.init_as_tex2d(g_font_texture, phi::format::rgba8un);
+
+            phi::sampler_config sampler;
+            sampler.init_default(phi::sampler_filter::min_mag_mip_linear);
+
+            g_font_texture_sv = backend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
+            io.Fonts->TexID = sv_to_imgui(g_font_texture_sv);
+        }
+#endif
 
         if (out_upload_buffer != nullptr)
         {
