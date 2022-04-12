@@ -212,13 +212,13 @@ void ImGui_ImplPHI_NewFrame()
 { // nothing has to be done here
 }
 
-void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byte> out_cmdbuffer)
+void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, phi::handle::live_command_list list)
 {
 #if INC_ENABLE_IMGUI_PHI_BINDLESS
     CC_ASSERT(false && "Must use custom PSO with PHI ImGui bindless Backend (see ImGui_ImplPHI_InitWithoutPSO and ImGui_ImplPHI_RenderDrawDataWithPSO)");
 #else
     CC_ASSERT(g_pipeline_state.is_valid() && "If initializing without a PSO, use ImGui_ImplPHI_RenderDrawDataWithPSO instead");
-    ImGui_ImplPHI_RenderDrawDataWithPSO(draw_data, g_pipeline_state, out_cmdbuffer);
+    ImGui_ImplPHI_RenderDrawDataWithPSO(draw_data, g_pipeline_state, list);
 #endif
 }
 
@@ -227,10 +227,12 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
 #if INC_ENABLE_IMGUI_PHI_BINDLESS
                                          phi::handle::shader_view sv,
 #endif
-                                         cc::span<std::byte> out_cmdbuffer)
+                                         phi::handle::live_command_list list)
 {
     CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
     CC_ASSERT(pso.is_valid() && "PSO must be valid");
+    CC_ASSERT(list.is_valid() && "Command list must be valid");
+
     // Avoid rendering when minimized
     if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
     {
@@ -308,10 +310,6 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
     uint32_t global_idx_offset = 0;
     ImVec2 const clip_offset = draw_data->DisplayPos;
 
-    auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
-
-    writer.add_command(PHI_CMD_CODE_LOCATION());
-
     for (auto n = 0; n < draw_data->CmdListsCount; ++n)
     {
         ImDrawList* const cmd_list = draw_data->CmdLists[n];
@@ -346,7 +344,7 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
                 dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
                                  int(pcmd.ClipRect.w - clip_offset.y));
 
-                writer.add_command(dcmd);
+                g_backend->cmdDraw(list, dcmd);
             }
         }
 
@@ -583,35 +581,33 @@ static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* viewport, void*)
     if (!backbuffer.is_valid())
         return;
 
-    unsigned const drawdata_command_size = ImGui_ImplPHI_GetDrawDataCommandSize(viewport->DrawData);
-    cc::array<std::byte> buffer = cc::array<std::byte>::uninitialized(2 * sizeof(phi::cmd::transition_resources) + sizeof(phi::cmd::begin_render_pass)
-                                                                      + sizeof(phi::cmd::end_render_pass) + drawdata_command_size
-                                                                      + sizeof(phi::cmd::begin_debug_label) + +sizeof(phi::cmd::end_debug_label));
 
-    phi::command_stream_writer writer(buffer.data(), buffer.size_bytes());
+    phi::handle::live_command_list list = g_backend->openLiveCommandList();
 
-    writer.add_command(phi::cmd::begin_debug_label("ImGui_ImplPHI_RenderWindow"));
+    g_backend->cmdBeginDebugLabel(list, phi::cmd::begin_debug_label("ImGui_ImplPHI_RenderWindow"));
 
-    auto& tcmd = writer.emplace_command<phi::cmd::transition_resources>();
+    phi::cmd::transition_resources tcmd;
     tcmd.add(backbuffer, phi::resource_state::render_target);
+    g_backend->cmdTransitionResources(list, tcmd);
 
-    auto& bcmd = writer.emplace_command<phi::cmd::begin_render_pass>();
+    phi::cmd::begin_render_pass bcmd;
     bcmd.add_backbuffer_rt(backbuffer, true);
     bcmd.set_null_depth_stencil();
     bcmd.viewport.width = int(viewport->Size.x);
     bcmd.viewport.height = int(viewport->Size.y);
+    g_backend->cmdBeginRenderPass(list, bcmd);
 
-    ImGui_ImplPHI_RenderDrawData(viewport->DrawData, {writer.buffer_head(), size_t(writer.remaining_bytes())});
-    writer.advance_cursor(drawdata_command_size);
+    ImGui_ImplPHI_RenderDrawData(viewport->DrawData, list);
 
-    writer.add_command(phi::cmd::end_render_pass{});
+    g_backend->cmdEndRenderPass(list, phi::cmd::end_render_pass{});
 
-    auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
+    phi::cmd::transition_resources tcmd2;
     tcmd2.add(backbuffer, phi::resource_state::present);
+    g_backend->cmdTransitionResources(list, tcmd2);
 
-    writer.add_command(phi::cmd::end_debug_label());
+    g_backend->cmdEndDebugLabel(list, phi::cmd::end_debug_label());
 
-    auto const cmdlist = g_backend->recordCommandList(writer.buffer(), writer.size());
+    auto const cmdlist = g_backend->closeLiveCommandList(list);
     g_backend->submit(cc::span{cmdlist});
 }
 
@@ -633,4 +629,7 @@ void ImGui_ImplPHI_InitPlatformInterface()
     platform_io.Renderer_SwapBuffers = ImGui_ImplPHI_SwapBuffers;
 }
 
-void ImGui_ImplPHI_ShutdownPlatformInterface() { ImGui::DestroyPlatformWindows(); }
+void ImGui_ImplPHI_ShutdownPlatformInterface()
+{
+    ImGui::DestroyPlatformWindows();
+}

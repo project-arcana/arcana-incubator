@@ -523,8 +523,8 @@ void inc::imgui_render(pr::raii::Frame& frame)
 
     ImGui::Render();
     auto* const drawdata = ImGui::GetDrawData();
-    auto const framesize = ImGui_ImplPHI_GetDrawDataCommandSize(drawdata);
-    ImGui_ImplPHI_RenderDrawData(drawdata, {frame.write_raw_bytes(framesize), framesize});
+
+    ImGui_ImplPHI_RenderDrawData(drawdata, frame.get_list_handle());
 }
 
 void inc::imgui_viewport_update(bool render)
@@ -540,4 +540,7 @@ void inc::imgui_viewport_update(bool render)
     }
 }
 
-void inc::imgui_discard_frame() { ImGui::EndFrame(); }
+void inc::imgui_discard_frame()
+{
+    ImGui::EndFrame();
+}

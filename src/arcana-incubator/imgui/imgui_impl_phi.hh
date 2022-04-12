@@ -20,7 +20,7 @@ IMGUI_IMPL_API void ImGui_ImplPHI_Shutdown();
 IMGUI_IMPL_API void ImGui_ImplPHI_NewFrame();
 
 // writes draw commands to out_cmdbuffer
-IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawData(ImDrawData const* draw_data, cc::span<std::byte> out_cmdbuffer);
+IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawData(ImDrawData const* draw_data, phi::handle::live_command_list list);
 
 // writes draw commands to out_cmdbuffer, drawing with a custom PSO
 IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data,
@@ -28,10 +28,7 @@ IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_d
 #if INC_ENABLE_IMGUI_PHI_BINDLESS
                                                         phi::handle::shader_view sv,
 #endif
-                                                        cc::span<std::byte> out_cmdbuffer);
-
-// returns the minimum size of out_cmdbuffer when calling _RenderDrawData
-IMGUI_IMPL_API uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(ImDrawData const* draw_data);
+                                                        phi::handle::live_command_list list);
 
 // Initializes with provided shader binaries, without compiling embedded ones
 // out_upload_buffer: if non-null, the internally created upload buffer is written to this address instead of flushing and destroying it
