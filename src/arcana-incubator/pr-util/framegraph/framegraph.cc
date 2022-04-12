@@ -166,7 +166,8 @@ void inc::frag::GraphBuilder::calculateBarriers()
         if (pass.is_culled)
             continue;
 
-        auto f_add_barrier = [&](virtual_res_idx virtual_res, access_mode mode) {
+        auto f_add_barrier = [&](virtual_res_idx virtual_res, access_mode mode)
+        {
             if (!mode.is_set())
                 return;
 
@@ -190,11 +191,12 @@ void inc::frag::GraphBuilder::calculateBarriers()
     }
 }
 
-void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing, int timer_offset)
+void inc::frag::GraphBuilder::executePasses(pr::raii::Frame* frame, size_t start, size_t end, pre::timestamp_bundle* timing, int timer_offset)
 {
     CC_CONTRACT(frame != nullptr);
+    CC_ASSERT(end <= mPasses.size() && "pass amount out of bounds");
 
-    for (auto i = 0u; i < mPasses.size(); ++i)
+    for (auto i = start; i < end; ++i)
     {
         auto const& pass = mPasses[i];
         if (pass.is_culled)
@@ -208,7 +210,7 @@ void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestam
             if (timing)
                 timing->begin_timing(*frame, i + timer_offset);
 
-            exec_context exec_ctx = {i, this, frame};
+            exec_context exec_ctx = {(pass_idx)i, this, frame};
             pass.execute_func(exec_ctx);
 
             if (timing)
@@ -216,6 +218,11 @@ void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestam
             frame->end_debug_label();
         }
     }
+}
+
+void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing, int timer_offset)
+{
+    executePasses(frame, 0, mPasses.size(), timing, timer_offset);
 }
 
 void inc::frag::GraphBuilder::reset()
@@ -388,7 +395,10 @@ void inc::frag::GraphBuilder::initialize(cc::allocator* alloc, unsigned max_num_
     mPhysicalResources.reset_reserve(alloc, max_num_guids);
 }
 
-void inc::frag::GraphBuilder::destroy() { reset(); }
+void inc::frag::GraphBuilder::destroy()
+{
+    reset();
+}
 
 void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache, cc::allocator* alloc)
 {

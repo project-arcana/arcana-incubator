@@ -63,6 +63,12 @@ public:
     void printState() const;
 
     // 4.
+    size_t getNumPasses() const { return mPasses.size(); }
+
+    // execute a subrange of passes
+    void executePasses(pr::raii::Frame* frame, size_t start, size_t end, pre::timestamp_bundle* timing = nullptr, int timer_offset = 0);
+
+    // execute all passes
     void execute(pr::raii::Frame* frame, pre::timestamp_bundle* timing = nullptr, int timer_offset = 0);
 
     // after execute
@@ -367,4 +373,4 @@ pass_idx GraphBuilder::addPass(char const* debug_name, cc::function_ref<void(Pas
 
     return new_pass_idx;
 }
-}
+} // namespace inc::frag
