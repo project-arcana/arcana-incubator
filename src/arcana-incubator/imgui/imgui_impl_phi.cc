@@ -525,14 +525,16 @@ bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend,
     {
         unsigned char* pixels;
         int width, height;
-
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        g_font_texture = backend->createTexture(phi::format::rgba8un, {width, height}, 1);
 
+        auto const fontDesc = phi::arg::texture_description::create_tex(phi::format::rgba8un, {width, height});
+
+        g_font_texture = backend->createTexture(fontDesc, "ImGui Font Texture");
 
         bool const is_d3d12 = backend->getBackendType() == phi::backend_type::d3d12;
 
-        uint32_t const upbuff_size = phi::util::get_texture_size_bytes({width, height, 1}, phi::format::rgba8un, 1, is_d3d12);
+
+        uint32_t const upbuff_size = phi::util::get_texture_size_bytes_on_gpu(fontDesc, is_d3d12);
         phi::handle::resource temp_upload_buffer
             = backend->createBuffer(upbuff_size, 0, phi::resource_heap::upload, false, "ImGui_ImplPHI_InitWithShaders Upload Buffer");
 
