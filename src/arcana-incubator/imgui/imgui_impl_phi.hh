@@ -30,6 +30,14 @@ IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_d
 #endif
                                                         phi::handle::live_command_list list);
 
+// returns the minimum size of out_cmdbuffer when calling _RenderDrawDataToBuffer
+// NOTE: Deprecated! Prefer ImGui_ImplPHI_RenderDrawData which does not need this call
+IMGUI_IMPL_API uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(ImDrawData const* draw_data);
+
+// writes draw commands to out_cmdbuffer
+// NOTE: Deprecated! Prefer ImGui_ImplPHI_RenderDrawData
+IMGUI_IMPL_API void ImGui_ImplPHI_RenderDrawDataToBuffer(ImDrawData const* draw_data, cc::span<std::byte> out_cmdbuffer);
+
 // Initializes with provided shader binaries, without compiling embedded ones
 // out_upload_buffer: if non-null, the internally created upload buffer is written to this address instead of flushing and destroying it
 // opt_root_sig: if non-null, use this root signature description instead of the default one

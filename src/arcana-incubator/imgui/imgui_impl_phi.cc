@@ -369,6 +369,128 @@ uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
     return sizeof(phi::cmd::draw) * num_cmdbuffers + sizeof(phi::cmd::code_location_marker);
 }
 
+void ImGui_ImplPHI_RenderDrawDataToBuffer(ImDrawData const* draw_data, cc::span<std::byte> out_cmdbuffer)
+{
+    CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
+    CC_ASSERT(g_pipeline_state.is_valid() && "PSO must be valid");
+    // Avoid rendering when minimized
+    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+    {
+        return;
+    }
+
+    ImGuiViewportDataPHI* const render_data = (ImGuiViewportDataPHI*)draw_data->OwnerViewport->RendererUserData;
+    render_data->frame_index = cc::wrapped_increment(render_data->frame_index, unsigned(g_num_frames_in_flight));
+    ImGui_ImplPHI_RenderBuffers& frame_res = render_data->frame_render_buffers[render_data->frame_index];
+
+    if (!frame_res.index_buf.is_valid() || frame_res.index_buf_size < draw_data->TotalIdxCount)
+    {
+        if (frame_res.index_buf.is_valid())
+            g_backend->free(frame_res.index_buf);
+
+        frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
+        frame_res.index_buf = g_backend->createUploadBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
+    }
+
+    if (!frame_res.vertex_buf.is_valid() || frame_res.vertex_buf_size < draw_data->TotalVtxCount)
+    {
+        if (frame_res.vertex_buf.is_valid())
+            g_backend->free(frame_res.vertex_buf);
+
+        frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
+        frame_res.vertex_buf = g_backend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
+    }
+
+    if (!frame_res.mvp_buffer.is_valid())
+    {
+        frame_res.mvp_buffer = g_backend->createUploadBuffer(sizeof(float[4][4]));
+    }
+
+    // upload vertices and indices
+    {
+        auto* const vertex_map = g_backend->mapBuffer(frame_res.vertex_buf);
+        auto* const index_map = g_backend->mapBuffer(frame_res.index_buf);
+
+        ImDrawVert* vtx_dst = (ImDrawVert*)vertex_map;
+        ImDrawIdx* idx_dst = (ImDrawIdx*)index_map;
+
+        for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+        {
+            ImDrawList const* const cmd_list = draw_data->CmdLists[n];
+            std::memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            std::memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+
+        g_backend->unmapBuffer(frame_res.vertex_buf);
+        g_backend->unmapBuffer(frame_res.index_buf);
+    }
+
+    // upload VP matrix
+    {
+        float L = draw_data->DisplayPos.x;
+        float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+        float T = draw_data->DisplayPos.y;
+        float B = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
+        float mvp[4][4] = {
+            {2.0f / (R - L), 0.0f, 0.0f, 0.0f},
+            {0.0f, 2.0f / (T - B), 0.0f, 0.0f},
+            {0.0f, 0.0f, 0.5f, 0.0f},
+            {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
+        };
+
+        auto* const const_buffer_map = g_backend->mapBuffer(frame_res.mvp_buffer);
+        std::memcpy(const_buffer_map, mvp, sizeof(mvp));
+        g_backend->unmapBuffer(frame_res.mvp_buffer);
+    }
+
+    uint32_t global_vtx_offset = 0;
+    uint32_t global_idx_offset = 0;
+    ImVec2 const clip_offset = draw_data->DisplayPos;
+
+    auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
+
+    writer.add_command(PHI_CMD_CODE_LOCATION());
+
+    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+    {
+        ImDrawList* const cmd_list = draw_data->CmdLists[n];
+        for (auto cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
+        {
+            ImDrawCmd& pcmd = cmd_list->CmdBuffer[cmd_i];
+            if (pcmd.UserCallback != nullptr)
+            {
+                if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
+                {
+                    LOG_WARN("Imgui reset render state callback not implemented");
+                }
+                else
+                {
+                    pcmd.UserCallback(cmd_list, &pcmd);
+                }
+            }
+            else
+            {
+                phi::cmd::draw dcmd;
+                dcmd.init(g_pipeline_state, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset, pcmd.VtxOffset + global_vtx_offset);
+
+                auto const shader_view = imgui_to_sv(pcmd.TextureId);
+                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
+
+                dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
+                                 int(pcmd.ClipRect.w - clip_offset.y));
+
+                writer.add_command(dcmd);
+            }
+        }
+
+        global_idx_offset += cmd_list->IdxBuffer.Size;
+        global_vtx_offset += cmd_list->VtxBuffer.Size;
+    }
+}
+
 
 bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend,
                                   int num_frames_in_flight,
@@ -629,7 +751,4 @@ void ImGui_ImplPHI_InitPlatformInterface()
     platform_io.Renderer_SwapBuffers = ImGui_ImplPHI_SwapBuffers;
 }
 
-void ImGui_ImplPHI_ShutdownPlatformInterface()
-{
-    ImGui::DestroyPlatformWindows();
-}
+void ImGui_ImplPHI_ShutdownPlatformInterface() { ImGui::DestroyPlatformWindows(); }
