@@ -474,9 +474,12 @@ void ImGui_ImplPHI_RenderDrawDataToBuffer(ImDrawData const* draw_data, cc::span<
             else
             {
                 phi::cmd::draw dcmd;
-                dcmd.init(g_pipeline_state, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset, pcmd.VtxOffset + global_vtx_offset);
+                dcmd.init(g_pipeline_state, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
+                          pcmd.VtxOffset + global_vtx_offset);
 
-                auto const shader_view = imgui_to_sv(pcmd.TextureId);
+                phi::handle::shader_view shader_view;
+                std::memcpy(&shader_view, &pcmd.TextureId, sizeof(shader_view));
+
                 dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
 
                 dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
@@ -753,4 +756,7 @@ void ImGui_ImplPHI_InitPlatformInterface()
     platform_io.Renderer_SwapBuffers = ImGui_ImplPHI_SwapBuffers;
 }
 
-void ImGui_ImplPHI_ShutdownPlatformInterface() { ImGui::DestroyPlatformWindows(); }
+void ImGui_ImplPHI_ShutdownPlatformInterface()
+{
+    ImGui::DestroyPlatformWindows();
+}
