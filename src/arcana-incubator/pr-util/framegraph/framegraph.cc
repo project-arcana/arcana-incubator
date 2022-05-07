@@ -294,7 +294,7 @@ void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timi
                 ImGui::Text("%2d", int(pass.imports.size()));
 
                 ImGui::TableSetColumnIndex(6);
-                float const time = timing->get_last_timing(i);
+                float const time = timing ? timing->get_last_timing(i) : 0.f;
                 time_sum += time;
                 ImGui::Text("% 2.3fms", time);
 
