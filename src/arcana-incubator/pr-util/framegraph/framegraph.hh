@@ -50,13 +50,6 @@ public:
     template <class PassDataT, class ExecF>
     pass_idx addPass(char const* debug_name, cc::function_ref<void(PassDataT&, setup_context&)> setup_func, ExecF&& exec_func);
 
-    // after all passes are added, before compile
-    [[nodiscard]] res_handle promoteRootResource(res_guid_t guid)
-    {
-        makeResourceRoot(guid);
-        return getGuidState(guid).get_handle();
-    }
-
     // 3.
     void compile(GraphCache& cache, cc::allocator* alloc);
 
@@ -72,8 +65,6 @@ public:
     void execute(pr::raii::Frame* frame, pre::timestamp_bundle* timing = nullptr, int timer_offset = 0);
 
     // after execute
-    physical_resource const& getRootResource(res_handle handle) { return getPhysical(handle); }
-
     void performInfoImgui(pre::timestamp_bundle const* timing, bool* isWindowOpen = nullptr) const;
 
 private:
