@@ -111,23 +111,19 @@ private:
         uint8_t state = 0;
 
         physical_res_idx associated_physical = gc_invalid_physical_res;
-        pr::hashable_storage<phi::arg::resource_description> resource_info;
+        phi::arg::resource_description resource_info;
         pr::resource imported_resource;
 
-        virtual_resource(res_guid_t guid, phi::arg::resource_description const& info) : initial_guid(guid) { _copy_info(info); }
+        virtual_resource(res_guid_t guid, phi::arg::resource_description const& info) : initial_guid(guid), resource_info(info) { }
 
         virtual_resource(res_guid_t guid, pr::resource import_resource, phi::arg::resource_description const& info)
-          : initial_guid(guid), state(sb_imported), imported_resource(import_resource)
+          : initial_guid(guid), state(sb_imported), resource_info(info), imported_resource(import_resource)
         {
-            _copy_info(info);
         }
 
         bool is_root() const { return !!(state & sb_root); }
         bool is_culled() const { return !!(state & sb_culled); }
         bool is_imported() const { return !!(state & sb_imported); }
-
-    private:
-        void _copy_info(phi::arg::resource_description const& info);
     };
 
     struct internal_pass

@@ -143,7 +143,7 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
             // LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
         }
 
-        mPhysicalResources.push_back({physical, virt.resource_info.get()});
+        mPhysicalResources.push_back({physical, virt.resource_info});
         virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);
     }
 }
@@ -478,24 +478,6 @@ inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::
     }
 
     return mGuidStates.emplace_back(guid);
-}
-
-void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::resource_description& info)
-{
-    // this little game is required to maintain the hashable_storage
-    resource_info.get().type = info.type;
-
-    switch (info.type)
-    {
-    case phi::arg::resource_description::e_resource_texture:
-        resource_info.get().info_texture = info.info_texture;
-        break;
-    case phi::arg::resource_description::e_resource_buffer:
-        resource_info.get().info_buffer = info.info_buffer;
-        break;
-    case phi::arg::resource_description::e_resource_undefined:
-        break;
-    }
 }
 
 void inc::frag::GraphBuilder::guid_state::on_create(inc::frag::virtual_res_idx new_res)

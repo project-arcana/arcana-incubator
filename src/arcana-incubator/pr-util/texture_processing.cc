@@ -142,8 +142,8 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
         }
 
         pr::argument arg;
-        arg.add(pr::resource_view_2d(texture, texInfo.fmt, level - 1).tex_array(0, texInfo.depth_or_array_size));
-        arg.add_mutable(pr::resource_view_2d(texture, texInfo.fmt, level).tex_array(0, texInfo.depth_or_array_size));
+        arg.add(pr::view::tex2d_array(texture, texInfo.fmt, 0, texInfo.depth_or_array_size, false, level - 1, 1));
+        arg.add_mutable(pr::view::tex2d_array(texture, texInfo.fmt, 0, texInfo.depth_or_array_size, false, level, 1));
 
         frame.transition_slices(pre_dispatch);
 
@@ -208,7 +208,7 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
 
             pr::argument arg;
             arg.add(res.unfiltered_env);
-            arg.add_mutable(pr::resource_view_cube(res.filtered_env, pr::format::rgba16f).mips(level, 1));
+            arg.add_mutable(pr::view::texcube(res.filtered_env.data.handle, pr::format::rgba16f, level, 1));
             arg.add_sampler(phi::sampler_filter::min_mag_mip_linear);
 
             auto pass = frame.make_pass(pso_specular_map_filter).bind(arg);
