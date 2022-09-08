@@ -1,5 +1,7 @@
 #include "imgui_impl_phi.hh"
 
+#include <stdio.h>
+
 #include <rich-log/log.hh>
 
 #include <clean-core/array.hh>
@@ -662,87 +664,96 @@ void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
 //--------------------------------------------------------------------------------------------------------
 
 
-static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* viewport)
+static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* pViewport)
 {
     ImGuiViewportDataPHI* data = IM_NEW(ImGuiViewportDataPHI)();
-    viewport->RendererUserData = data;
+    pViewport->RendererUserData = data;
 
     // PlatformHandleRaw should always be a HWND, whereas PlatformHandle might be a higher-level handle (e.g. GLFWWindow*, SDL_Window*).
     // Some back-ends will leave PlatformHandleRaw NULL, in which case we assume PlatformHandle will contain the HWND.
-    SDL_Window* const sdl_window = static_cast<SDL_Window*>(viewport->PlatformHandle);
+    SDL_Window* const sdl_window = static_cast<SDL_Window*>(pViewport->PlatformHandle);
     CC_ASSERT(sdl_window != nullptr);
 
-    data->swapchain = g_backend->createSwapchain({sdl_window}, {int(viewport->Size.x), int(viewport->Size.y)});
+	char debugname[64] = {};
+	snprintf(debugname, sizeof(debugname), "ImGuiViewport#%x", pViewport->ID);
+
+    data->swapchain = g_backend->createSwapchain({sdl_window}, {int(pViewport->Size.x), int(pViewport->Size.y)}, phi::present_mode::synced, 3, debugname);
 }
 
-static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* viewport)
+static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* pViewport)
 {
     // The main viewport (owned by the application) will always have RendererUserData == NULL since we didn't create the data for it.
-    if (ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData)
+    if (ImGuiViewportDataPHI* const pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData)
     {
-        if (data->swapchain.is_valid())
+        if (pData->swapchain.is_valid())
         {
-            g_backend->free(data->swapchain);
+            g_backend->free(pData->swapchain);
         }
 
-        for (auto& render_buf : data->frame_render_buffers)
+        for (auto& render_buf : pData->frame_render_buffers)
         {
             render_buf.destroy();
         }
-        IM_DELETE(data);
+        IM_DELETE(pData);
     }
-    viewport->RendererUserData = nullptr;
+    pViewport->RendererUserData = nullptr;
 }
 
-static void ImGui_ImplPHI_SetWindowSize(ImGuiViewport* viewport, ImVec2 size)
+static void ImGui_ImplPHI_SetWindowSize(ImGuiViewport* pViewport, ImVec2 size)
 {
-    ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
-    g_backend->onResize(data->swapchain, {int(size.x), int(size.y)});
+    ImGuiViewportDataPHI* const pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData;
+    g_backend->onResize(pData->swapchain, {int(size.x), int(size.y)});
 }
 
-static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* viewport, void*)
+// This function is called for all non-main windows spawned by the "ImGui Viewport" feature
+static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* pViewport, void* pRenderDataVoid)
 {
-    ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
+    CC_ASSERT(pRenderDataVoid && "Must provide a ImGui_ImplPHI_RendererRenderData* to the second argument to ImGui::RenderPlatformWindowsDefault");
 
-    auto const backbuffer = g_backend->acquireBackbuffer(data->swapchain);
-    if (!backbuffer.is_valid())
+    struct ImGui_ImplPHI_RendererRenderData* const pRenderData = static_cast<struct ImGui_ImplPHI_RendererRenderData*>(pRenderDataVoid);
+
+    phi::handle::live_command_list const hList = pRenderData->hList;
+    CC_ASSERT(hList.is_valid() && "PHI Backend requires a valid handle::live_command_list");
+
+    ImGuiViewportDataPHI* const pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData;
+
+    auto const hBackbuffer = g_backend->acquireBackbuffer(pData->swapchain);
+    if (!hBackbuffer.is_valid())
         return;
 
-
-    phi::handle::live_command_list list = g_backend->openLiveCommandList();
-
-    g_backend->cmdBeginDebugLabel(list, phi::cmd::begin_debug_label("ImGui_ImplPHI_RenderWindow"));
+    g_backend->cmdBeginDebugLabel(hList, phi::cmd::begin_debug_label("ImGui_ImplPHI_RenderWindow"));
 
     phi::cmd::transition_resources tcmd;
-    tcmd.add(backbuffer, phi::resource_state::render_target);
-    g_backend->cmdTransitionResources(list, tcmd);
+    tcmd.add(hBackbuffer, phi::resource_state::render_target);
+    g_backend->cmdTransitionResources(hList, tcmd);
 
     phi::cmd::begin_render_pass bcmd;
-    bcmd.add_backbuffer_rt(backbuffer, true);
+    bcmd.add_backbuffer_rt(hBackbuffer, true);
     bcmd.set_null_depth_stencil();
-    bcmd.viewport.width = int(viewport->Size.x);
-    bcmd.viewport.height = int(viewport->Size.y);
-    g_backend->cmdBeginRenderPass(list, bcmd);
+    bcmd.viewport.width = int(pViewport->Size.x);
+    bcmd.viewport.height = int(pViewport->Size.y);
+    g_backend->cmdBeginRenderPass(hList, bcmd);
 
-    ImGui_ImplPHI_RenderDrawData(viewport->DrawData, list);
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    CC_ASSERT(pRenderData->hPSO.is_valid() && pRenderData->hSV.is_valid() && "Bindless mode requires a valid PSO and Shader View in ImGui_ImplPHI_RendererRenderData");
+    ImGui_ImplPHI_RenderDrawDataWithPSO(pViewport->DrawData, pRenderData->hPSO, pRenderData->hSV, hList);
+#else
+    ImGui_ImplPHI_RenderDrawDataWithPSO(pViewport->DrawData, pRenderData->hPSO.is_valid() ? pRenderData->hPSO : g_pipeline_state, hList);
+#endif
 
-    g_backend->cmdEndRenderPass(list, phi::cmd::end_render_pass{});
+    g_backend->cmdEndRenderPass(hList, phi::cmd::end_render_pass{});
 
     phi::cmd::transition_resources tcmd2;
-    tcmd2.add(backbuffer, phi::resource_state::present);
-    g_backend->cmdTransitionResources(list, tcmd2);
+    tcmd2.add(hBackbuffer, phi::resource_state::present);
+    g_backend->cmdTransitionResources(hList, tcmd2);
 
-    g_backend->cmdEndDebugLabel(list, phi::cmd::end_debug_label());
-
-    auto const cmdlist = g_backend->closeLiveCommandList(list);
-    g_backend->submit(cc::span{cmdlist});
+    g_backend->cmdEndDebugLabel(hList, phi::cmd::end_debug_label());
 }
 
-static void ImGui_ImplPHI_SwapBuffers(ImGuiViewport* viewport, void*)
+static void ImGui_ImplPHI_SwapBuffers(ImGuiViewport* pViewport, void*)
 {
-    ImGuiViewportDataPHI* data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
-
-    g_backend->present(data->swapchain);
+    ImGuiViewportDataPHI* pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData;
+    g_backend->present(pData->swapchain);
 }
 
 

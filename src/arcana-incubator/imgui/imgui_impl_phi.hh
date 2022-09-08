@@ -5,6 +5,7 @@
 #include <clean-core/fwd.hh>
 
 #include <phantasm-hardware-interface/fwd.hh>
+#include <phantasm-hardware-interface/handles.hh>
 
 #ifndef IMGUI_API
 #define IMGUI_API
@@ -67,3 +68,18 @@ IMGUI_IMPL_API void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
                                                       uint32_t* out_vert_size,
                                                       phi::arg::framebuffer_config* out_framebuf_conf,
                                                       phi::arg::pipeline_config* out_raster_conf);
+
+// A pointer to this struct must be passed as the second argument to
+// ImGui::RenderPlatformWindowsDefault (Only required for Viewport feature)
+struct ImGui_ImplPHI_RendererRenderData
+{
+    // The live command list to record viewport drawcalls to
+    phi::handle::live_command_list hList = {};
+    // The custom PSO to use - if invalid, the default PSO is used
+    phi::handle::pipeline_state hPSO = {};
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    // The bindless shaderview to use
+    phi::handle::shader_view hSV = {};
+#endif
+};

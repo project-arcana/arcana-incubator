@@ -527,15 +527,17 @@ void inc::imgui_render(pr::raii::Frame& frame)
     ImGui_ImplPHI_RenderDrawData(drawdata, frame.get_list_handle());
 }
 
-void inc::imgui_viewport_update(bool render)
+void inc::imgui_viewport_update(pr::raii::Frame* pFrame)
 {
     if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
     {
         ImGui::UpdatePlatformWindows();
 
-        if (render)
+        if (pFrame)
         {
-            ImGui::RenderPlatformWindowsDefault(nullptr, nullptr);
+			ImGui_ImplPHI_RendererRenderData viewportData = {};
+			viewportData.hList = pFrame->get_list_handle();
+            ImGui::RenderPlatformWindowsDefault(nullptr, &viewportData);
         }
     }
 }
