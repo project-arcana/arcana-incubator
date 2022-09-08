@@ -17,6 +17,9 @@
 // https://github.com/ocornut/imgui
 
 #pragma once
+
+#include <stdint.h>
+
 #include "lib/imgui.h" // IMGUI_IMPL_API
 
 struct SDL_Window;
@@ -30,3 +33,7 @@ IMGUI_IMPL_API void ImGui_ImplSDL2_Shutdown();
 IMGUI_IMPL_API void ImGui_ImplSDL2_NewFrame(SDL_Window* window);
 IMGUI_IMPL_API void ImGui_ImplSDL2_NewFrameWithoutInput(SDL_Window* window);
 IMGUI_IMPL_API bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event);
+
+// Returns the bitwise OR of window flags (SDL_GetWindowFlags) of all SDL windows spawned by ImGui Viewports
+// This allows testing if any viewport window is hovered or focused
+IMGUI_IMPL_API uint32_t ImGui_ImplSDL2_GetAllViewportWindowFlagsBitOR();
