@@ -20,7 +20,7 @@ bool inc::pre::is_shader_present(const char* path, const char* path_prefix)
     std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, "spv");
     return std::fstream(name_formatted).good();
 }
-cc::pair<pr::auto_shader_binary, phi::unique_buffer> inc::pre::load_shader(
+cc::pair<pr::auto_shader_binary, inc::unique_buffer> inc::pre::load_shader(
     pr::Context& ctx, const char* path, phi::shader_stage stage, char const* path_prefix, char const* file_ending_override)
 {
     char const* const ending = file_ending_override ? file_ending_override : ctx.get_backend().getBackendType() == phi::backend_type::d3d12 ? "dxil" : "spv";
@@ -28,7 +28,7 @@ cc::pair<pr::auto_shader_binary, phi::unique_buffer> inc::pre::load_shader(
     char name_formatted[1024];
     std::snprintf(name_formatted, sizeof(name_formatted), "%s%s.%s", path_prefix, path, ending);
 
-    auto buffer = phi::unique_buffer::create_from_binary_file(name_formatted);
+    auto buffer = inc::unique_buffer::create_from_binary_file(name_formatted);
     CC_RUNTIME_ASSERT(buffer.is_valid() && "failed to load shader");
 
     auto pr_shader = ctx.make_shader(buffer, stage);

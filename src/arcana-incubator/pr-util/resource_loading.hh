@@ -2,11 +2,12 @@
 
 #include <clean-core/pair.hh>
 
-#include <phantasm-hardware-interface/common/container/unique_buffer.hh>
 #include <phantasm-hardware-interface/types.hh>
 
 #include <phantasm-renderer/fwd.hh>
 #include <phantasm-renderer/resource_types.hh>
+
+#include <arcana-incubator/phi-util/unique_buffer.hh>
 
 namespace inc::assets
 {
@@ -25,7 +26,7 @@ struct pr_mesh
 
 /// loads a shader (binary) from disk and returns a pr::auto_shader_binary
 /// usage: auto [vs, b1] = load_shader(ctx, "post/bloom_ps", phi::shader_stage::vertex, "res/shaders/bin/");
-[[nodiscard]] cc::pair<pr::auto_shader_binary, phi::unique_buffer> load_shader(
+[[nodiscard]] cc::pair<pr::auto_shader_binary, inc::unique_buffer> load_shader(
     pr::Context& ctx, char const* path, phi::shader_stage stage, char const* path_prefix = "", char const* file_ending_override = nullptr);
 
 /// loads a .obj or binary mesh from disk to GPU
@@ -33,4 +34,4 @@ struct pr_mesh
 
 /// loads a mesh from memory to GPU
 [[nodiscard]] pr_mesh load_mesh(pr::Context& ctx, cc::span<uint32_t const> indices, cc::span<inc::assets::simple_vertex const> vertices);
-}
+} // namespace inc::pre

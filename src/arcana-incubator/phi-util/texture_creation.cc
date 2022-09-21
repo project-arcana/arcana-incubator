@@ -15,6 +15,7 @@
 
 #include <arcana-incubator/phi-util/shader_util.hh>
 #include <arcana-incubator/phi-util/texture_util.hh>
+#include <arcana-incubator/phi-util/unique_buffer.hh>
 
 using namespace phi;
 
@@ -134,7 +135,10 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
         auto const is_hdr = phi::util::get_format_size_bytes(format) / num_components > 1;
         img_data = inc::assets::load_image(path, img_size, static_cast<int>(num_components), is_hdr);
     }
-    CC_DEFER { inc::assets::free(img_data); };
+    CC_DEFER
+    {
+        inc::assets::free(img_data);
+    };
 
     CC_RUNTIME_ASSERT(inc::assets::is_valid(img_data) && "failed to load texture");
 
