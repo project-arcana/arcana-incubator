@@ -119,7 +119,7 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
         matching_pso = apply_gamma ? pso_mipgen_gamma : pso_mipgen;
     }
 
-    frame.transition(texture, pr::state::shader_resource, phi::shader_stage::compute);
+    frame.transition(texture, pr::state::shader_resource, phi::shader_stage_flags::compute);
 
     auto pass = frame.make_pass(matching_pso);
 
@@ -133,12 +133,12 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
 
         for (auto arraySlice = 0u; arraySlice < texInfo.depth_or_array_size; ++arraySlice)
         {
-            pre_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{texture.handle, pr::state::shader_resource,
-                                                                                            pr::state::unordered_access, phi::shader_stage::compute,
-                                                                                            phi::shader_stage::compute, int(level), int(arraySlice)});
-            post_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{texture.handle, pr::state::unordered_access,
-                                                                                             pr::state::shader_resource, phi::shader_stage::compute,
-                                                                                             phi::shader_stage::compute, int(level), int(arraySlice)});
+            pre_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{
+                texture.handle, pr::state::shader_resource, pr::state::unordered_access, phi::shader_stage_flags::compute,
+                phi::shader_stage_flags::compute, int(level), int(arraySlice)});
+            post_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{
+                texture.handle, pr::state::unordered_access, pr::state::shader_resource, phi::shader_stage_flags::compute,
+                phi::shader_stage_flags::compute, int(level), int(arraySlice)});
         }
 
         pr::argument arg;
@@ -180,8 +180,8 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
     // equirect to cubemap
     {
         auto _label = frame.scoped_debug_label("texture_processing - load_filtered_specular_map - equirect to cubemap");
-        frame.transition(res.equirect_tex, pr::state::shader_resource, phi::shader_stage::compute);
-        frame.transition(res.unfiltered_env, pr::state::unordered_access, phi::shader_stage::compute);
+        frame.transition(res.equirect_tex, pr::state::shader_resource, phi::shader_stage_flags::compute);
+        frame.transition(res.unfiltered_env, pr::state::unordered_access, phi::shader_stage_flags::compute);
 
         pr::argument arg;
         arg.add(res.equirect_tex);
@@ -199,8 +199,8 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
         auto _label = frame.scoped_debug_label("texture_processing - load_filtered_specular_map - prefilter specular");
         frame.copy(res.unfiltered_env, res.filtered_env, 0);
 
-        frame.transition(res.unfiltered_env, pr::state::shader_resource, phi::shader_stage::compute);
-        frame.transition(res.filtered_env, pr::state::unordered_access, phi::shader_stage::compute);
+        frame.transition(res.unfiltered_env, pr::state::shader_resource, phi::shader_stage_flags::compute);
+        frame.transition(res.filtered_env, pr::state::unordered_access, phi::shader_stage_flags::compute);
 
         for (auto level = 1, size = 512; level < cube_num_mips; ++level, size /= 2)
         {
@@ -234,8 +234,8 @@ pr::auto_texture inc::pre::texture_processing::create_diffuse_irradiance_map(pr:
     auto _label = frame.scoped_debug_label("texture_processing - create_diffuse_irradiance_map");
     auto t_irradiance = frame.context().make_texture_cube({cube_width_height, cube_width_height}, pr::format::rgba16f, 1, true);
 
-    frame.transition(t_irradiance, pr::state::unordered_access, phi::shader_stage::compute);
-    frame.transition(unfiltered_env_cube, pr::state::shader_resource_nonpixel, phi::shader_stage::compute);
+    frame.transition(t_irradiance, pr::state::unordered_access, phi::shader_stage_flags::compute);
+    frame.transition(unfiltered_env_cube, pr::state::shader_resource_nonpixel, phi::shader_stage_flags::compute);
 
     pr::argument arg;
     arg.add(unfiltered_env_cube);
@@ -254,7 +254,7 @@ pr::auto_texture inc::pre::texture_processing::create_brdf_lut(pr::raii::Frame& 
 
     auto t_lut = frame.context().make_texture({width, height}, pr::format::rgba16un, 1, true);
 
-    frame.transition(t_lut, pr::state::unordered_access, phi::shader_stage::compute);
+    frame.transition(t_lut, pr::state::unordered_access, phi::shader_stage_flags::compute);
 
     pr::argument arg;
     arg.add_mutable(t_lut);

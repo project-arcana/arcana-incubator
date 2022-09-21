@@ -556,7 +556,7 @@ bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend,
             backend->unmapBuffer(temp_upload_buffer);
 
             auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
-            tcmd2.add(g_font_texture, phi::resource_state::shader_resource, phi::shader_stage::pixel);
+            tcmd2.add(g_font_texture, phi::resource_state::shader_resource, phi::shader_stage_flags::pixel);
 
             auto const cmdl = backend->recordCommandList(writer.buffer(), writer.size());
             backend->submit(cc::span{cmdl});
