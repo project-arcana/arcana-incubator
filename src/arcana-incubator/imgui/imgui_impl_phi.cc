@@ -669,15 +669,31 @@ static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* pViewport)
     ImGuiViewportDataPHI* data = IM_NEW(ImGuiViewportDataPHI)();
     pViewport->RendererUserData = data;
 
+
+    phi::window_handle windowHandle;
+
     // PlatformHandleRaw should always be a HWND, whereas PlatformHandle might be a higher-level handle (e.g. GLFWWindow*, SDL_Window*).
     // Some back-ends will leave PlatformHandleRaw NULL, in which case we assume PlatformHandle will contain the HWND.
-    SDL_Window* const sdl_window = static_cast<SDL_Window*>(pViewport->PlatformHandle);
-    CC_ASSERT(sdl_window != nullptr);
 
-	char debugname[64] = {};
-	snprintf(debugname, sizeof(debugname), "ImGuiViewport#%x", pViewport->ID);
+#if defined(CC_OS_WINDOWS)
+    if (pViewport->PlatformHandleRaw != nullptr)
+    {
+        windowHandle = phi::window_handle(::HWND(pViewport->PlatformHandleRaw));
+    }
+    else
+    {
+        CC_ASSERT(pViewport->PlatformHandle != nullptr);
+        windowHandle = phi::window_handle(static_cast<SDL_Window*>(pViewport->PlatformHandle));
+    }
+#else
+    CC_ASSERT(pViewport->PlatformHandle != nullptr);
+    windowHandle = phi::window_handle(static_cast<SDL_Window*>(pViewport->PlatformHandle));
+#endif
 
-    data->swapchain = g_backend->createSwapchain({sdl_window}, {int(pViewport->Size.x), int(pViewport->Size.y)}, phi::present_mode::synced, 3, debugname);
+    char debugname[64] = {};
+    snprintf(debugname, sizeof(debugname), "ImGuiViewport#%x", pViewport->ID);
+
+    data->swapchain = g_backend->createSwapchain(windowHandle, {int(pViewport->Size.x), int(pViewport->Size.y)}, phi::present_mode::synced, 3, debugname);
 }
 
 static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* pViewport)
