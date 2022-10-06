@@ -693,7 +693,9 @@ static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* pViewport)
     char debugname[64] = {};
     snprintf(debugname, sizeof(debugname), "ImGuiViewport#%x", pViewport->ID);
 
-    data->swapchain = g_backend->createSwapchain(windowHandle, {int(pViewport->Size.x), int(pViewport->Size.y)}, phi::present_mode::synced, 3, debugname);
+    // use the most "lax" present mode so we never bottleneck the main window with this present
+    data->swapchain = g_backend->createSwapchain(windowHandle, {int(pViewport->Size.x), int(pViewport->Size.y)},
+                                                 phi::present_mode::unsynced_allow_tearing, 3, debugname);
 }
 
 static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* pViewport)
