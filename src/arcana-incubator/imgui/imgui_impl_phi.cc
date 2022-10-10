@@ -331,6 +331,14 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
             }
             else
             {
+                auto const scissorLeft = int(pcmd.ClipRect.x - clip_offset.x);
+                auto const scissorTop = int(pcmd.ClipRect.y - clip_offset.y);
+                auto const scissorRight = int(pcmd.ClipRect.z - clip_offset.x);
+                auto const scissorBot = int(pcmd.ClipRect.w - clip_offset.y);
+
+                if (scissorLeft >= scissorRight || scissorTop >= scissorBot)
+                    continue;
+
                 phi::cmd::draw dcmd;
                 dcmd.init(pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset, pcmd.VtxOffset + global_vtx_offset);
 
@@ -343,8 +351,7 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
                 dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
 #endif
 
-                dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
-                                 int(pcmd.ClipRect.w - clip_offset.y));
+                dcmd.set_scissor(scissorLeft, scissorTop, scissorRight, scissorBot);
 
                 g_backend->cmdDraw(list, dcmd);
             }
