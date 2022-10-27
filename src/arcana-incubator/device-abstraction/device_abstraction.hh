@@ -18,7 +18,7 @@ void shutdown();
 class SDLWindow
 {
 public:
-    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true);
+    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true, bool start_hidden = false);
     void destroy();
 
     SDLWindow() = default;
@@ -89,6 +89,10 @@ public:
 
     //
     // display mode
+
+	void hideWindow();
+
+	void showWindow();
 
     /// set the display mode, only affects fullscreen
     /// returns true on success

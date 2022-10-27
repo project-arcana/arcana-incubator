@@ -116,15 +116,22 @@ bool inc::da::setProcessHighDPIAware()
 #endif
 }
 
-void inc::da::shutdown() { SDL_Quit(); }
+void inc::da::shutdown()
+{
+    SDL_Quit();
+}
 
-void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool enable_vulkan)
+void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool enable_vulkan, bool start_hidden)
 {
     CC_ASSERT(mWindow == nullptr && "double init");
 
     uint32_t flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+
     if (enable_vulkan)
         flags |= SDL_WINDOW_VULKAN;
+
+    if (start_hidden)
+        flags |= SDL_WINDOW_HIDDEN;
 
     mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, size.width, size.height, flags);
 
@@ -239,6 +246,16 @@ void inc::da::SDLWindow::setWindowed()
     DA_SDL_VERIFY(SDL_SetWindowFullscreen(mWindow, 0));
 }
 
+void inc::da::SDLWindow::hideWindow()
+{
+    SDL_HideWindow(mWindow);
+}
+
+void inc::da::SDLWindow::showWindow()
+{
+    SDL_ShowWindow(mWindow);
+}
+
 bool inc::da::SDLWindow::setDisplayMode(tg::isize2 resolution, int refresh_rate)
 {
     SDL_DisplayMode mode = {SDL_PIXELFORMAT_BGRA8888, resolution.width, resolution.height, refresh_rate, nullptr};
@@ -255,9 +272,15 @@ void inc::da::SDLWindow::setDesktopDisplayMode()
     DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
 }
 
-int inc::da::SDLWindow::getNumDisplays() { return SDL_GetNumVideoDisplays(); }
+int inc::da::SDLWindow::getNumDisplays()
+{
+    return SDL_GetNumVideoDisplays();
+}
 
-int inc::da::SDLWindow::getNumDisplayModes(int monitor_index) { return SDL_GetNumDisplayModes(monitor_index); }
+int inc::da::SDLWindow::getNumDisplayModes(int monitor_index)
+{
+    return SDL_GetNumDisplayModes(monitor_index);
+}
 
 bool inc::da::SDLWindow::getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate)
 {
