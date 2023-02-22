@@ -54,15 +54,15 @@ void inc::da::initialize(bool enable_controllers)
     int const initResult = SDL_Init(init_flags);
     if (initResult < 0)
     {
-        LOG_INFO(R"(SDL_Init returned an error: "{}")", SDL_GetError());
-        LOG_INFO("Execution can likely continue");
+        LOG(R"(SDL_Init returned an error: "{}")", SDL_GetError());
+        LOG("Execution can likely continue");
     }
 
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));
 
     SDL_version version;
     SDL_GetVersion(&version);
-    LOG_INFO("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
+    LOG("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
 }
 
 bool inc::da::setProcessHighDPIAware()
