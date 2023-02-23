@@ -124,7 +124,7 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
     {
         if (virt.is_culled())
         {
-            // LOG_INFO("skipped virtual resource with initial GUID {} (culled)", virt.initial_guid);
+            // RICH_LOG_INFO("skipped virtual resource with initial GUID {} (culled)", virt.initial_guid);
             continue;
         }
 
@@ -133,14 +133,14 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
         if (virt.is_imported())
         {
             physical = virt.imported_resource;
-            // LOG_INFO("imported virtual resource with initial GUID {}", virt.initial_guid);
+            // RICH_LOG_INFO("imported virtual resource with initial GUID {}", virt.initial_guid);
         }
         else
         {
             char namebuf[256];
             std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%" PRIu64 "]", virt.initial_guid);
             physical = cache.get(virt.resource_info, namebuf);
-            // LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
+            // RICH_LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
         }
 
         mPhysicalResources.push_back({physical, virt.resource_info});
@@ -414,33 +414,33 @@ void inc::frag::GraphBuilder::printState() const
         if (pass.is_culled)
             continue;
 
-        LOG("pass {}{}", pass.debug_name, pass.is_root_pass ? ", root" : "");
+        RICH_LOG("pass {}{}", pass.debug_name, pass.is_root_pass ? ", root" : "");
 
         for (auto const& create : pass.creates)
         {
-            LOG("  <* create {} v0", create.res);
+            RICH_LOG("  <* create {} v0", create.res);
         }
         for (auto const& import : pass.imports)
         {
-            LOG("  <# import {} v0", import.res);
+            RICH_LOG("  <# import {} v0", import.res);
         }
         for (auto const& read : pass.reads)
         {
-            LOG("  -> read {} v{}", read.res, read.version_before);
+            RICH_LOG("  -> read {} v{}", read.res, read.version_before);
         }
         for (auto const& write : pass.writes)
         {
-            LOG("  <- write {} v{}", write.res, write.version_before);
+            RICH_LOG("  <- write {} v{}", write.res, write.version_before);
         }
         for (auto const& move : pass.moves)
         {
-            LOG("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
+            RICH_LOG("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
         }
     }
 
     for (auto const& guidstate : mGuidStates)
     {
-        LOG("guid {}, state {}, virtual res {}, v{}", guidstate.guid, guidstate.state, guidstate.virtual_res, guidstate.virtual_res_version);
+        RICH_LOG("guid {}, state {}, virtual res {}, v{}", guidstate.guid, guidstate.state, guidstate.virtual_res, guidstate.virtual_res_version);
     }
 
     for (auto const& res : mVirtualResources)
@@ -448,7 +448,7 @@ void inc::frag::GraphBuilder::printState() const
         if (res.is_culled())
             continue;
 
-        LOG("resource {}", res.initial_guid);
+        RICH_LOG("resource {}", res.initial_guid);
     }
 }
 

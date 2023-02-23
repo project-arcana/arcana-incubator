@@ -54,15 +54,15 @@ void inc::da::initialize(bool enable_controllers)
     int const initResult = SDL_Init(init_flags);
     if (initResult < 0)
     {
-        LOG(R"(SDL_Init returned an error: "{}")", SDL_GetError());
-        LOG("Execution can likely continue");
+        RICH_LOG(R"(SDL_Init returned an error: "{}")", SDL_GetError());
+        RICH_LOG("Execution can likely continue");
     }
 
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));
 
     SDL_version version;
     SDL_GetVersion(&version);
-    LOG("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
+    RICH_LOG("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
 }
 
 bool inc::da::setProcessHighDPIAware()
@@ -268,7 +268,7 @@ void inc::da::SDLWindow::setDesktopDisplayMode()
 {
     SDL_DisplayMode mode;
     DA_SDL_VERIFY(SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(mWindow), &mode));
-    // LOG_TRACE("Desktop Display Mode: {}x{}@{}Hz", mode.w, mode.h, mode.refresh_rate);
+    // RICH_LOG_TRACE("Desktop Display Mode: {}x{}@{}Hz", mode.w, mode.h, mode.refresh_rate);
     DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
 }
 
@@ -372,7 +372,7 @@ void inc::da::SDLWindow::queryAndTriggerResize()
 
 void inc::da::SDLWindow::onResizeEvent(int w, int h, bool minimized)
 {
-    // LOG_TRACE("{} {}x{} ({})", __FUNCTION__, w, h, minimized);
+    // RICH_LOG_TRACE("{} {}x{} ({})", __FUNCTION__, w, h, minimized);
     if (mWidth == w && mHeight == h && mIsMinimized == minimized)
         return;
 

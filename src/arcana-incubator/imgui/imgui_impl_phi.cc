@@ -322,7 +322,7 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
             {
                 if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
                 {
-                    LOG_WARN("Imgui reset render state callback not implemented");
+                    RICH_LOG_WARN("Imgui reset render state callback not implemented");
                 }
                 else
                 {
@@ -473,7 +473,7 @@ void ImGui_ImplPHI_RenderDrawDataToBuffer(ImDrawData const* draw_data, cc::span<
             {
                 if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
                 {
-                    LOG_WARN("Imgui reset render state callback not implemented");
+                    RICH_LOG_WARN("Imgui reset render state callback not implemented");
                 }
                 else
                 {
