@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdlib>
+#include <clean-core/allocator.hh>
 
 #include <phantasm-hardware-interface/commands.hh>
 
@@ -8,11 +8,15 @@ namespace inc
 {
 struct growing_writer
 {
-    growing_writer(size_t initial_size) { _writer.initialize(static_cast<std::byte*>(std::malloc(initial_size)), initial_size); }
+    growing_writer(size_t initial_size, cc::allocator* pAlloc)
+    {
+        _alloc = pAlloc;
+        _writer.initialize(static_cast<std::byte*>(_alloc->alloc(initial_size)), initial_size);
+    }
 
-    growing_writer() : growing_writer(1024) {}
+    growing_writer() : growing_writer(1024, cc::system_allocator) {}
 
-    ~growing_writer() { std::free(_writer.buffer()); }
+    ~growing_writer() { _alloc->free(_writer.buffer()); }
 
     void reset() { _writer.reset(); }
 
@@ -38,11 +42,7 @@ struct growing_writer
         if (!_writer.can_accomodate(num_bytes))
         {
             size_t const new_size = (_writer.max_size() + num_bytes) << 1;
-            std::byte* const new_buffer = static_cast<std::byte*>(std::malloc(new_size));
-
-            std::memcpy(new_buffer, _writer.buffer(), _writer.size());
-
-            std::free(_writer.buffer());
+            std::byte* const new_buffer = static_cast<std::byte*>(_alloc->realloc(_writer.buffer(), _writer.max_size(), new_size));
             _writer.exchange_buffer(new_buffer, new_size);
         }
     }
@@ -51,6 +51,7 @@ struct growing_writer
 
 private:
     phi::command_stream_writer _writer;
+    cc::allocator* _alloc;
 };
 
-}
+} // namespace inc

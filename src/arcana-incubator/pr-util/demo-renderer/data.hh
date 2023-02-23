@@ -7,6 +7,10 @@
 
 namespace inc::pre::dmr
 {
+/// calculates a view ray based on the mouse position, normalized (in [0,1])
+/// assumes reverse inf Z
+tg::ray3 calculate_camera_view_ray(tg::pos3 campos, tg::mat4 vp_inv, tg::vec2 mousepos_normalized);
+
 struct camera_gpudata
 {
     tg::mat4 proj;              ///< projection matrix, jittered
@@ -21,6 +25,8 @@ struct camera_gpudata
     tg::mat4 prev_clean_vp_inv; ///< inverse of unjittered (proj * view) from previous frame
 
     void fill_data(tg::isize2 res, tg::pos3 campos, tg::vec3 camforward, unsigned halton_index, tg::angle fov = 60_deg, float nearplane = 0.1f);
+
+    void fill_data(tg::mat4 const& proj, tg::mat4 const& clean_proj, tg::mat4 const& view);
 
     /// returns the camera position, reading it out of the inverse view matrix
     tg::pos3 extract_campos() const { return tg::pos3(view_inv[3]); }
@@ -58,4 +64,4 @@ struct frame_index_state
     unsigned current() const { return current_frame_index; }
     unsigned next() const { return cc::wrapped_increment(current_frame_index, num_backbuffers); }
 };
-}
+} // namespace inc::pre::dmr

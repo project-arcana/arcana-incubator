@@ -548,6 +548,18 @@ struct ImGuiViewportDataSDL2
     ~ImGuiViewportDataSDL2() { IM_ASSERT(Window == NULL && GLContext == NULL); }
 };
 
+uint32_t ImGui_ImplSDL2_GetAllViewportWindowFlagsBitOR()
+{
+	uint32_t res = 0;
+	ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+	for (int i = 1; i < platform_io.Viewports.Size; i++)
+	{
+		ImGuiViewportDataSDL2* data = (ImGuiViewportDataSDL2*)platform_io.Viewports[i]->PlatformUserData;
+		res |= SDL_GetWindowFlags(data->Window);
+	}
+	return res;
+}
+
 static void ImGui_ImplSDL2_CreateWindow(ImGuiViewport* viewport)
 {
     ImGuiViewportDataSDL2* data = IM_NEW(ImGuiViewportDataSDL2)();

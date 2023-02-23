@@ -18,7 +18,11 @@ struct fps_cam_state
     tg::vec3 forward = tg::vec3(0, 0, 1);
 
     void move_relative(tg::vec3 distance);
+
     void mouselook(float dx, float dy);
+    
+    void mousestrafe(float dx, float dy, float speed = 75.f);
+    
     void set_focus(tg::pos3 focus, tg::vec3 global_offset);
 };
 
@@ -44,9 +48,12 @@ struct smooth_fps_cam
 };
 
 /// Smoothed lerp alpha, framerate-correct
+/// lower smoothing -> higher alphas
 inline float smooth_lerp_alpha(float smoothing, float dt) { return 1 - std::pow(smoothing, dt); }
+
 /// Exponential decay alpha, framerate-correct damp / lerp
 inline float exponential_decay_alpha(float lambda, float dt) { return 1 - std::exp(-lambda * dt); }
+
 /// alpha based on the halftime between current and target state
 inline float halftime_lerp_alpha(float halftime, float dt) { return 1 - std::pow(.5f, dt / halftime); }
 
@@ -55,14 +62,15 @@ tg::quat forward_to_rotation(tg::vec3 fwd, tg::vec3 up = {0, 1, 0});
 /// calculates the halton sequence for temporal jittering, in [0,1]
 constexpr float halton_sequence(int index, int base)
 {
-    float f = 1.f;
-    float r = 0.f;
+    float res = 0.f;
+    float base_inv = 1.f / base;
+    float f = base_inv;
     while (index > 0)
     {
-        f = f / float(base);
-        r = r + f * float(index % base);
-        index = index / base;
+        res += (index % base) * f;
+        index /= base;
+        f *= base_inv;
     }
-    return r;
+    return res;
 }
-}
+} // namespace inc::da

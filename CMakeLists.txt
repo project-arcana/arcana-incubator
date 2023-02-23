@@ -5,6 +5,9 @@ if (NOT TARGET clean-core)
     message(FATAL_ERROR "[arcana-incubator] clean-core must be available")
 endif()
 
+option(INC_ENABLE_IMGUI_FREETYPE "Use FreeType instead of stb_truetype for ImGui fonts" OFF)
+option(INC_ENABLE_IMGUI_PHI_BINDLESS "Use bindless textures in the ImGui PHI Backend" OFF)
+
 # =========================================
 # define library
 
@@ -26,10 +29,20 @@ target_link_libraries(arcana-incubator PUBLIC
     sdl2
 )
 
-# =========================================
-# set up compile flags
-
 if (MSVC)
     # For device_tentative
     target_link_libraries(arcana-incubator PRIVATE "Shcore.lib")
+endif()
+
+if (INC_ENABLE_IMGUI_FREETYPE)
+	if (NOT TARGET libfreetype)
+		message(FATAL_ERROR "[Arcana Incubator] When enabling INC_ENABLE_IMGUI_FREETYPE, a target 'libfreetype' must be available")
+	else()
+		target_link_libraries(arcana-incubator PUBLIC libfreetype)
+		target_compile_definitions(arcana-incubator PUBLIC IMGUI_ENABLE_FREETYPE)
+	endif()
+endif()
+
+if (INC_ENABLE_IMGUI_PHI_BINDLESS)
+	target_compile_definitions(arcana-incubator PUBLIC INC_ENABLE_IMGUI_PHI_BINDLESS=1)
 endif()

@@ -60,7 +60,7 @@ void inc::frag::run_floodcull(cc::span<int> producers,
                         int& resource_refcount = resources[read.resource_index];
                         resource_refcount--;
 
-                        CC_ASSERT(resource_refcount > 0 && "read resource at unexpected refcount");
+                        //CC_ASSERT(resource_refcount > 0 && "read resource at unexpected refcount");
 
                         if (resource_refcount == 0)
                             residx_stack.push_back(read.resource_index);

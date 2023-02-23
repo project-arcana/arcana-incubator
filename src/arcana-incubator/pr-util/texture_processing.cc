@@ -100,14 +100,16 @@ pr::auto_texture inc::pre::texture_processing::load_texture(
 void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const pr::texture& texture, bool apply_gamma)
 {
     constexpr auto max_array_size = 16u;
-    CC_ASSERT(texture.info.width == texture.info.height && "non-square textures unimplemented");
-    CC_ASSERT(cc::is_pow2(unsigned(texture.info.width)) && "non-power of two textures unimplemented");
+
+    auto const& texInfo = frame.context().get_texture_info(texture);
+    CC_ASSERT(texInfo.width == texInfo.height && "non-square textures unimplemented");
+    CC_ASSERT(cc::is_pow2(unsigned(texInfo.width)) && "non-power of two textures unimplemented");
 
     auto _label = frame.scoped_debug_label("texture_processing - generate mips");
 
     pr::compute_pipeline_state matching_pso;
 
-    if (texture.info.depth_or_array_size > 1)
+    if (texInfo.depth_or_array_size > 1)
     {
         CC_ASSERT(!apply_gamma && "gamma mipmap generation for arrays unimplemented");
         matching_pso = pso_mipgen_array;
@@ -117,35 +119,35 @@ void inc::pre::texture_processing::generate_mips(pr::raii::Frame& frame, const p
         matching_pso = apply_gamma ? pso_mipgen_gamma : pso_mipgen;
     }
 
-    frame.transition(texture, pr::state::shader_resource, phi::shader_stage::compute);
+    frame.transition(texture, pr::state::shader_resource, phi::shader_stage_flags::compute);
 
     auto pass = frame.make_pass(matching_pso);
 
-    unsigned const num_mips = texture.info.num_mips > 0 ? texture.info.num_mips : phi::util::get_num_mips(texture.info.width, texture.info.height);
-    for (auto level = 1u, levelWidth = unsigned(texture.info.width) / 2, levelHeight = unsigned(texture.info.height) / 2; //
-         level < num_mips;                                                                                                //
+    unsigned const num_mips = texInfo.num_mips > 0 ? texInfo.num_mips : phi::util::get_num_mips(texInfo.width, texInfo.height);
+    for (auto level = 1u, levelWidth = unsigned(texInfo.width) / 2, levelHeight = unsigned(texInfo.height) / 2; //
+         level < num_mips;                                                                                      //
          ++level, levelWidth /= 2, levelHeight /= 2)
     {
         cc::capped_vector<phi::cmd::transition_image_slices::slice_transition_info, max_array_size> pre_dispatch;
         cc::capped_vector<phi::cmd::transition_image_slices::slice_transition_info, max_array_size> post_dispatch;
 
-        for (auto arraySlice = 0u; arraySlice < texture.info.depth_or_array_size; ++arraySlice)
+        for (auto arraySlice = 0u; arraySlice < texInfo.depth_or_array_size; ++arraySlice)
         {
-            pre_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{texture.res.handle, pr::state::shader_resource,
-                                                                                            pr::state::unordered_access, phi::shader_stage::compute,
-                                                                                            phi::shader_stage::compute, int(level), int(arraySlice)});
-            post_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{texture.res.handle, pr::state::unordered_access,
-                                                                                             pr::state::shader_resource, phi::shader_stage::compute,
-                                                                                             phi::shader_stage::compute, int(level), int(arraySlice)});
+            pre_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{
+                texture.handle, pr::state::shader_resource, pr::state::unordered_access, phi::shader_stage_flags::compute,
+                phi::shader_stage_flags::compute, int(level), int(arraySlice)});
+            post_dispatch.push_back(phi::cmd::transition_image_slices::slice_transition_info{
+                texture.handle, pr::state::unordered_access, pr::state::shader_resource, phi::shader_stage_flags::compute,
+                phi::shader_stage_flags::compute, int(level), int(arraySlice)});
         }
 
         pr::argument arg;
-        arg.add(pr::resource_view_2d(texture, level - 1).tex_array(0, texture.info.depth_or_array_size));
-        arg.add_mutable(pr::resource_view_2d(texture, level).tex_array(0, texture.info.depth_or_array_size));
+        arg.add(pr::view::tex2d_array(texture, texInfo.fmt, 0, texInfo.depth_or_array_size, false, level - 1, 1));
+        arg.add_mutable(pr::view::tex2d_array(texture, texInfo.fmt, 0, texInfo.depth_or_array_size, false, level, 1));
 
         frame.transition_slices(pre_dispatch);
 
-        pass.bind(arg).dispatch(cc::max(1u, levelWidth / 8), cc::max(1u, levelHeight / 8), texture.info.depth_or_array_size);
+        pass.bind(arg).dispatch(cc::max(1u, levelWidth / 8), cc::max(1u, levelHeight / 8), texInfo.depth_or_array_size);
 
         frame.transition_slices(post_dispatch);
     }
@@ -178,8 +180,8 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
     // equirect to cubemap
     {
         auto _label = frame.scoped_debug_label("texture_processing - load_filtered_specular_map - equirect to cubemap");
-        frame.transition(res.equirect_tex, pr::state::shader_resource, phi::shader_stage::compute);
-        frame.transition(res.unfiltered_env, pr::state::unordered_access, phi::shader_stage::compute);
+        frame.transition(res.equirect_tex, pr::state::shader_resource, phi::shader_stage_flags::compute);
+        frame.transition(res.unfiltered_env, pr::state::unordered_access, phi::shader_stage_flags::compute);
 
         pr::argument arg;
         arg.add(res.equirect_tex);
@@ -197,8 +199,8 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
         auto _label = frame.scoped_debug_label("texture_processing - load_filtered_specular_map - prefilter specular");
         frame.copy(res.unfiltered_env, res.filtered_env, 0);
 
-        frame.transition(res.unfiltered_env, pr::state::shader_resource, phi::shader_stage::compute);
-        frame.transition(res.filtered_env, pr::state::unordered_access, phi::shader_stage::compute);
+        frame.transition(res.unfiltered_env, pr::state::shader_resource, phi::shader_stage_flags::compute);
+        frame.transition(res.filtered_env, pr::state::unordered_access, phi::shader_stage_flags::compute);
 
         for (auto level = 1, size = 512; level < cube_num_mips; ++level, size /= 2)
         {
@@ -206,7 +208,7 @@ inc::pre::filtered_specular_result inc::pre::texture_processing::load_filtered_s
 
             pr::argument arg;
             arg.add(res.unfiltered_env);
-            arg.add_mutable(pr::resource_view_cube(res.filtered_env).mips(level, 1));
+            arg.add_mutable(pr::view::texcube(res.filtered_env.data.handle, pr::format::rgba16f, level, 1));
             arg.add_sampler(phi::sampler_filter::min_mag_mip_linear);
 
             auto pass = frame.make_pass(pso_specular_map_filter).bind(arg);
@@ -232,8 +234,8 @@ pr::auto_texture inc::pre::texture_processing::create_diffuse_irradiance_map(pr:
     auto _label = frame.scoped_debug_label("texture_processing - create_diffuse_irradiance_map");
     auto t_irradiance = frame.context().make_texture_cube({cube_width_height, cube_width_height}, pr::format::rgba16f, 1, true);
 
-    frame.transition(t_irradiance, pr::state::unordered_access, phi::shader_stage::compute);
-    frame.transition(unfiltered_env_cube, pr::state::shader_resource_nonpixel, phi::shader_stage::compute);
+    frame.transition(t_irradiance, pr::state::unordered_access, phi::shader_stage_flags::compute);
+    frame.transition(unfiltered_env_cube, pr::state::shader_resource_nonpixel, phi::shader_stage_flags::compute);
 
     pr::argument arg;
     arg.add(unfiltered_env_cube);
@@ -252,7 +254,7 @@ pr::auto_texture inc::pre::texture_processing::create_brdf_lut(pr::raii::Frame& 
 
     auto t_lut = frame.context().make_texture({width, height}, pr::format::rgba16un, 1, true);
 
-    frame.transition(t_lut, pr::state::unordered_access, phi::shader_stage::compute);
+    frame.transition(t_lut, pr::state::unordered_access, phi::shader_stage_flags::compute);
 
     pr::argument arg;
     arg.add_mutable(t_lut);

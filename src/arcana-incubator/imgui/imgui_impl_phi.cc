@@ -1,5 +1,7 @@
 #include "imgui_impl_phi.hh"
 
+#include <stdio.h>
+
 #include <rich-log/log.hh>
 
 #include <clean-core/array.hh>
@@ -15,10 +17,30 @@
 
 #include <dxc-wrapper/compiler.hh>
 
+#include <arcana-incubator/imgui/lib/imgui.h>
 #include <arcana-incubator/phi-util/texture_util.hh>
+
+#ifndef INC_ENABLE_IMGUI_PHI_BINDLESS
+#define INC_ENABLE_IMGUI_PHI_BINDLESS 0
+#endif
 
 namespace
 {
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+[[nodiscard]] uint32_t imgui_to_bindless(ImTextureID itd)
+{
+    uint32_t res;
+    std::memcpy(&res, &itd, sizeof(res));
+    return res;
+}
+
+[[nodiscard]] ImTextureID bindless_to_imgui(uint32_t srv)
+{
+    ImTextureID res;
+    std::memcpy(&res, &srv, sizeof(srv));
+    return res;
+}
+#else
 [[nodiscard]] phi::handle::shader_view imgui_to_sv(ImTextureID itd)
 {
     phi::handle::shader_view res;
@@ -32,10 +54,11 @@ namespace
     std::memcpy(&res, &sv, sizeof(sv));
     return res;
 }
+#endif
 
 phi::Backend* g_backend = nullptr;
+phi::format g_backbuffer_format = phi::format::none;
 int g_num_frames_in_flight = 0;
-phi::format g_backbuf_format = phi::format::bgra8un;
 phi::handle::pipeline_state g_pipeline_state = phi::handle::null_pipeline_state;
 phi::handle::resource g_font_texture = phi::handle::null_resource;
 phi::handle::shader_view g_font_texture_sv = phi::handle::null_shader_view;
@@ -70,12 +93,12 @@ struct ImGuiViewportDataPHI
     phi::handle::swapchain swapchain = phi::handle::null_swapchain;
 
     // Render buffers
-    unsigned frame_index = 0;
+    uint32_t frame_index = 0;
     cc::array<ImGui_ImplPHI_RenderBuffers> frame_render_buffers;
 
     ImGuiViewportDataPHI() { frame_render_buffers = frame_render_buffers.defaulted(g_num_frames_in_flight); }
 };
-}
+} // namespace
 
 // Forward Declarations
 static void ImGui_ImplPHI_InitPlatformInterface();
@@ -103,117 +126,44 @@ bool ImGui_ImplPHI_Init(phi::Backend* backend, int num_frames_in_flight, phi::fo
 }
 
 
-bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend, int num_frames_in_flight, phi::format target_format, cc::span<const std::byte> ps_data, cc::span<const std::byte> vs_data)
+bool ImGui_ImplPHI_InitWithShaders(phi::Backend* backend,
+                                   int num_frames_in_flight,
+                                   phi::format target_format,
+                                   cc::span<const std::byte> ps_data,
+                                   cc::span<const std::byte> vs_data,
+                                   phi::handle::resource* out_upload_buffer,
+                                   phi::arg::root_signature_description const* opt_root_sig)
 {
-    CC_ASSERT(g_backend == nullptr && "double init");
-    CC_ASSERT(backend != nullptr);
-
-    // Setup back-end capabilities flags
-    ImGuiIO& io = ImGui::GetIO();
-    io.BackendRendererName = "imgui_impl_phi";
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset; // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional) // FIXME-VIEWPORT: Actually unfinished.
-
-    g_backend = backend;
-    g_num_frames_in_flight = num_frames_in_flight;
-    g_backbuf_format = target_format;
-
-    // PSO
+    if (!ImGui_ImplPHI_InitWithoutPSO(backend, num_frames_in_flight, target_format, out_upload_buffer))
     {
-        phi::vertex_attribute_info vert_attrs[] = {phi::vertex_attribute_info{"POSITION", unsigned(IM_OFFSETOF(ImDrawVert, pos)), phi::format::rg32f},
-                                                   phi::vertex_attribute_info{"TEXCOORD", unsigned(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
-                                                   phi::vertex_attribute_info{"COLOR", unsigned(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
-
-        phi::arg::vertex_format vert_format;
-        vert_format.attributes = vert_attrs;
-        vert_format.vertex_sizes_bytes[0] = sizeof(ImDrawVert);
-
-        phi::arg::framebuffer_config fb_format;
-        fb_format.add_render_target(target_format);
-        {
-            auto& rt = fb_format.render_targets.back();
-            rt.blend_enable = true;
-            rt.state.blend_color_src = phi::blend_factor::src_alpha;
-            rt.state.blend_color_dest = phi::blend_factor::inv_src_alpha;
-            rt.state.blend_op_color = phi::blend_op::op_add;
-            rt.state.blend_alpha_src = phi::blend_factor::inv_src_alpha;
-            rt.state.blend_alpha_dest = phi::blend_factor::zero;
-            rt.state.blend_op_alpha = phi::blend_op::op_add;
-        }
-
-        phi::arg::shader_arg_shape shader_shape;
-        shader_shape.has_cbv = true;
-        shader_shape.num_srvs = 1;
-        shader_shape.num_samplers = 1;
-
-        phi::arg::graphics_shader shader_stages[] = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
-                                                     phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
-
-        phi::pipeline_config config;
-        config.depth = phi::depth_function::none;
-        config.cull = phi::cull_mode::none;
-
-        g_pipeline_state = backend->createPipelineState(vert_format, fb_format, cc::span{shader_shape}, false, shader_stages, config);
+        return false;
     }
 
-    // Font tex
+    // create PSO
+    phi::arg::graphics_pipeline_state_description psoDesc = {};
+
+    phi::vertex_attribute_info vert_attrs[3];
+    ImGui_ImplPHI_GetDefaultPSOConfig(target_format, vert_attrs, &psoDesc.vertices.vertex_sizes_bytes[0], &psoDesc.framebuffer, &psoDesc.config);
+
+    psoDesc.vertices.attributes = vert_attrs;
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    CC_ASSERT(opt_root_sig != nullptr && "PHI ImGui Bindless backend is enabled, a custom root signature is required");
+#endif
+
+    if (opt_root_sig != nullptr)
     {
-        unsigned char* pixels;
-        int width, height;
-
-        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        g_font_texture = backend->createTexture(phi::format::rgba8un, {width, height}, 1);
-
-        phi::resource_view tex_sve;
-        tex_sve.init_as_tex2d(g_font_texture, phi::format::rgba8un);
-
-        phi::sampler_config sampler;
-        sampler.init_default(phi::sampler_filter::min_mag_mip_linear);
-
-        g_font_texture_sv = backend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
-
-        bool const is_d3d12 = backend->getBackendType() == phi::backend_type::d3d12;
-
-        uint32_t const upbuff_size = phi::util::get_texture_size_bytes({width, height, 1}, phi::format::rgba8un, 1, is_d3d12);
-        phi::handle::resource temp_upload_buffer = backend->createBuffer(upbuff_size, 0, phi::resource_heap::upload, false);
-
-
-        {
-            std::byte buffer[2 * sizeof(phi::cmd::transition_resources) + sizeof(phi::cmd::copy_buffer_to_texture)];
-            phi::command_stream_writer writer(buffer, sizeof(buffer));
-
-            auto& tcmd = writer.emplace_command<phi::cmd::transition_resources>();
-            tcmd.add(g_font_texture, phi::resource_state::copy_dest);
-
-            inc::copy_data_to_texture(writer, temp_upload_buffer, backend->mapBuffer(temp_upload_buffer), g_font_texture, phi::format::rgba8un,
-                                      unsigned(width), unsigned(height), reinterpret_cast<std::byte const*>(pixels), is_d3d12);
-            backend->unmapBuffer(temp_upload_buffer);
-
-            auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
-            tcmd2.add(g_font_texture, phi::resource_state::shader_resource, phi::shader_stage::pixel);
-
-            auto const cmdl = backend->recordCommandList(writer.buffer(), writer.size());
-            backend->submit(cc::span{cmdl});
-        }
-
-        io.Fonts->TexID = sv_to_imgui(g_font_texture_sv);
-
-        backend->flushGPU();
-        backend->free(temp_upload_buffer);
+        psoDesc.root_signature = *opt_root_sig;
+    }
+    else
+    {
+        psoDesc.root_signature.shader_arg_shapes.push_back({1, 0, 1, true});
     }
 
-    // Create a dummy ImGuiViewportDataPHI holder for the main viewport,
-    // Since this is created and managed by the application, we will only use the ->Resources[] fields.
-    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+    psoDesc.shader_binaries = {phi::arg::graphics_shader{{vs_data.data(), vs_data.size()}, phi::shader_stage::vertex},
+                               phi::arg::graphics_shader{{ps_data.data(), ps_data.size()}, phi::shader_stage::pixel}};
 
-    ImGuiViewportDataPHI* const main_viewport_renderdata = IM_NEW(ImGuiViewportDataPHI)();
-    main_viewport->RendererUserData = main_viewport_renderdata;
-
-
-    // Setup back-end capabilities flags
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional)
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        ImGui_ImplPHI_InitPlatformInterface();
+    g_pipeline_state = backend->createPipelineState(psoDesc, "ImGui_ImplPHI PSO");
 
     return true;
 }
@@ -241,9 +191,19 @@ void ImGui_ImplPHI_Shutdown()
     // Clean up windows and device objects
     ImGui_ImplPHI_ShutdownPlatformInterface();
 
-    g_backend->free(g_pipeline_state);
+    if (g_pipeline_state.is_valid())
+    {
+        g_backend->free(g_pipeline_state);
+    }
+
     g_backend->free(g_font_texture);
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+
+#else
     g_backend->free(g_font_texture_sv);
+#endif
+
     g_backend = nullptr;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -254,9 +214,27 @@ void ImGui_ImplPHI_NewFrame()
 { // nothing has to be done here
 }
 
-void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byte> out_cmdbuffer)
+void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, phi::handle::live_command_list list)
+{
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    CC_ASSERT(false && "Must use custom PSO with PHI ImGui bindless Backend (see ImGui_ImplPHI_InitWithoutPSO and ImGui_ImplPHI_RenderDrawDataWithPSO)");
+#else
+    CC_ASSERT(g_pipeline_state.is_valid() && "If initializing without a PSO, use ImGui_ImplPHI_RenderDrawDataWithPSO instead");
+    ImGui_ImplPHI_RenderDrawDataWithPSO(draw_data, g_pipeline_state, list);
+#endif
+}
+
+void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
+                                         phi::handle::pipeline_state pso,
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+                                         phi::handle::shader_view sv,
+#endif
+                                         phi::handle::live_command_list list)
 {
     CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
+    CC_ASSERT(pso.is_valid() && "PSO must be valid");
+    CC_ASSERT(list.is_valid() && "Command list must be valid");
+
     // Avoid rendering when minimized
     if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
     {
@@ -330,11 +308,9 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
         g_backend->unmapBuffer(frame_res.mvp_buffer);
     }
 
-    auto global_vtx_offset = 0;
-    auto global_idx_offset = 0;
+    uint32_t global_vtx_offset = 0;
+    uint32_t global_idx_offset = 0;
     ImVec2 const clip_offset = draw_data->DisplayPos;
-
-    auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
 
     for (auto n = 0; n < draw_data->CmdListsCount; ++n)
     {
@@ -346,7 +322,158 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
             {
                 if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
                 {
-                    LOG_WARN("Imgui reset render state callback not implemented");
+                    RICH_LOG_WARN("Imgui reset render state callback not implemented");
+                }
+                else
+                {
+                    pcmd.UserCallback(cmd_list, &pcmd);
+                }
+            }
+            else
+            {
+                auto const scissorLeft = int(pcmd.ClipRect.x - clip_offset.x);
+                auto const scissorTop = int(pcmd.ClipRect.y - clip_offset.y);
+                auto const scissorRight = int(pcmd.ClipRect.z - clip_offset.x);
+                auto const scissorBot = int(pcmd.ClipRect.w - clip_offset.y);
+
+                if (scissorLeft >= scissorRight || scissorTop >= scissorBot)
+                    continue;
+
+                phi::cmd::draw dcmd;
+                dcmd.init(pso, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset, pcmd.VtxOffset + global_vtx_offset);
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, sv);
+
+                dcmd.write_root_constants(imgui_to_bindless(pcmd.TextureId));
+#else
+                auto const shader_view = imgui_to_sv(pcmd.TextureId);
+                dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
+#endif
+
+                dcmd.set_scissor(scissorLeft, scissorTop, scissorRight, scissorBot);
+
+                g_backend->cmdDraw(list, dcmd);
+            }
+        }
+
+        global_idx_offset += cmd_list->IdxBuffer.Size;
+        global_vtx_offset += cmd_list->VtxBuffer.Size;
+    }
+}
+
+uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
+{
+    // Avoid rendering when minimized
+    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+        return 0;
+
+    unsigned num_cmdbuffers = 0;
+    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+    {
+        num_cmdbuffers += draw_data->CmdLists[n]->CmdBuffer.Size;
+    }
+
+    // one draw per ImGui "command buffer", plus one code location marker
+    return sizeof(phi::cmd::draw) * num_cmdbuffers + sizeof(phi::cmd::code_location_marker);
+}
+
+void ImGui_ImplPHI_RenderDrawDataToBuffer(ImDrawData const* draw_data, cc::span<std::byte> out_cmdbuffer)
+{
+    CC_ASSERT(g_backend != nullptr && "missing ImGui_ImplPHI_Init call");
+    CC_ASSERT(g_pipeline_state.is_valid() && "PSO must be valid");
+    // Avoid rendering when minimized
+    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+    {
+        return;
+    }
+
+    ImGuiViewportDataPHI* const render_data = (ImGuiViewportDataPHI*)draw_data->OwnerViewport->RendererUserData;
+    render_data->frame_index = cc::wrapped_increment(render_data->frame_index, unsigned(g_num_frames_in_flight));
+    ImGui_ImplPHI_RenderBuffers& frame_res = render_data->frame_render_buffers[render_data->frame_index];
+
+    if (!frame_res.index_buf.is_valid() || frame_res.index_buf_size < draw_data->TotalIdxCount)
+    {
+        if (frame_res.index_buf.is_valid())
+            g_backend->free(frame_res.index_buf);
+
+        frame_res.index_buf_size = draw_data->TotalIdxCount + 10000;
+        frame_res.index_buf = g_backend->createUploadBuffer(frame_res.index_buf_size * sizeof(ImDrawIdx), sizeof(ImDrawIdx));
+    }
+
+    if (!frame_res.vertex_buf.is_valid() || frame_res.vertex_buf_size < draw_data->TotalVtxCount)
+    {
+        if (frame_res.vertex_buf.is_valid())
+            g_backend->free(frame_res.vertex_buf);
+
+        frame_res.vertex_buf_size = draw_data->TotalVtxCount + 5000;
+        frame_res.vertex_buf = g_backend->createUploadBuffer(frame_res.vertex_buf_size * sizeof(ImDrawVert), sizeof(ImDrawVert));
+    }
+
+    if (!frame_res.mvp_buffer.is_valid())
+    {
+        frame_res.mvp_buffer = g_backend->createUploadBuffer(sizeof(float[4][4]));
+    }
+
+    // upload vertices and indices
+    {
+        auto* const vertex_map = g_backend->mapBuffer(frame_res.vertex_buf);
+        auto* const index_map = g_backend->mapBuffer(frame_res.index_buf);
+
+        ImDrawVert* vtx_dst = (ImDrawVert*)vertex_map;
+        ImDrawIdx* idx_dst = (ImDrawIdx*)index_map;
+
+        for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+        {
+            ImDrawList const* const cmd_list = draw_data->CmdLists[n];
+            std::memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+            std::memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+
+            vtx_dst += cmd_list->VtxBuffer.Size;
+            idx_dst += cmd_list->IdxBuffer.Size;
+        }
+
+        g_backend->unmapBuffer(frame_res.vertex_buf);
+        g_backend->unmapBuffer(frame_res.index_buf);
+    }
+
+    // upload VP matrix
+    {
+        float L = draw_data->DisplayPos.x;
+        float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+        float T = draw_data->DisplayPos.y;
+        float B = draw_data->DisplayPos.y + draw_data->DisplaySize.y;
+        float mvp[4][4] = {
+            {2.0f / (R - L), 0.0f, 0.0f, 0.0f},
+            {0.0f, 2.0f / (T - B), 0.0f, 0.0f},
+            {0.0f, 0.0f, 0.5f, 0.0f},
+            {(R + L) / (L - R), (T + B) / (B - T), 0.5f, 1.0f},
+        };
+
+        auto* const const_buffer_map = g_backend->mapBuffer(frame_res.mvp_buffer);
+        std::memcpy(const_buffer_map, mvp, sizeof(mvp));
+        g_backend->unmapBuffer(frame_res.mvp_buffer);
+    }
+
+    uint32_t global_vtx_offset = 0;
+    uint32_t global_idx_offset = 0;
+    ImVec2 const clip_offset = draw_data->DisplayPos;
+
+    auto writer = phi::command_stream_writer(out_cmdbuffer.data(), out_cmdbuffer.size());
+
+    writer.add_command(PHI_CMD_CODE_LOCATION());
+
+    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+    {
+        ImDrawList* const cmd_list = draw_data->CmdLists[n];
+        for (auto cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
+        {
+            ImDrawCmd& pcmd = cmd_list->CmdBuffer[cmd_i];
+            if (pcmd.UserCallback != nullptr)
+            {
+                if (pcmd.UserCallback == ImDrawCallback_ResetRenderState)
+                {
+                    RICH_LOG_WARN("Imgui reset render state callback not implemented");
                 }
                 else
                 {
@@ -359,7 +486,9 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
                 dcmd.init(g_pipeline_state, pcmd.ElemCount, frame_res.vertex_buf, frame_res.index_buf, pcmd.IdxOffset + global_idx_offset,
                           pcmd.VtxOffset + global_vtx_offset);
 
-                auto const shader_view = imgui_to_sv(pcmd.TextureId);
+                phi::handle::shader_view shader_view;
+                std::memcpy(&shader_view, &pcmd.TextureId, sizeof(shader_view));
+
                 dcmd.add_shader_arg(frame_res.mvp_buffer, 0, shader_view);
 
                 dcmd.set_scissor(int(pcmd.ClipRect.x - clip_offset.x), int(pcmd.ClipRect.y - clip_offset.y), int(pcmd.ClipRect.z - clip_offset.x),
@@ -374,19 +503,165 @@ void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, cc::span<std::byt
     }
 }
 
-unsigned ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
-{
-    // Avoid rendering when minimized
-    if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
-        return 0;
 
-    unsigned num_cmdbuffers = 0;
-    for (auto n = 0; n < draw_data->CmdListsCount; ++n)
+bool ImGui_ImplPHI_InitWithoutPSO(phi::Backend* backend,
+                                  int num_frames_in_flight,
+                                  phi::format target_format,
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+                                  phi::handle::resource* out_font_texture,
+#endif
+                                  phi::handle::resource* out_upload_buffer)
+{
+    CC_ASSERT(g_backend == nullptr && "double init");
+    CC_ASSERT(backend != nullptr);
+
+#ifndef IMGUI_HAS_VIEWPORT
+#error "Backend requires docking/multi-viewport branch"
+#endif
+
+    // Setup back-end capabilities flags
+    ImGuiIO& io = ImGui::GetIO();
+    io.BackendRendererName = "imgui_impl_phi";
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset; // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional) // FIXME-VIEWPORT: Actually unfinished.
+
+    g_backend = backend;
+    g_backbuffer_format = target_format;
+    g_num_frames_in_flight = num_frames_in_flight;
+
+    // no PSO
+    g_pipeline_state = phi::handle::null_pipeline_state;
+
+    // Font tex
     {
-        num_cmdbuffers += draw_data->CmdLists[n]->CmdBuffer.Size;
+        unsigned char* pixels;
+        int width, height;
+        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+        auto const fontDesc = phi::arg::texture_description::create_tex(phi::format::rgba8un, {width, height});
+
+        g_font_texture = backend->createTexture(fontDesc, "ImGui Font Texture");
+
+        bool const is_d3d12 = backend->getBackendType() == phi::backend_type::d3d12;
+
+
+        uint32_t const upbuff_size = phi::util::get_texture_size_bytes_on_gpu(fontDesc, is_d3d12);
+        phi::handle::resource temp_upload_buffer
+            = backend->createBuffer(upbuff_size, 0, phi::resource_heap::upload, false, "ImGui_ImplPHI_InitWithShaders Upload Buffer");
+
+
+        {
+            std::byte buffer[2 * sizeof(phi::cmd::transition_resources) + sizeof(phi::cmd::copy_buffer_to_texture)];
+            phi::command_stream_writer writer(buffer, sizeof(buffer));
+
+            auto& tcmd = writer.emplace_command<phi::cmd::transition_resources>();
+            tcmd.add(g_font_texture, phi::resource_state::copy_dest);
+
+            inc::copy_data_to_texture(writer, temp_upload_buffer, backend->mapBuffer(temp_upload_buffer), g_font_texture, phi::format::rgba8un,
+                                      unsigned(width), unsigned(height), reinterpret_cast<std::byte const*>(pixels), is_d3d12);
+            backend->unmapBuffer(temp_upload_buffer);
+
+            auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
+            tcmd2.add(g_font_texture, phi::resource_state::shader_resource, phi::shader_stage_flags::pixel);
+
+            auto const cmdl = backend->recordCommandList(writer.buffer(), writer.size());
+            backend->submit(cc::span{cmdl});
+        }
+
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+        CC_ASSERT(out_font_texture != nullptr);
+        *out_font_texture = g_font_texture;
+#else
+        // create shader view
+        {
+            phi::resource_view tex_sve;
+            tex_sve.init_as_tex2d(g_font_texture, phi::format::rgba8un);
+
+            phi::sampler_config sampler;
+            sampler.init_default(phi::sampler_filter::min_mag_mip_linear);
+
+            g_font_texture_sv = backend->createShaderView(cc::span{tex_sve}, {}, cc::span{sampler});
+            io.Fonts->TexID = sv_to_imgui(g_font_texture_sv);
+        }
+#endif
+
+        if (out_upload_buffer != nullptr)
+        {
+            // write out upload buffer instead of flushing and freeing
+            *out_upload_buffer = temp_upload_buffer;
+        }
+        else
+        {
+            backend->flushGPU();
+            backend->free(temp_upload_buffer);
+        }
     }
 
-    return sizeof(phi::cmd::draw) * num_cmdbuffers; // amount of ImGui "command buffers"
+    // Create a dummy ImGuiViewportDataPHI holder for the main viewport,
+    // Since this is created and managed by the application, we will only use the ->Resources[] fields.
+    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+
+    ImGuiViewportDataPHI* const main_viewport_renderdata = IM_NEW(ImGuiViewportDataPHI)();
+    main_viewport->RendererUserData = main_viewport_renderdata;
+
+
+    // Setup back-end capabilities flags
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports; // We can create multi-viewports on the Renderer side (optional)
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui_ImplPHI_InitPlatformInterface();
+    }
+
+    return true;
+}
+
+void ImGui_ImplPHI_GetDefaultPSOConfig(phi::format target_format,
+                                       phi::vertex_attribute_info out_vert_attrs[3],
+                                       uint32_t* out_vert_size,
+                                       phi::arg::framebuffer_config* out_framebuf_conf,
+                                       phi::arg::pipeline_config* out_raster_conf)
+{
+    if (out_vert_attrs)
+    {
+        phi::vertex_attribute_info const vert_attrs[]
+            = {phi::vertex_attribute_info{"POSITION", uint32_t(IM_OFFSETOF(ImDrawVert, pos)), phi::format::rg32f},
+               phi::vertex_attribute_info{"TEXCOORD", uint32_t(IM_OFFSETOF(ImDrawVert, uv)), phi::format::rg32f},
+               phi::vertex_attribute_info{"COLOR", uint32_t(IM_OFFSETOF(ImDrawVert, col)), phi::format::rgba8un}};
+
+        memcpy(out_vert_attrs, vert_attrs, sizeof(vert_attrs));
+    }
+
+    if (out_vert_size)
+    {
+        *out_vert_size = sizeof(ImDrawVert);
+    }
+
+    if (out_framebuf_conf)
+    {
+        phi::arg::framebuffer_config fb_format;
+        fb_format.add_render_target(target_format);
+
+        auto& rt = fb_format.render_targets.back();
+        rt.blend_enable = true;
+        rt.state.blend_color_src = phi::blend_factor::src_alpha;
+        rt.state.blend_color_dest = phi::blend_factor::inv_src_alpha;
+        rt.state.blend_op_color = phi::blend_op::op_add;
+        rt.state.blend_alpha_src = phi::blend_factor::inv_src_alpha;
+        rt.state.blend_alpha_dest = phi::blend_factor::zero;
+        rt.state.blend_op_alpha = phi::blend_op::op_add;
+
+        *out_framebuf_conf = fb_format;
+    }
+
+
+    if (out_raster_conf)
+    {
+        phi::arg::pipeline_config config;
+        config.depth = phi::depth_function::none;
+        config.cull = phi::cull_mode::none;
+        *out_raster_conf = config;
+    }
 }
 
 //--------------------------------------------------------------------------------------------------------
@@ -396,89 +671,119 @@ unsigned ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
 //--------------------------------------------------------------------------------------------------------
 
 
-static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* viewport)
+static void ImGui_ImplPHI_CreateWindow(ImGuiViewport* pViewport)
 {
     ImGuiViewportDataPHI* data = IM_NEW(ImGuiViewportDataPHI)();
-    viewport->RendererUserData = data;
+    pViewport->RendererUserData = data;
+
+
+    phi::arg::swapchain_description desc = {};
+    desc.initial_width = int(pViewport->Size.x);
+    desc.initial_height = int(pViewport->Size.y);
+    desc.mode = phi::present_mode::unsynced_allow_tearing;
+    desc.num_backbuffers = 3;
+    desc.format_preference = g_backbuffer_format;
 
     // PlatformHandleRaw should always be a HWND, whereas PlatformHandle might be a higher-level handle (e.g. GLFWWindow*, SDL_Window*).
     // Some back-ends will leave PlatformHandleRaw NULL, in which case we assume PlatformHandle will contain the HWND.
-    SDL_Window* const sdl_window = static_cast<SDL_Window*>(viewport->PlatformHandle);
-    CC_ASSERT(sdl_window != nullptr);
 
-    data->swapchain = g_backend->createSwapchain({sdl_window}, {int(viewport->Size.x), int(viewport->Size.y)});
+#if defined(CC_OS_WINDOWS)
+    if (pViewport->PlatformHandleRaw != nullptr)
+    {
+        desc.handle = phi::window_handle(::HWND(pViewport->PlatformHandleRaw));
+    }
+    else
+    {
+        CC_ASSERT(pViewport->PlatformHandle != nullptr);
+        desc.handle = phi::window_handle(static_cast<SDL_Window*>(pViewport->PlatformHandle));
+    }
+#else
+    CC_ASSERT(pViewport->PlatformHandle != nullptr);
+    desc.handle = phi::window_handle(static_cast<SDL_Window*>(pViewport->PlatformHandle));
+#endif
+
+    char debugname[64] = {};
+    snprintf(debugname, sizeof(debugname), "ImGuiViewport#%x", pViewport->ID);
+
+    // use the most "lax" present mode so we never bottleneck the main window with this present
+
+    data->swapchain = g_backend->createSwapchain(desc, debugname);
 }
 
-static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* viewport)
+static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* pViewport)
 {
     // The main viewport (owned by the application) will always have RendererUserData == NULL since we didn't create the data for it.
-    if (ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData)
+    if (ImGuiViewportDataPHI* const pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData)
     {
-        if (data->swapchain.is_valid())
+        if (pData->swapchain.is_valid())
         {
-            g_backend->free(data->swapchain);
+            g_backend->free(pData->swapchain);
         }
 
-        for (auto& render_buf : data->frame_render_buffers)
+        for (auto& render_buf : pData->frame_render_buffers)
         {
             render_buf.destroy();
         }
-        IM_DELETE(data);
+        IM_DELETE(pData);
     }
-    viewport->RendererUserData = nullptr;
+    pViewport->RendererUserData = nullptr;
 }
 
-static void ImGui_ImplPHI_SetWindowSize(ImGuiViewport* viewport, ImVec2 size)
+static void ImGui_ImplPHI_SetWindowSize(ImGuiViewport* pViewport, ImVec2 size)
 {
-    ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
-    g_backend->onResize(data->swapchain, {int(size.x), int(size.y)});
+    ImGuiViewportDataPHI* const pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData;
+    g_backend->onResize(pData->swapchain, {int(size.x), int(size.y)});
 }
 
-static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* viewport, void*)
+// This function is called for all non-main windows spawned by the "ImGui Viewport" feature
+static void ImGui_ImplPHI_RenderWindow(ImGuiViewport* pViewport, void* pRenderDataVoid)
 {
-    ImGuiViewportDataPHI* const data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
+    CC_ASSERT(pRenderDataVoid && "Must provide a ImGui_ImplPHI_RendererRenderData* to the second argument to ImGui::RenderPlatformWindowsDefault");
 
-    auto const backbuffer = g_backend->acquireBackbuffer(data->swapchain);
-    if (!backbuffer.is_valid())
+    struct ImGui_ImplPHI_RendererRenderData* const pRenderData = static_cast<struct ImGui_ImplPHI_RendererRenderData*>(pRenderDataVoid);
+
+    phi::handle::live_command_list const hList = pRenderData->hList;
+    CC_ASSERT(hList.is_valid() && "PHI Backend requires a valid handle::live_command_list");
+
+    ImGuiViewportDataPHI* const pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData;
+
+    auto const hBackbuffer = g_backend->acquireBackbuffer(pData->swapchain);
+    if (!hBackbuffer.is_valid())
         return;
 
-    unsigned const drawdata_command_size = ImGui_ImplPHI_GetDrawDataCommandSize(viewport->DrawData);
-    cc::array<std::byte> buffer = cc::array<std::byte>::uninitialized(2 * sizeof(phi::cmd::transition_resources) + sizeof(phi::cmd::begin_render_pass)
-                                                                      + sizeof(phi::cmd::end_render_pass) + drawdata_command_size
-                                                                      + sizeof(phi::cmd::begin_debug_label) + +sizeof(phi::cmd::end_debug_label));
+    g_backend->cmdBeginDebugLabel(hList, phi::cmd::begin_debug_label("ImGui_ImplPHI_RenderWindow"));
 
-    phi::command_stream_writer writer(buffer.data(), buffer.size_bytes());
+    phi::cmd::transition_resources tcmd;
+    tcmd.add(hBackbuffer, phi::resource_state::render_target);
+    g_backend->cmdTransitionResources(hList, tcmd);
 
-    writer.add_command(phi::cmd::begin_debug_label("ImGui_ImplPHI_RenderWindow"));
-
-    auto& tcmd = writer.emplace_command<phi::cmd::transition_resources>();
-    tcmd.add(backbuffer, phi::resource_state::render_target);
-
-    auto& bcmd = writer.emplace_command<phi::cmd::begin_render_pass>();
-    bcmd.add_backbuffer_rt(backbuffer, true);
+    phi::cmd::begin_render_pass bcmd;
+    bcmd.add_backbuffer_rt(hBackbuffer, true);
     bcmd.set_null_depth_stencil();
-    bcmd.viewport.width = int(viewport->Size.x);
-    bcmd.viewport.height = int(viewport->Size.y);
+    bcmd.viewport.width = int(pViewport->Size.x);
+    bcmd.viewport.height = int(pViewport->Size.y);
+    g_backend->cmdBeginRenderPass(hList, bcmd);
 
-    ImGui_ImplPHI_RenderDrawData(viewport->DrawData, {writer.buffer_head(), size_t(writer.remaining_bytes())});
-    writer.advance_cursor(drawdata_command_size);
+#if INC_ENABLE_IMGUI_PHI_BINDLESS
+    CC_ASSERT(pRenderData->hPSO.is_valid() && pRenderData->hSV.is_valid() && "Bindless mode requires a valid PSO and Shader View in ImGui_ImplPHI_RendererRenderData");
+    ImGui_ImplPHI_RenderDrawDataWithPSO(pViewport->DrawData, pRenderData->hPSO, pRenderData->hSV, hList);
+#else
+    ImGui_ImplPHI_RenderDrawDataWithPSO(pViewport->DrawData, pRenderData->hPSO.is_valid() ? pRenderData->hPSO : g_pipeline_state, hList);
+#endif
 
-    writer.add_command(phi::cmd::end_render_pass{});
+    g_backend->cmdEndRenderPass(hList, phi::cmd::end_render_pass{});
 
-    auto& tcmd2 = writer.emplace_command<phi::cmd::transition_resources>();
-    tcmd2.add(backbuffer, phi::resource_state::present);
+    phi::cmd::transition_resources tcmd2;
+    tcmd2.add(hBackbuffer, phi::resource_state::present);
+    g_backend->cmdTransitionResources(hList, tcmd2);
 
-    writer.add_command(phi::cmd::end_debug_label());
-
-    auto const cmdlist = g_backend->recordCommandList(writer.buffer(), writer.size());
-    g_backend->submit(cc::span{cmdlist});
+    g_backend->cmdEndDebugLabel(hList, phi::cmd::end_debug_label());
 }
 
-static void ImGui_ImplPHI_SwapBuffers(ImGuiViewport* viewport, void*)
+static void ImGui_ImplPHI_SwapBuffers(ImGuiViewport* pViewport, void*)
 {
-    ImGuiViewportDataPHI* data = (ImGuiViewportDataPHI*)viewport->RendererUserData;
-
-    g_backend->present(data->swapchain);
+    ImGuiViewportDataPHI* pData = (ImGuiViewportDataPHI*)pViewport->RendererUserData;
+    g_backend->present(pData->swapchain);
 }
 
 
@@ -492,4 +797,7 @@ void ImGui_ImplPHI_InitPlatformInterface()
     platform_io.Renderer_SwapBuffers = ImGui_ImplPHI_SwapBuffers;
 }
 
-void ImGui_ImplPHI_ShutdownPlatformInterface() { ImGui::DestroyPlatformWindows(); }
+void ImGui_ImplPHI_ShutdownPlatformInterface()
+{
+    ImGui::DestroyPlatformWindows();
+}

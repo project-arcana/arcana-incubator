@@ -26,7 +26,6 @@ void inc::pre::timing_metric::on_frame(float cpu_time, float gpu_time)
     min_gpu = *std::min_element(gpu_times.begin(), gpu_times.end());
 }
 
-
 void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timers, unsigned num_backbuffers, cc::allocator* alloc)
 {
     this->num_timings = num_timers;
@@ -39,7 +38,7 @@ void inc::pre::timestamp_bundle::initialize(pr::Context& ctx, unsigned num_timer
     timing_usage_flags = cc::alloc_array<bool>::uninitialized(num_timers, alloc);
     std::memset(timing_usage_flags.data(), 0, timing_usage_flags.size_bytes());
 
-    readback_buffers = readback_buffers.defaulted(num_backbuffers);
+    readback_buffers.resize(num_backbuffers);
     unsigned const buffer_size = sizeof(uint64_t) * 2 * num_timers;
     for (auto& buf : readback_buffers)
     {
@@ -56,14 +55,18 @@ void inc::pre::timestamp_bundle::destroy()
 
 void inc::pre::timestamp_bundle::begin_timing(pr::raii::Frame& frame, unsigned idx)
 {
-    CC_CONTRACT(idx < num_timings);
+    if (idx >= num_timings)
+        return;
+
     frame.write_timestamp(query_range, frame_index * num_timings * 2 + idx * 2);
     timing_usage_flags[idx] = true;
 }
 
 void inc::pre::timestamp_bundle::end_timing(pr::raii::Frame& frame, unsigned idx) const
 {
-    CC_CONTRACT(idx < num_timings);
+    if (idx >= num_timings)
+        return;
+
     frame.write_timestamp(query_range, frame_index * num_timings * 2 + idx * 2 + 1);
 }
 

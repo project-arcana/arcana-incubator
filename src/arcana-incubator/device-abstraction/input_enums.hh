@@ -618,7 +618,15 @@ enum class mouse_button : int
 
 enum class mouse_axis
 {
+    INVALID,
     x,
     y
 };
-}
+
+enum class controller_analog_stick
+{
+    INVALID,
+    left,
+    right
+};
+} // namespace inc::da

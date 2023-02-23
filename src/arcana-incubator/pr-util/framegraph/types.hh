@@ -25,10 +25,10 @@ struct res_handle // long name: virtual resource handle
 struct access_mode
 {
     phi::resource_state required_state = phi::resource_state::undefined;
-    phi::shader_stage_flags_t stage_flags = cc::no_flags;
+    phi::shader_stage_flags_t stage_flags = 0;
 
     access_mode() = default;
-    access_mode(phi::resource_state state, phi::shader_stage_flags_t flags = cc::no_flags) : required_state(state), stage_flags(flags) {}
+    access_mode(phi::resource_state state, phi::shader_stage_flags_t flags = 0) : required_state(state), stage_flags(flags) {}
     bool is_set() const { return required_state != phi::resource_state::undefined; }
 };
-}
+} // namespace inc::frag

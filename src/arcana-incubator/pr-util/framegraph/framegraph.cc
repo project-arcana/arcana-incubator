@@ -38,7 +38,7 @@ inc::frag::res_handle inc::frag::GraphBuilder::registerCreate(inc::frag::pass_id
 
 inc::frag::res_handle inc::frag::GraphBuilder::registerImport(inc::frag::pass_idx pass_idx,
                                                               inc::frag::res_guid_t guid,
-                                                              pr::raw_resource raw_resource,
+                                                              pr::resource raw_resource,
                                                               inc::frag::access_mode mode,
                                                               const pr::generic_resource_info& optional_info)
 {
@@ -124,26 +124,26 @@ void inc::frag::GraphBuilder::realizePhysicalResources(inc::frag::GraphCache& ca
     {
         if (virt.is_culled())
         {
-            // LOG_INFO("skipped virtual resource with initial GUID {} (culled)", virt.initial_guid);
+            // RICH_LOG_INFO("skipped virtual resource with initial GUID {} (culled)", virt.initial_guid);
             continue;
         }
 
         // passthrough imported resources or call the realize_func
-        pr::raw_resource physical;
+        pr::resource physical;
         if (virt.is_imported())
         {
             physical = virt.imported_resource;
-            // LOG_INFO("imported virtual resource with initial GUID {}", virt.initial_guid);
+            // RICH_LOG_INFO("imported virtual resource with initial GUID {}", virt.initial_guid);
         }
         else
         {
             char namebuf[256];
             std::snprintf(namebuf, sizeof(namebuf), "[fgraph-guid:%" PRIu64 "]", virt.initial_guid);
             physical = cache.get(virt.resource_info, namebuf);
-            // LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
+            // RICH_LOG_INFO("cache-realized virtual resource with initial GUID {}", virt.initial_guid);
         }
 
-        mPhysicalResources.push_back({physical, virt.resource_info.get()});
+        mPhysicalResources.push_back({physical, virt.resource_info});
         virt.associated_physical = physical_res_idx(mPhysicalResources.size() - 1);
     }
 }
@@ -166,7 +166,8 @@ void inc::frag::GraphBuilder::calculateBarriers()
         if (pass.is_culled)
             continue;
 
-        auto f_add_barrier = [&](virtual_res_idx virtual_res, access_mode mode) {
+        auto f_add_barrier = [&](virtual_res_idx virtual_res, access_mode mode)
+        {
             if (!mode.is_set())
                 return;
 
@@ -190,11 +191,12 @@ void inc::frag::GraphBuilder::calculateBarriers()
     }
 }
 
-void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing, int timer_offset)
+void inc::frag::GraphBuilder::executePasses(pr::raii::Frame* frame, size_t start, size_t end, pre::timestamp_bundle* timing, int timer_offset)
 {
     CC_CONTRACT(frame != nullptr);
+    CC_ASSERT(end <= mPasses.size() && "pass amount out of bounds");
 
-    for (auto i = 0u; i < mPasses.size(); ++i)
+    for (auto i = start; i < end; ++i)
     {
         auto const& pass = mPasses[i];
         if (pass.is_culled)
@@ -208,7 +210,7 @@ void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestam
             if (timing)
                 timing->begin_timing(*frame, i + timer_offset);
 
-            exec_context exec_ctx = {i, this, frame};
+            exec_context exec_ctx = {(pass_idx)i, this, frame};
             pass.execute_func(exec_ctx);
 
             if (timing)
@@ -216,6 +218,11 @@ void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestam
             frame->end_debug_label();
         }
     }
+}
+
+void inc::frag::GraphBuilder::execute(pr::raii::Frame* frame, inc::pre::timestamp_bundle* timing, int timer_offset)
+{
+    executePasses(frame, 0, mPasses.size(), timing, timer_offset);
 }
 
 void inc::frag::GraphBuilder::reset()
@@ -287,7 +294,7 @@ void inc::frag::GraphBuilder::performInfoImgui(const pre::timestamp_bundle* timi
                 ImGui::Text("%2d", int(pass.imports.size()));
 
                 ImGui::TableSetColumnIndex(6);
-                float const time = timing->get_last_timing(i);
+                float const time = timing ? timing->get_last_timing(i) : 0.f;
                 time_sum += time;
                 ImGui::Text("% 2.3fms", time);
 
@@ -388,7 +395,10 @@ void inc::frag::GraphBuilder::initialize(cc::allocator* alloc, unsigned max_num_
     mPhysicalResources.reset_reserve(alloc, max_num_guids);
 }
 
-void inc::frag::GraphBuilder::destroy() { reset(); }
+void inc::frag::GraphBuilder::destroy()
+{
+    reset();
+}
 
 void inc::frag::GraphBuilder::compile(inc::frag::GraphCache& cache, cc::allocator* alloc)
 {
@@ -404,33 +414,33 @@ void inc::frag::GraphBuilder::printState() const
         if (pass.is_culled)
             continue;
 
-        LOG("pass {}{}", pass.debug_name, pass.is_root_pass ? ", root" : "");
+        RICH_LOG("pass {}{}", pass.debug_name, pass.is_root_pass ? ", root" : "");
 
         for (auto const& create : pass.creates)
         {
-            LOG("  <* create {} v0", create.res);
+            RICH_LOG("  <* create {} v0", create.res);
         }
         for (auto const& import : pass.imports)
         {
-            LOG("  <# import {} v0", import.res);
+            RICH_LOG("  <# import {} v0", import.res);
         }
         for (auto const& read : pass.reads)
         {
-            LOG("  -> read {} v{}", read.res, read.version_before);
+            RICH_LOG("  -> read {} v{}", read.res, read.version_before);
         }
         for (auto const& write : pass.writes)
         {
-            LOG("  <- write {} v{}", write.res, write.version_before);
+            RICH_LOG("  <- write {} v{}", write.res, write.version_before);
         }
         for (auto const& move : pass.moves)
         {
-            LOG("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
+            RICH_LOG("  -- move {} v{} -> g{}", move.src_res, move.src_version_before, move.dest_guid);
         }
     }
 
     for (auto const& guidstate : mGuidStates)
     {
-        LOG("guid {}, state {}, virtual res {}, v{}", guidstate.guid, guidstate.state, guidstate.virtual_res, guidstate.virtual_res_version);
+        RICH_LOG("guid {}, state {}, virtual res {}, v{}", guidstate.guid, guidstate.state, guidstate.virtual_res, guidstate.virtual_res_version);
     }
 
     for (auto const& res : mVirtualResources)
@@ -438,7 +448,7 @@ void inc::frag::GraphBuilder::printState() const
         if (res.is_culled())
             continue;
 
-        LOG("resource {}", res.initial_guid);
+        RICH_LOG("resource {}", res.initial_guid);
     }
 }
 
@@ -451,7 +461,7 @@ inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_
 
 inc::frag::virtual_res_idx inc::frag::GraphBuilder::addResource(inc::frag::pass_idx producer,
                                                                 inc::frag::res_guid_t guid,
-                                                                pr::raw_resource import_resource,
+                                                                pr::resource import_resource,
                                                                 pr::generic_resource_info const& info)
 {
     (void)producer; // might be useful later
@@ -468,24 +478,6 @@ inc::frag::GraphBuilder::guid_state& inc::frag::GraphBuilder::getGuidState(inc::
     }
 
     return mGuidStates.emplace_back(guid);
-}
-
-void inc::frag::GraphBuilder::virtual_resource::_copy_info(const phi::arg::resource_description& info)
-{
-    // this little game is required to maintain the hashable_storage
-    resource_info.get().type = info.type;
-
-    switch (info.type)
-    {
-    case phi::arg::resource_description::e_resource_texture:
-        resource_info.get().info_texture = info.info_texture;
-        break;
-    case phi::arg::resource_description::e_resource_buffer:
-        resource_info.get().info_buffer = info.info_buffer;
-        break;
-    case phi::arg::resource_description::e_resource_undefined:
-        break;
-    }
 }
 
 void inc::frag::GraphBuilder::guid_state::on_create(inc::frag::virtual_res_idx new_res)

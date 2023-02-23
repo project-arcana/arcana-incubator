@@ -17,7 +17,7 @@ public:
         _values.reserve(num_elems);
     }
 
-    [[nodiscard]] pr::raw_resource acquire(uint64_t key)
+    [[nodiscard]] pr::resource acquire(uint64_t key)
     {
         for (auto i = 0u; i < _hashes.size(); ++i)
         {
@@ -28,9 +28,9 @@ public:
             }
         }
 
-        return {phi::handle::null_resource, 0};
+        return {phi::handle::null_resource};
     }
-    void add_elem(uint64_t key, pr::raw_resource val)
+    void add_elem(uint64_t key, pr::resource val)
     {
         _hashes.push_back({key, _current_frame});
         _values.push_back(val);
@@ -52,7 +52,7 @@ public:
 
     uint64_t _current_frame = 0;
     cc::vector<map_element> _hashes;
-    cc::vector<pr::raw_resource> _values;
+    cc::vector<pr::resource> _values;
 };
 
 class GraphCache
@@ -83,12 +83,12 @@ public:
 
     void onNewFrame() { _cache.on_new_frame(); }
 
-    pr::raw_resource get(pr::hashable_storage<pr::generic_resource_info> const& info, char const* debug_name);
+    pr::resource get(pr::generic_resource_info const& info, char const* debug_name);
 
-    void freeAll();
+    uint32_t freeAll();
 
 private:
     pr::Context* _backend = nullptr;
     resource_cache _cache;
 };
-}
+} // namespace inc::frag

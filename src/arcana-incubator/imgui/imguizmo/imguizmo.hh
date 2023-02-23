@@ -169,15 +169,22 @@ enum MODE
     WORLD
 };
 
-IMGUI_API void Manipulate(const float* view,
-                          const float* projection,
+IMGUI_API bool Manipulate(const float* __restrict view,
+                          const float* __restrict projection,
                           OPERATION operation,
                           MODE mode,
-                          float* matrix,
-                          float* deltaMatrix = nullptr,
-                          float* snap = nullptr,
-                          float* localBounds = nullptr,
-                          float* boundsSnap = nullptr);
+                          float* __restrict matrix,
+                          float* __restrict deltaMatrix = nullptr,
+                          float* __restrict snap = nullptr,
+                          float* __restrict localBounds = nullptr,
+                          float* __restrict boundsSnap = nullptr);
+
+// returns true if the user started dragging the gizmo this frame
+IMGUI_API bool IsGizmoActivated();
+
+// returns true if the user stopped dragging the gizmo this frame
+IMGUI_API bool IsGizmoDeactivatedAfterDrag();
+
 //
 // Please note that this cubeview is patented by Autodesk : https://patents.google.com/patent/US7782319B2/en
 // It seems to be a defensive patent in the US. I don't think it will bring troubles using it as
@@ -186,4 +193,4 @@ IMGUI_API void Manipulate(const float* view,
 IMGUI_API void ViewManipulate(float* view, float length, ImVec2 position, ImVec2 size, ImU32 backgroundColor);
 
 IMGUI_API void SetID(int id);
-};
+}; // namespace ImGuizmo

@@ -11,12 +11,14 @@ namespace inc::da
 {
 void initialize(bool enable_controllers = false);
 
+bool setProcessHighDPIAware();
+
 void shutdown();
 
 class SDLWindow
 {
 public:
-    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true);
+    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true, bool start_hidden = false);
     void destroy();
 
     SDLWindow() = default;
@@ -42,13 +44,16 @@ public:
     [[nodiscard]] bool isRequestingClose()
     {
 #ifdef CC_ENABLE_ASSERTIONS
-        CC_ASSERT(mSafetyState.polled_since_last_close_test && "forgot to poll window events in while loop body?");
-        mSafetyState.polled_since_last_close_test = false;
+        CC_ASSERT(mSafetyState.num_close_tests_since_poll < 10 && "Forgot to poll window events in main loop?");
+        mSafetyState.num_close_tests_since_poll++;
 #endif
+
         return mIsRequestingClose;
     }
 
-    /// whether a resize occured since the last ::clearPendingResize()
+    void clearRequestToClose() { mIsRequestingClose = false; }
+
+    /// whether a resize occured since the last clearPendingResize()
     /// clears pending resizes
     [[nodiscard]] bool clearPendingResize()
     {
@@ -85,6 +90,10 @@ public:
     //
     // display mode
 
+	void hideWindow();
+
+	void showWindow();
+
     /// set the display mode, only affects fullscreen
     /// returns true on success
     bool setDisplayMode(tg::isize2 resolution, int refresh_rate);
@@ -93,7 +102,7 @@ public:
     void setDesktopDisplayMode();
 
     /// return the amount of physical monitors
-    static int getNumMonitors();
+    static int getNumDisplays();
 
     /// returns the amount of available display modes available on the given monitor
     static int getNumDisplayModes(int monitor_index);
@@ -102,6 +111,8 @@ public:
     static bool getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate);
 
     static bool getDesktopDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate);
+
+    static bool getCurrentDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate);
 
     /// gives the best matching display mode
     static bool getClosestDisplayMode(int monitor_index, tg::isize2 resolution, int refreshrate, tg::isize2& out_resolution, int& out_refreshrate);
@@ -157,8 +168,9 @@ private:
 #ifdef CC_ENABLE_ASSERTIONS
     struct
     {
-        bool polled_since_last_close_test = true;
+        // assert if isRequestingClose() is called many times without polls in between
+        int num_close_tests_since_poll = 0;
     } mSafetyState;
 #endif
 };
-}
+} // namespace inc::da

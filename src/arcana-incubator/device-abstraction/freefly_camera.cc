@@ -52,6 +52,25 @@ void inc::da::fps_cam_state::mouselook(float dx, float dy)
     forward = tg::vec3(cal * caz, sal, cal * saz);
 }
 
+void inc::da::fps_cam_state::mousestrafe(float dx, float dy, float speed)
+{
+    // x-axis: mouselook, y-axis: forward and back
+    auto altitude = tg::atan2(forward.y, length(tg::vec2(forward.x, forward.z)));
+    auto azimuth = tg::atan2(forward.z, forward.x);
+
+    azimuth += 1_rad * dx;
+    auto caz = tg::cos(azimuth);
+    auto saz = tg::sin(azimuth);
+    auto cal = tg::cos(altitude);
+    auto sal = tg::sin(altitude);
+    forward = tg::vec3(cal * caz, sal, cal * saz);
+
+    auto forwardWithoutY = tg::normalize(forward);
+    forwardWithoutY.y = 0.f;
+
+    position += forwardWithoutY * (dy * speed);
+}
+
 void inc::da::fps_cam_state::set_focus(tg::pos3 focus, tg::vec3 global_offset)
 {
     position = focus + global_offset;

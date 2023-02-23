@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <clean-core/assert.hh>
+#include <clean-core/native/win32_fwd.hh>
 
 #include <rich-log/log.hh>
 
@@ -30,7 +31,7 @@ void verify_failure_handler(const char* expression, const char* filename, int li
         }                                                        \
     } while (0)
 
-}
+} // namespace
 
 void inc::da::initialize(bool enable_controllers)
 {
@@ -50,24 +51,87 @@ void inc::da::initialize(bool enable_controllers)
     // see https://wiki.libsdl.org/SDL_SetMainReady
     SDL_SetMainReady();
 
+    int const initResult = SDL_Init(init_flags);
+    if (initResult < 0)
+    {
+        RICH_LOG(R"(SDL_Init returned an error: "{}")", SDL_GetError());
+        RICH_LOG("Execution can likely continue");
+    }
 
-    DA_SDL_VERIFY(SDL_Init(init_flags));
     DA_SDL_VERIFY(SDL_JoystickEventState(SDL_ENABLE));
 
     SDL_version version;
     SDL_GetVersion(&version);
-    LOG_INFO("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
+    RICH_LOG("Initialized SDL {}.{}.{} on {}", version.major, version.minor, version.patch, SDL_GetPlatform());
 }
 
-void inc::da::shutdown() { SDL_Quit(); }
+bool inc::da::setProcessHighDPIAware()
+{
+#ifdef CC_OS_WINDOWS
+    typedef enum PROCESS_DPI_AWARENESS
+    {
+        PROCESS_DPI_UNAWARE = 0,
+        PROCESS_SYSTEM_DPI_AWARE = 1,
+        PROCESS_PER_MONITOR_DPI_AWARE = 2
+    } PROCESS_DPI_AWARENESS;
 
-void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool enable_vulkan)
+    BOOL(WINAPI * fptr_SetProcessDPIAware)(void);                                      // Vista and later
+    HRESULT(WINAPI * fptr_SetProcessDpiAwareness)(PROCESS_DPI_AWARENESS dpiAwareness); // Windows 8.1 and later
+
+    void* dllUser32 = SDL_LoadObject("USER32.DLL");
+    if (dllUser32)
+    {
+        fptr_SetProcessDPIAware = (BOOL(WINAPI*)(void))SDL_LoadFunction(dllUser32, "SetProcessDPIAware");
+    }
+
+    void* dllShcore = SDL_LoadObject("SHCORE.DLL");
+    if (dllShcore)
+    {
+        fptr_SetProcessDpiAwareness = (HRESULT(WINAPI*)(PROCESS_DPI_AWARENESS))SDL_LoadFunction(dllShcore, "SetProcessDpiAwareness");
+    }
+
+    bool success = false;
+
+    if (fptr_SetProcessDpiAwareness)
+    {
+        HRESULT res = fptr_SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+        success = (res == ((HRESULT)0L));
+    }
+    else if (fptr_SetProcessDPIAware)
+    {
+        // Vista to Windows 8 version, has constant scale factor for all monitors
+        BOOL res = fptr_SetProcessDPIAware();
+        success = !!res;
+    }
+
+    if (dllUser32)
+        SDL_UnloadObject(dllUser32);
+
+    if (dllShcore)
+        SDL_UnloadObject(dllShcore);
+
+    return success;
+#else
+    return true;
+#endif
+}
+
+void inc::da::shutdown()
+{
+    SDL_Quit();
+}
+
+void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool enable_vulkan, bool start_hidden)
 {
     CC_ASSERT(mWindow == nullptr && "double init");
 
     uint32_t flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+
     if (enable_vulkan)
         flags |= SDL_WINDOW_VULKAN;
+
+    if (start_hidden)
+        flags |= SDL_WINDOW_HIDDEN;
 
     mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, size.width, size.height, flags);
 
@@ -101,7 +165,7 @@ void inc::da::SDLWindow::pollEvents()
 bool inc::da::SDLWindow::pollSingleEvent(SDL_Event& out_event)
 {
 #ifdef CC_ENABLE_ASSERTIONS
-    mSafetyState.polled_since_last_close_test = true;
+    mSafetyState.num_close_tests_since_poll = 0;
 #endif
     if (SDL_PollEvent(&out_event) == 0)
         return false;
@@ -166,7 +230,7 @@ void inc::da::SDLWindow::setBorderlessFullscreen(int target_display_index)
     int const display_index = target_display_index >= 0 ? target_display_index : SDL_GetWindowDisplayIndex(mWindow);
 
     SDL_DisplayMode mode;
-    DA_SDL_VERIFY(SDL_GetDesktopDisplayMode(display_index, &mode));
+    DA_SDL_VERIFY(SDL_GetCurrentDisplayMode(display_index, &mode));
     SDL_Rect bounds;
     DA_SDL_VERIFY(SDL_GetDisplayBounds(display_index, &bounds));
     SDL_SetWindowSize(mWindow, mode.w, mode.h);
@@ -182,6 +246,16 @@ void inc::da::SDLWindow::setWindowed()
     DA_SDL_VERIFY(SDL_SetWindowFullscreen(mWindow, 0));
 }
 
+void inc::da::SDLWindow::hideWindow()
+{
+    SDL_HideWindow(mWindow);
+}
+
+void inc::da::SDLWindow::showWindow()
+{
+    SDL_ShowWindow(mWindow);
+}
+
 bool inc::da::SDLWindow::setDisplayMode(tg::isize2 resolution, int refresh_rate)
 {
     SDL_DisplayMode mode = {SDL_PIXELFORMAT_BGRA8888, resolution.width, resolution.height, refresh_rate, nullptr};
@@ -194,13 +268,19 @@ void inc::da::SDLWindow::setDesktopDisplayMode()
 {
     SDL_DisplayMode mode;
     DA_SDL_VERIFY(SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(mWindow), &mode));
-    // LOG_TRACE("Desktop Display Mode: {}x{}@{}Hz", mode.w, mode.h, mode.refresh_rate);
+    // RICH_LOG_TRACE("Desktop Display Mode: {}x{}@{}Hz", mode.w, mode.h, mode.refresh_rate);
     DA_SDL_VERIFY(SDL_SetWindowDisplayMode(mWindow, &mode));
 }
 
-int inc::da::SDLWindow::getNumMonitors() { return SDL_GetNumVideoDisplays(); }
+int inc::da::SDLWindow::getNumDisplays()
+{
+    return SDL_GetNumVideoDisplays();
+}
 
-int inc::da::SDLWindow::getNumDisplayModes(int monitor_index) { return SDL_GetNumDisplayModes(monitor_index); }
+int inc::da::SDLWindow::getNumDisplayModes(int monitor_index)
+{
+    return SDL_GetNumDisplayModes(monitor_index);
+}
 
 bool inc::da::SDLWindow::getDisplayMode(int monitor_index, int mode_index, tg::isize2& out_resolution, int& out_refreshrate)
 {
@@ -219,6 +299,20 @@ bool inc::da::SDLWindow::getDesktopDisplayMode(int monitor_index, tg::isize2& ou
 {
     SDL_DisplayMode mode;
     auto const res = SDL_GetDesktopDisplayMode(monitor_index, &mode);
+    if (res != 0)
+    {
+        return false;
+    }
+
+    out_resolution = {mode.w, mode.h};
+    out_refreshrate = mode.refresh_rate;
+    return true;
+}
+
+bool inc::da::SDLWindow::getCurrentDisplayMode(int monitor_index, tg::isize2& out_resolution, int& out_refreshrate)
+{
+    SDL_DisplayMode mode;
+    auto const res = SDL_GetCurrentDisplayMode(monitor_index, &mode);
     if (res != 0)
     {
         return false;
@@ -278,7 +372,7 @@ void inc::da::SDLWindow::queryAndTriggerResize()
 
 void inc::da::SDLWindow::onResizeEvent(int w, int h, bool minimized)
 {
-    // LOG_TRACE("{} {}x{} ({})", __FUNCTION__, w, h, minimized);
+    // RICH_LOG_TRACE("{} {}x{} ({})", __FUNCTION__, w, h, minimized);
     if (mWidth == w && mHeight == h && mIsMinimized == minimized)
         return;
 
