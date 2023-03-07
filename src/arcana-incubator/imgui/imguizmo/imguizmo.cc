@@ -2147,9 +2147,9 @@ bool Manipulate(const float* __restrict view,
                 MODE mode,
                 float* __restrict matrix,
                 float* __restrict deltaMatrix,
-                float* __restrict snap,
-                float* __restrict localBounds,
-                float* __restrict boundsSnap)
+                float const* __restrict snap,
+                float const* __restrict localBounds,
+                float const* __restrict boundsSnap)
 {
     ComputeContext(view, projection, matrix, mode);
 
