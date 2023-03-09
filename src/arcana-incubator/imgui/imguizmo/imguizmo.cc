@@ -752,10 +752,11 @@ static Context gContext;
 [[maybe_unused]] static const float planeLimit = 0.2f;
 
 static const vec_t directionUnary[3] = {makeVect(1.f, 0.f, 0.f), makeVect(0.f, 1.f, 0.f), makeVect(0.f, 0.f, 1.f)};
-static const ImU32 directionColor[3] = {0xFF0000AA, 0xFF00AA00, 0xFFAA0000};
+static ImU32 directionColor[3] = {0xFF0000AA, 0xFF00AA00, 0xFFAA0000};
 
 // Alpha: 100%: FF, 87%: DE, 70%: B3, 54%: 8A, 50%: 80, 38%: 61, 12%: 1F
-static const ImU32 planeColor[3] = {0x610000AA, 0x6100AA00, 0x61AA0000};
+static ImU32 planeColor[3] = {0x610000AA, 0x6100AA00, 0x61AA0000};
+static ImU32 negativeAxisHatchColor = 0x80000000;
 static const ImU32 selectionColor = 0x8A1080FF;
 static const ImU32 inactiveColor = 0x99999999;
 static const ImU32 translationLineColor = 0xAAAAAAAA;
@@ -906,6 +907,22 @@ void SetRect(float x, float y, float width, float height)
     gContext.mXMax = gContext.mX + gContext.mWidth;
     gContext.mYMax = gContext.mY + gContext.mXMax;
     gContext.mDisplayRatio = width / height;
+}
+
+void SetDirectionColors(unsigned colorX, unsigned colorY, unsigned colorZ)
+{
+	directionColor[0] = colorX;
+	directionColor[1] = colorY;
+	directionColor[2] = colorZ;
+	// same color with different alpha
+	planeColor[0] = 0x61000000 | (colorX & 0x00FFFFFF);
+	planeColor[1] = 0x61000000 | (colorY & 0x00FFFFFF);
+	planeColor[2] = 0x61000000 | (colorZ & 0x00FFFFFF);
+}
+
+void SetNegativeAxisHatchColor(unsigned color)
+{
+	negativeAxisHatchColor = color;
 }
 
 IMGUI_API void SetOrthographic(bool isOrthographic) { gContext.mIsOrthographic = isOrthographic; }
@@ -1218,11 +1235,14 @@ static void DrawRotationGizmo(int type)
 
 static void DrawHatchedAxis(const vec_t& axis)
 {
+	if (negativeAxisHatchColor == 0)
+		return;
+
     for (int j = 1; j < 10; j++)
     {
         ImVec2 baseSSpace2 = worldToPos(axis * 0.05f * (float)(j * 2) * gContext.mScreenFactor, gContext.mMVP);
         ImVec2 worldDirSSpace2 = worldToPos(axis * 0.05f * (float)(j * 2 + 1) * gContext.mScreenFactor, gContext.mMVP);
-        gContext.mDrawList->AddLine(baseSSpace2, worldDirSSpace2, 0x80000000, 6.f);
+        gContext.mDrawList->AddLine(baseSSpace2, worldDirSSpace2, negativeAxisHatchColor, 6.f);
     }
 }
 
