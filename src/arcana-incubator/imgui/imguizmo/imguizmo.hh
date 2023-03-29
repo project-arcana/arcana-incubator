@@ -143,7 +143,11 @@ IMGUI_API void Enable(bool enable);
 IMGUI_API void DecomposeMatrixToComponents(const float* matrix, float* translation, float* rotation, float* scale);
 IMGUI_API void RecomposeMatrixFromComponents(const float* translation, const float* rotation, const float* scale, float* matrix);
 
+// Sets the area on screen where the gizmo is to be drawn
 IMGUI_API void SetRect(float x, float y, float width, float height);
+
+// Sets a clip rectangle against which all drawn elements are clipped (scissored)
+IMGUI_API void SetClipRect(float x, float y, float width, float height);
 
 // Set the colors for the directions (usually red, green, blue)
 IMGUI_API void SetDirectionColors(unsigned colorX, unsigned colorY, unsigned colorZ);
