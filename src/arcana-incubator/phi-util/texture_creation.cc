@@ -146,8 +146,8 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
                                                    texture_dimension::t2d, 1, true);
 
 
-    uint32_t const upbuff_size
-        = phi::util::get_texture_size_bytes({int(img_size.width), int(img_size.height), int(img_size.array_size)}, format, 1, align_mip_rows);
+    uint32_t const upbuff_size = phi::util::get_texture_size_bytes_on_gpu(backend->getResourceTextureDescription(res_handle), align_mip_rows, 1);
+
     auto const upbuff_handle = backend->createUploadBuffer(upbuff_size);
     resources_to_free.push_back(upbuff_handle);
 
@@ -173,7 +173,7 @@ handle::resource inc::texture_creator::load_texture(char const* path, phi::forma
     return res_handle;
 }
 
-handle::resource inc::texture_creator::load_filtered_specular_map(const char* hdr_equirect_path)
+handle::resource inc::texture_creator::load_filtered_specular_map(char const* hdr_equirect_path)
 {
     cmd_writer.add_command(cmd::begin_debug_label{"load_filtered_specular_map"});
 
@@ -266,7 +266,7 @@ handle::resource inc::texture_creator::load_filtered_specular_map(const char* hd
             default_sampler.init_default(sampler_filter::min_mag_mip_linear);
 
 
-            const float deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
+            float const deltaRoughness = 1.0f / cc::max(float(cube_num_mips - 1), 1.0f);
             for (auto level = 1u, size = 512u; int(level) < cube_num_mips; ++level, size /= 2)
             {
                 auto const num_groups = cc::max<unsigned>(1, cc::int_div_ceil(size, 32u));
@@ -366,7 +366,7 @@ handle::resource inc::texture_creator::create_brdf_lut(int width_height)
     return brdf_lut_handle;
 }
 
-void inc::texture_creator::generate_mips(handle::resource resource, const inc::assets::image_size& size, bool apply_gamma, format pf)
+void inc::texture_creator::generate_mips(handle::resource resource, inc::assets::image_size const& size, bool apply_gamma, format pf)
 {
     constexpr auto max_array_size = 16u;
     CC_ASSERT(size.width == size.height && "non-square textures unimplemented");
