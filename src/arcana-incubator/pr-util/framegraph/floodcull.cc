@@ -2,10 +2,10 @@
 
 #include <clean-core/alloc_vector.hh>
 
-void inc::frag::run_floodcull(cc::span<int> producers,
-                              cc::span<int> resources,
-                              cc::span<const inc::frag::floodcull_relation> writes,
-                              cc::span<const inc::frag::floodcull_relation> reads,
+void inc::frag::run_floodcull(cc::span<int32_t> producers,
+                              cc::span<int32_t> resources,
+                              cc::span<inc::frag::floodcull_relation const> writes,
+                              cc::span<inc::frag::floodcull_relation const> reads,
                               cc::allocator* alloc)
 {
     // phase one - initial refcount values are expected as 0 (default) or 1 (root)
@@ -25,7 +25,7 @@ void inc::frag::run_floodcull(cc::span<int> producers,
 
     // phase two - floodfill from unreferenced resources
     {
-        cc::alloc_vector<unsigned> residx_stack(alloc);
+        cc::alloc_vector<uint32_t> residx_stack(alloc);
         residx_stack.reserve(resources.size() / 2);
 
         for (auto i = 0u; i < resources.size(); ++i)
@@ -60,7 +60,7 @@ void inc::frag::run_floodcull(cc::span<int> producers,
                         int& resource_refcount = resources[read.resource_index];
                         resource_refcount--;
 
-                        //CC_ASSERT(resource_refcount > 0 && "read resource at unexpected refcount");
+                        // CC_ASSERT(resource_refcount > 0 && "read resource at unexpected refcount");
 
                         if (resource_refcount == 0)
                             residx_stack.push_back(read.resource_index);
