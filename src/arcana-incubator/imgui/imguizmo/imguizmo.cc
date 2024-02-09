@@ -20,10 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <arcana-incubator/imgui/lib/imgui.h>
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
+#include <arcana-incubator/imgui/lib/imgui.h>
 #include <arcana-incubator/imgui/lib/imgui_internal.h>
 #include "imguizmo.hh"
 #if !defined(_MSC_VER)
