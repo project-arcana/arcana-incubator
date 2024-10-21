@@ -24,6 +24,8 @@ struct multi_buffered_buffer
 
     [[deprecated]] void initialize(pr::Context& ctx, unsigned num_backbuffers, pr::buffer_info const& info);
 
+    bool is_valid() const { return buffers.size() > 0; }
+
     void destroy(pr::Context& ctx);
 
     multi_buffered_buffer() = default;
@@ -35,4 +37,4 @@ struct multi_buffered_buffer
 
     cc::capped_vector<pr::buffer, 5> buffers;
 };
-}
+} // namespace inc::pre
