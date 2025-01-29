@@ -214,7 +214,7 @@ void ImGui_ImplPHI_NewFrame()
 { // nothing has to be done here
 }
 
-void ImGui_ImplPHI_RenderDrawData(const ImDrawData* draw_data, phi::handle::live_command_list list)
+void ImGui_ImplPHI_RenderDrawData(ImDrawData const* draw_data, phi::handle::live_command_list list)
 {
 #if INC_ENABLE_IMGUI_PHI_BINDLESS
     CC_ASSERT(false && "Must use custom PSO with PHI ImGui bindless Backend (see ImGui_ImplPHI_InitWithoutPSO and ImGui_ImplPHI_RenderDrawDataWithPSO)");
@@ -362,7 +362,7 @@ void ImGui_ImplPHI_RenderDrawDataWithPSO(ImDrawData const* draw_data, //
     }
 }
 
-uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(const ImDrawData* draw_data)
+uint32_t ImGui_ImplPHI_GetDrawDataCommandSize(ImDrawData const* draw_data)
 {
     // Avoid rendering when minimized
     if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
@@ -717,6 +717,7 @@ static void ImGui_ImplPHI_DestroyWindow(ImGuiViewport* pViewport)
     {
         if (pData->swapchain.is_valid())
         {
+            g_backend->flushGPU();
             g_backend->free(pData->swapchain);
         }
 
