@@ -144,6 +144,12 @@ IMGUI_API void DecomposeMatrixToComponents(const float* matrix, float* translati
 IMGUI_API void RecomposeMatrixFromComponents(const float* translation, const float* rotation, const float* scale, float* matrix);
 
 IMGUI_API void SetRect(float x, float y, float width, float height);
+
+// Set the colors for the directions (usually red, green, blue)
+IMGUI_API void SetDirectionColors(unsigned colorX, unsigned colorY, unsigned colorZ);
+// Set the color for the dotted effect if a translation axis is negated (0 = disable). Default: 0x80000000
+IMGUI_API void SetNegativeAxisHatchColor(unsigned color);
+
 // default is false
 IMGUI_API void SetOrthographic(bool isOrthographic);
 
