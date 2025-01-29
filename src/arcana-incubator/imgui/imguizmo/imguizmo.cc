@@ -742,6 +742,10 @@ struct Context
 
     bool mIsOrthographic = false;
 
+	ImVec2 mClipRectMin = ImVec2(0, 0);
+	ImVec2 mClipRectMax = ImVec2(0, 0);
+	bool mHasClipRect = false;
+
     int mActualID = -1;
     int mEditingID = -1;
 };
@@ -909,6 +913,13 @@ void SetRect(float x, float y, float width, float height)
     gContext.mDisplayRatio = width / height;
 }
 
+void SetClipRect(float x, float y, float width, float height)
+{
+	gContext.mClipRectMin = ImVec2(x, y);
+	gContext.mClipRectMax = ImVec2(x + width, y + height);
+	gContext.mHasClipRect = true;
+}
+
 void SetDirectionColors(unsigned colorX, unsigned colorY, unsigned colorZ)
 {
 	directionColor[0] = colorX;
@@ -955,6 +966,7 @@ void BeginFrame()
     ImGui::PopStyleColor(2);
 
     gContext.mbUsingLastFrame = gContext.mbUsing;
+	gContext.mHasClipRect = false;
 }
 
 bool IsUsing() { return gContext.mbUsing || gContext.mbUsingBounds; }
@@ -2187,6 +2199,11 @@ bool Manipulate(const float* __restrict view,
         return false;
     }
 
+	if (gContext.mDrawList && gContext.mHasClipRect)
+	{
+		gContext.mDrawList->PushClipRect(gContext.mClipRectMin, gContext.mClipRectMax);
+	}
+
     // --
     int type = NONE;
     bool didApplyChanges = false;
@@ -2233,6 +2250,11 @@ bool Manipulate(const float* __restrict view,
             break;
         }
     }
+
+	if (gContext.mDrawList && gContext.mHasClipRect)
+	{
+		gContext.mDrawList->PopClipRect();
+	}
 
     return didApplyChanges;
 }
