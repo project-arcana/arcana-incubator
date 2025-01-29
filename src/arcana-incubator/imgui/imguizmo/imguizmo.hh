@@ -175,9 +175,9 @@ IMGUI_API bool Manipulate(const float* __restrict view,
                           MODE mode,
                           float* __restrict matrix,
                           float* __restrict deltaMatrix = nullptr,
-                          float* __restrict snap = nullptr,
-                          float* __restrict localBounds = nullptr,
-                          float* __restrict boundsSnap = nullptr);
+                          float const* __restrict snap = nullptr,
+                          float const* __restrict localBounds = nullptr,
+                          float const* __restrict boundsSnap = nullptr);
 
 // returns true if the user started dragging the gizmo this frame
 IMGUI_API bool IsGizmoActivated();
