@@ -121,11 +121,11 @@ void inc::da::shutdown()
     SDL_Quit();
 }
 
-void inc::da::SDLWindow::initialize(const char* title, tg::isize2 size, bool enable_vulkan, bool start_hidden)
+void inc::da::SDLWindow::initialize(char const* title, tg::isize2 size, bool enable_vulkan, bool start_hidden, uint32_t additional_flags)
 {
     CC_ASSERT(mWindow == nullptr && "double init");
 
-    uint32_t flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+    uint32_t flags = additional_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 
     if (enable_vulkan)
         flags |= SDL_WINDOW_VULKAN;

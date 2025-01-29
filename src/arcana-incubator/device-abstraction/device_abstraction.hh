@@ -18,7 +18,7 @@ void shutdown();
 class SDLWindow
 {
 public:
-    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true, bool start_hidden = false);
+    void initialize(char const* title, tg::isize2 size = {1600, 900}, bool enable_vulkan = true, bool start_hidden = false, uint32_t additional_flags = 0);
     void destroy();
 
     SDLWindow() = default;
