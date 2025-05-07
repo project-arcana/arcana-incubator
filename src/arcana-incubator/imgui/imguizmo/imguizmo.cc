@@ -20,6 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#ifdef INC_ENABLE_IMGUIZMO
+
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
@@ -2722,3 +2724,4 @@ void ViewManipulate(float* view, float length, ImVec2 position, ImVec2 size, ImU
     }
 }
 }; // namespace ImGuizmo
+#endif

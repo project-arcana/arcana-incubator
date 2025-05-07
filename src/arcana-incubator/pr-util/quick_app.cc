@@ -76,9 +76,11 @@ bool inc::pre::quick_app::_on_frame_start()
 
     // imguizmo new frame
     ImGuiViewport const& viewport = *ImGui::GetMainViewport();
+
+#ifdef INC_ENABLE_IMGUIZMO
     ImGuizmo::BeginFrame();
     ImGuizmo::SetRect(viewport.Pos.x, viewport.Pos.y, viewport.Size.x, viewport.Size.y);
-
+#endif
     return true;
 }
 

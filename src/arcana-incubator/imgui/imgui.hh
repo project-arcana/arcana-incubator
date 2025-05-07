@@ -1,8 +1,11 @@
 #pragma once
 
 #include <arcana-incubator/imgui/lib/imgui.h>
+
+#ifdef INC_ENABLE_IMGUIZMO
 // order relevant
 #include <arcana-incubator/imgui/imguizmo/imguizmo.hh>
+#endif
 
 #include <phantasm-hardware-interface/fwd.hh>
 #include <phantasm-renderer/fwd.hh>

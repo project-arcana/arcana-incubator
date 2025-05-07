@@ -7,6 +7,7 @@ endif()
 
 option(INC_ENABLE_IMGUI_FREETYPE "Use FreeType instead of stb_truetype for ImGui fonts" OFF)
 option(INC_ENABLE_IMGUI_PHI_BINDLESS "Use bindless textures in the ImGui PHI Backend" OFF)
+option(INC_ENABLE_IMGUIZMO "Provide ImGuizmo library" ON)
 
 # =========================================
 # define library
@@ -45,4 +46,8 @@ endif()
 
 if (INC_ENABLE_IMGUI_PHI_BINDLESS)
 	target_compile_definitions(arcana-incubator PUBLIC INC_ENABLE_IMGUI_PHI_BINDLESS=1)
+endif()
+
+if (INC_ENABLE_IMGUIZMO)
+    target_compile_definitions(arcana-incubator PUBLIC INC_ENABLE_IMGUIZMO)
 endif()

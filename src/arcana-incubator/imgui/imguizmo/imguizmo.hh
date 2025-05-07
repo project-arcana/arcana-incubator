@@ -102,6 +102,7 @@ void EditTransform(const Camera& camera, matrix_t& matrix)
 }
 #endif
 #pragma once
+#ifdef INC_ENABLE_IMGUIZMO
 
 #ifdef USE_IMGUI_API
 #include "imconfig.h"
@@ -213,3 +214,4 @@ IMGUI_API void SetID(int id);
 IMGUI_API void PushOverrideCanActivate(bool bValue);
 IMGUI_API void PopOverrideCanActivate();
 }; // namespace ImGuizmo
+#endif

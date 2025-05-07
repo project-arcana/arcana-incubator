@@ -513,8 +513,10 @@ void inc::imgui_new_frame(SDL_Window* sdl_window, bool empty_run)
 
     // imguizmo new frame
     ImGuiViewport const& viewport = *ImGui::GetMainViewport();
+#ifdef INC_ENABLE_IMGUIZMO
     ImGuizmo::BeginFrame();
     ImGuizmo::SetRect(viewport.Pos.x, viewport.Pos.y, viewport.Size.x, viewport.Size.y);
+#endif
 }
 
 void inc::imgui_render(pr::raii::Frame& frame)
