@@ -748,6 +748,9 @@ struct Context
 
     int mActualID = -1;
     int mEditingID = -1;
+
+    bool mIsOverridingCanActivate = false;
+    bool mOverridingCanActivateValue = false;
 };
 
 static Context gContext;
@@ -936,9 +939,17 @@ void SetNegativeAxisHatchColor(unsigned color)
 	negativeAxisHatchColor = color;
 }
 
-IMGUI_API void SetOrthographic(bool isOrthographic) { gContext.mIsOrthographic = isOrthographic; }
+void SetOrthographic(bool isOrthographic) { gContext.mIsOrthographic = isOrthographic; }
 
-void SetDrawlist() { gContext.mDrawList = ImGui::GetWindowDrawList(); }
+void SetDrawlist(ImDrawList* pNewDrawlist)
+{
+    gContext.mDrawList = pNewDrawlist ? pNewDrawlist : ImGui::GetWindowDrawList();
+}
+
+ImDrawList* GetDrawlist()
+{
+    return gContext.mDrawList;
+}
 
 void BeginFrame()
 {
@@ -1415,7 +1426,8 @@ static void DrawTranslationGizmo(int type)
 
 static bool CanActivate()
 {
-    if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive())
+    bool bCanActivateValue = gContext.mIsOverridingCanActivate ? gContext.mOverridingCanActivateValue : !ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive();
+    if (ImGui::IsMouseClicked(0) && bCanActivateValue)
     {
         return true;
     }
@@ -2171,7 +2183,22 @@ void RecomposeMatrixFromComponents(const float* translation, const float* rotati
     mat.v.position.Set(translation[0], translation[1], translation[2], 1.f);
 }
 
-void SetID(int id) { gContext.mActualID = id; }
+void SetID(int id)
+{
+    gContext.mActualID = id;
+}
+
+void PushOverrideCanActivate(bool bValue)
+{
+    gContext.mIsOverridingCanActivate = true;
+    gContext.mOverridingCanActivateValue = bValue;
+}
+
+void PopOverrideCanActivate()
+{
+    gContext.mIsOverridingCanActivate = false;
+    gContext.mOverridingCanActivateValue = false;
+}
 
 bool Manipulate(const float* __restrict view,
                 const float* __restrict projection,

@@ -113,7 +113,10 @@ void EditTransform(const Camera& camera, matrix_t& matrix)
 namespace ImGuizmo
 {
 // call inside your own window and before Manipulate() in order to draw gizmo to that window.
-IMGUI_API void SetDrawlist();
+IMGUI_API void SetDrawlist(ImDrawList* pNewDrawlist = nullptr);
+
+// Returns the currently used drawlist
+IMGUI_API ImDrawList* GetDrawlist();
 
 // call BeginFrame right after ImGui_XXXX_NewFrame();
 IMGUI_API void BeginFrame();
@@ -203,4 +206,10 @@ IMGUI_API bool IsGizmoDeactivatedAfterDrag();
 IMGUI_API void ViewManipulate(float* view, float length, ImVec2 position, ImVec2 size, ImU32 backgroundColor);
 
 IMGUI_API void SetID(int id);
+
+// Advanced: override the internal logic used to decide whether imguizmo can capture the mouse
+// Call Push with the custom value before ImGuizmo::Manipulate, and Call Pop after
+// Does not support nesting
+IMGUI_API void PushOverrideCanActivate(bool bValue);
+IMGUI_API void PopOverrideCanActivate();
 }; // namespace ImGuizmo
